@@ -1,0 +1,15 @@
+[2026-08-22 10:52:35] [IP: ::1] [User: anonymous] Cargando controlador | {"controller":"dashboard","action":"index","class":"DashboardController","file":"C:\\xampp\\htdocs\\produmar\/controller\/DashboardController.php"}
+[2026-08-22 10:52:35] [IP: ::1] [User: anonymous] Class not found | {"class":"DashboardController","file":"C:\\xampp\\htdocs\\produmar\/controller\/DashboardController.php"}
+[2026-08-22 10:55:10] [IP: ::1] [User: anonymous] Cargando controlador | {"controller":"dashboard","action":"index","class":"DashboardController","file":"C:\\xampp\\htdocs\\produmar\/controller\/DashboardController.php"}
+[2026-08-22 10:55:10] [IP: ::1] [User: anonymous] Class not found | {"class":"DashboardController","file":"C:\\xampp\\htdocs\\produmar\/controller\/DashboardController.php"}
+[2026-08-22 10:58:42] [IP: ::1] [User: anonymous] Cargando controlador | {"controller":"dashboard","action":"index","class":"DashboardController","file":"C:\\xampp\\htdocs\\produmar\/controller\/DashboardController.php"}
+[2026-08-22 10:58:42] [IP: ::1] [User: anonymous] Class not found | {"class":"DashboardController","file":"C:\\xampp\\htdocs\\produmar\/controller\/DashboardController.php"}
+[2026-08-22 11:00:31] [IP: ::1] [User: anonymous] Cargando controlador | {"controller":"dashboard","action":"index","class":"DashboardController","file":"C:\\xampp\\htdocs\\produmar\/controller\/DashboardController.php"}
+[2026-08-22 11:00:31] [IP: ::1] [User: anonymous] Class not found | {"class":"DashboardController","file":"C:\\xampp\\htdocs\\produmar\/controller\/DashboardController.php"}
+[2026-08-22 11:00:31] [IP: ::1] [User: anonymous] Cargando controlador | {"controller":"dashboard","action":"index","class":"DashboardController","file":"C:\\xampp\\htdocs\\produmar\/controller\/DashboardController.php"}
+[2026-08-22 11:00:31] [IP: ::1] [User: anonymous] Class not found | {"class":"DashboardController","file":"C:\\xampp\\htdocs\\produmar\/controller\/DashboardController.php"}
+[2026-08-22 11:00:31] [IP: ::1] [User: anonymous] Cargando controlador | {"controller":"dashboard","action":"index","class":"DashboardController","file":"C:\\xampp\\htdocs\\produmar\/controller\/DashboardController.php"}
+[2026-08-22 11:00:31] [IP: ::1] [User: anonymous] Class not found | {"class":"DashboardController","file":"C:\\xampp\\htdocs\\produmar\/controller\/DashboardController.php"}
+[2026-08-22 11:00:47] [IP: ::1] [User: anonymous] Controller not found | {"controller":"databasephp","files_checked":["C:\\xampp\\htdocs\\produmar\/controller\/DatabasephpController.php","C:\\xampp\\htdocs\\produmar\/controller\/DatabasephpControllers.php"]}
+[2026-08-22 11:01:22] [IP: ::1] [User: anonymous] Controller not found | {"controller":"loginphp","files_checked":["C:\\xampp\\htdocs\\produmar\/controller\/LoginphpController.php","C:\\xampp\\htdocs\\produmar\/controller\/LoginphpControllers.php"]}
+[2026-08-22 11:03:08] [IP: ::1] [User: anonymous] Controller not found | {"controller":"loginphp","files_checked":["C:\\xampp\\htdocs\\produmar\/controller\/LoginphpController.php","C:\\xampp\\htdocs\\produmar\/controller\/LoginphpControllers.php"]}

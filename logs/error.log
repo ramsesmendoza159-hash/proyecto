@@ -1,0 +1,964 @@
+[26-Aug-2026 19:14:39 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\views\admin/../../model/Usuario.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\views\admin\dashboard.php on line 18
+[26-Aug-2026 19:14:39 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\views\admin/../../model/Usuario.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\views\admin\dashboard.php:18
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\helpers\Controller.php(28): require_once()
+#1 C:\xampp\htdocs\proyecto\controller\AdminController.php(84): Controller->view('admin/dashboard', Array)
+#2 C:\xampp\htdocs\proyecto\index.php(84): AdminController->dashboard()
+#3 {main}
+  thrown in C:\xampp\htdocs\proyecto\views\admin\dashboard.php on line 18
+[26-Aug-2026 19:14:49 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\views\admin/../../model/Usuario.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\views\admin\dashboard.php on line 18
+[26-Aug-2026 19:14:49 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\views\admin/../../model/Usuario.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\views\admin\dashboard.php:18
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\helpers\Controller.php(28): require_once()
+#1 C:\xampp\htdocs\proyecto\controller\AdminController.php(84): Controller->view('admin/dashboard', Array)
+#2 C:\xampp\htdocs\proyecto\index.php(84): AdminController->dashboard()
+#3 {main}
+  thrown in C:\xampp\htdocs\proyecto\views\admin\dashboard.php on line 18
+[26-Aug-2026 19:19:46 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\views\admin/../../model/Usuario.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\views\admin\dashboard.php on line 18
+[26-Aug-2026 19:19:46 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\views\admin/../../model/Usuario.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\views\admin\dashboard.php:18
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\helpers\Controller.php(28): require_once()
+#1 C:\xampp\htdocs\proyecto\controller\AdminController.php(84): Controller->view('admin/dashboard', Array)
+#2 C:\xampp\htdocs\proyecto\index.php(84): AdminController->dashboard()
+#3 {main}
+  thrown in C:\xampp\htdocs\proyecto\views\admin\dashboard.php on line 18
+[26-Aug-2026 19:20:00 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\views\admin/../../model/Usuario.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\views\admin\dashboard.php on line 18
+[26-Aug-2026 19:20:00 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\views\admin/../../model/Usuario.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\views\admin\dashboard.php:18
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\helpers\Controller.php(28): require_once()
+#1 C:\xampp\htdocs\proyecto\controller\AdminController.php(84): Controller->view('admin/dashboard', Array)
+#2 C:\xampp\htdocs\proyecto\index.php(84): AdminController->dashboard()
+#3 {main}
+  thrown in C:\xampp\htdocs\proyecto\views\admin\dashboard.php on line 18
+[26-Aug-2026 19:26:56 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\views\admin/../../model/Usuario.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\views\admin\dashboard.php on line 18
+[26-Aug-2026 19:26:56 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\views\admin/../../model/Usuario.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\views\admin\dashboard.php:18
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\helpers\Controller.php(28): require_once()
+#1 C:\xampp\htdocs\proyecto\controller\AdminController.php(84): Controller->view('admin/dashboard', Array)
+#2 C:\xampp\htdocs\proyecto\index.php(84): AdminController->dashboard()
+#3 {main}
+  thrown in C:\xampp\htdocs\proyecto\views\admin\dashboard.php on line 18
+[26-Aug-2026 19:28:41 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\views\admin/../../model/Usuario.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\views\admin\dashboard.php on line 18
+[26-Aug-2026 19:28:41 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\views\admin/../../model/Usuario.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\views\admin\dashboard.php:18
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\helpers\Controller.php(28): require_once()
+#1 C:\xampp\htdocs\proyecto\controller\AdminController.php(84): Controller->view('admin/dashboard', Array)
+#2 C:\xampp\htdocs\proyecto\index.php(84): AdminController->dashboard()
+#3 {main}
+  thrown in C:\xampp\htdocs\proyecto\views\admin\dashboard.php on line 18
+[26-Aug-2026 19:29:05 Europe/Berlin] obtenerPorId: Error al obtener técnico: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'tarifa' in 'field list'
+[26-Aug-2026 19:29:05 Europe/Berlin] obtenerPorId: Orden con ID 80 encontrada correctamente
+[26-Aug-2026 19:29:05 Europe/Berlin] obtenerPorId: Error al obtener técnico: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'tarifa' in 'field list'
+[26-Aug-2026 19:29:05 Europe/Berlin] obtenerPorId: Orden con ID 80 encontrada correctamente
+[26-Aug-2026 20:01:38 Europe/Berlin] obtenerPorId: Error al obtener técnico: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'tarifa' in 'field list'
+[26-Aug-2026 20:01:38 Europe/Berlin] obtenerPorId: Orden con ID 73 encontrada correctamente
+[26-Aug-2026 20:01:42 Europe/Berlin] obtenerPorId: Error al obtener técnico: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'tarifa' in 'field list'
+[26-Aug-2026 20:01:42 Europe/Berlin] obtenerPorId: Orden con ID 72 encontrada correctamente
+[26-Aug-2026 20:01:58 Europe/Berlin] obtenerPorId: Error al obtener técnico: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'tarifa' in 'field list'
+[26-Aug-2026 20:01:58 Europe/Berlin] obtenerPorId: Orden con ID 75 encontrada correctamente
+[26-Aug-2026 20:02:11 Europe/Berlin] obtenerPorId: Error al obtener técnico: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'tarifa' in 'field list'
+[26-Aug-2026 20:02:11 Europe/Berlin] obtenerPorId: Orden con ID 79 encontrada correctamente
+[26-Aug-2026 20:02:17 Europe/Berlin] obtenerPorId: Error al obtener técnico: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'tarifa' in 'field list'
+[26-Aug-2026 20:02:17 Europe/Berlin] obtenerPorId: Orden con ID 75 encontrada correctamente
+[26-Aug-2026 20:02:17 Europe/Berlin] obtenerPorId: Error al obtener técnico: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'tarifa' in 'field list'
+[26-Aug-2026 20:02:17 Europe/Berlin] obtenerPorId: Orden con ID 75 encontrada correctamente
+[26-Aug-2026 20:03:06 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../views/tecnicos/form.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 48
+[26-Aug-2026 20:03:06 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../views/tecnicos/form.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\controller\TecnicosController.php:48
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(84): TecnicosController->crear()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 48
+[26-Aug-2026 20:03:08 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../views/tecnicos/form.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 48
+[26-Aug-2026 20:03:08 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../views/tecnicos/form.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\controller\TecnicosController.php:48
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(84): TecnicosController->crear()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 48
+[26-Aug-2026 20:03:54 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../views/tecnicos/form.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 48
+[26-Aug-2026 20:03:54 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../views/tecnicos/form.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\controller\TecnicosController.php:48
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(84): TecnicosController->crear()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 48
+[26-Aug-2026 20:06:28 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../views/tecnicos/form.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 48
+[26-Aug-2026 20:06:28 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../views/tecnicos/form.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\controller\TecnicosController.php:48
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(84): TecnicosController->crear()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 48
+[26-Aug-2026 20:06:33 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../views/tecnicos/form.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 142
+[26-Aug-2026 20:06:33 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../views/tecnicos/form.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\controller\TecnicosController.php:142
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(82): TecnicosController->editar('3')
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 142
+[26-Aug-2026 20:08:18 Europe/Berlin] obtenerPorId: Error al obtener técnico: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'tarifa' in 'field list'
+[26-Aug-2026 20:08:18 Europe/Berlin] obtenerPorId: Orden con ID 80 encontrada correctamente
+[26-Aug-2026 20:08:18 Europe/Berlin] obtenerPorId: Error al obtener técnico: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'tarifa' in 'field list'
+[26-Aug-2026 20:08:18 Europe/Berlin] obtenerPorId: Orden con ID 80 encontrada correctamente
+[26-Aug-2026 20:08:22 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined method SecurityHelper::verificarSesion() in C:\xampp\htdocs\proyecto\controller\TecnicosController.php:20
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(76): TecnicosController->__construct()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 20
+[26-Aug-2026 20:08:23 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined method SecurityHelper::verificarSesion() in C:\xampp\htdocs\proyecto\controller\TecnicosController.php:20
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(76): TecnicosController->__construct()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 20
+[26-Aug-2026 20:08:24 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined method SecurityHelper::verificarSesion() in C:\xampp\htdocs\proyecto\controller\TecnicosController.php:20
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(76): TecnicosController->__construct()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 20
+[26-Aug-2026 20:08:24 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined method SecurityHelper::verificarSesion() in C:\xampp\htdocs\proyecto\controller\TecnicosController.php:20
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(76): TecnicosController->__construct()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 20
+[26-Aug-2026 20:08:25 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined method SecurityHelper::verificarSesion() in C:\xampp\htdocs\proyecto\controller\TecnicosController.php:20
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(76): TecnicosController->__construct()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 20
+[26-Aug-2026 20:08:25 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined method SecurityHelper::verificarSesion() in C:\xampp\htdocs\proyecto\controller\TecnicosController.php:20
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(76): TecnicosController->__construct()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 20
+[26-Aug-2026 20:08:25 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined method SecurityHelper::verificarSesion() in C:\xampp\htdocs\proyecto\controller\TecnicosController.php:20
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(76): TecnicosController->__construct()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 20
+[26-Aug-2026 20:08:26 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined method SecurityHelper::verificarSesion() in C:\xampp\htdocs\proyecto\controller\TecnicosController.php:20
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(76): TecnicosController->__construct()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 20
+[26-Aug-2026 20:08:26 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined method SecurityHelper::verificarSesion() in C:\xampp\htdocs\proyecto\controller\TecnicosController.php:20
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(76): TecnicosController->__construct()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 20
+[26-Aug-2026 20:08:26 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined method SecurityHelper::verificarSesion() in C:\xampp\htdocs\proyecto\controller\TecnicosController.php:20
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(76): TecnicosController->__construct()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 20
+[26-Aug-2026 20:08:30 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined method SecurityHelper::verificarSesion() in C:\xampp\htdocs\proyecto\controller\TecnicosController.php:20
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(76): TecnicosController->__construct()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 20
+[26-Aug-2026 20:08:59 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined method SecurityHelper::verificarSesion() in C:\xampp\htdocs\proyecto\controller\TecnicosController.php:20
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(76): TecnicosController->__construct()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 20
+[26-Aug-2026 20:09:00 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined method SecurityHelper::verificarSesion() in C:\xampp\htdocs\proyecto\controller\TecnicosController.php:20
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(76): TecnicosController->__construct()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 20
+[26-Aug-2026 20:09:00 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined method SecurityHelper::verificarSesion() in C:\xampp\htdocs\proyecto\controller\TecnicosController.php:20
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(76): TecnicosController->__construct()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 20
+[26-Aug-2026 20:09:00 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined method SecurityHelper::verificarSesion() in C:\xampp\htdocs\proyecto\controller\TecnicosController.php:20
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(76): TecnicosController->__construct()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 20
+[26-Aug-2026 20:09:00 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined method SecurityHelper::verificarSesion() in C:\xampp\htdocs\proyecto\controller\TecnicosController.php:20
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(76): TecnicosController->__construct()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 20
+[26-Aug-2026 20:10:17 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined method SecurityHelper::verificarSesion() in C:\xampp\htdocs\proyecto\controller\TecnicosController.php:20
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(159): TecnicosController->__construct()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 20
+[26-Aug-2026 20:10:17 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined method SecurityHelper::verificarSesion() in C:\xampp\htdocs\proyecto\controller\TecnicosController.php:20
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(159): TecnicosController->__construct()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 20
+[26-Aug-2026 20:10:18 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined method SecurityHelper::verificarSesion() in C:\xampp\htdocs\proyecto\controller\TecnicosController.php:20
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(159): TecnicosController->__construct()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 20
+[26-Aug-2026 20:10:18 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined method SecurityHelper::verificarSesion() in C:\xampp\htdocs\proyecto\controller\TecnicosController.php:20
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(159): TecnicosController->__construct()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 20
+[26-Aug-2026 20:12:35 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined method Tecnico::obtenerEspecialidades() in C:\xampp\htdocs\proyecto\controller\TecnicosController.php:50
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(183): TecnicosController->index()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 50
+[26-Aug-2026 20:12:46 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined method Tecnico::obtenerEspecialidades() in C:\xampp\htdocs\proyecto\controller\TecnicosController.php:50
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(183): TecnicosController->index()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 50
+[26-Aug-2026 20:12:46 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined method Tecnico::obtenerEspecialidades() in C:\xampp\htdocs\proyecto\controller\TecnicosController.php:50
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(183): TecnicosController->index()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 50
+[26-Aug-2026 20:25:12 Europe/Berlin] Error en obtenerTodos (OrdenTrabajo): SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:13 Europe/Berlin] Error en obtenerEstadisticas: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:15 Europe/Berlin] Error en obtenerTodos (OrdenTrabajo): SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:15 Europe/Berlin] Error en obtenerEstadisticas: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:20 Europe/Berlin] Error en obtenerEstadisticasFinancieras: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:20 Europe/Berlin] Error en obtenerCostosPorPlanta: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:20 Europe/Berlin] Error en obtenerCostosPorTecnico: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:20 Europe/Berlin] Error en obtenerCostosPorMes: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:20 Europe/Berlin] Error en obtenerTodos (OrdenTrabajo): SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:22 Europe/Berlin] Error en obtenerEstadisticasFinancieras: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:22 Europe/Berlin] Error en obtenerCostosPorPlanta: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:22 Europe/Berlin] Error en obtenerCostosPorTecnico: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:22 Europe/Berlin] Error en obtenerCostosPorMes: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:22 Europe/Berlin] Error en obtenerTodos (OrdenTrabajo): SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:23 Europe/Berlin] Error en obtenerEstadisticasFinancieras: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:23 Europe/Berlin] Error en obtenerCostosPorPlanta: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:23 Europe/Berlin] Error en obtenerCostosPorTecnico: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:23 Europe/Berlin] Error en obtenerCostosPorMes: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:23 Europe/Berlin] Error en obtenerTodos (OrdenTrabajo): SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:23 Europe/Berlin] Error en obtenerEstadisticasFinancieras: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:23 Europe/Berlin] Error en obtenerCostosPorPlanta: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:23 Europe/Berlin] Error en obtenerCostosPorTecnico: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:23 Europe/Berlin] Error en obtenerCostosPorMes: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:23 Europe/Berlin] Error en obtenerTodos (OrdenTrabajo): SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:23 Europe/Berlin] Error en obtenerEstadisticasFinancieras: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:23 Europe/Berlin] Error en obtenerCostosPorPlanta: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:23 Europe/Berlin] Error en obtenerCostosPorTecnico: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:23 Europe/Berlin] Error en obtenerCostosPorMes: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:23 Europe/Berlin] Error en obtenerTodos (OrdenTrabajo): SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:24 Europe/Berlin] Error en obtenerEstadisticasFinancieras: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:24 Europe/Berlin] Error en obtenerCostosPorPlanta: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:24 Europe/Berlin] Error en obtenerCostosPorTecnico: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:24 Europe/Berlin] Error en obtenerCostosPorMes: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:24 Europe/Berlin] Error en obtenerTodos (OrdenTrabajo): SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:24 Europe/Berlin] Error en obtenerEstadisticasFinancieras: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:24 Europe/Berlin] Error en obtenerCostosPorPlanta: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:24 Europe/Berlin] Error en obtenerCostosPorTecnico: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:24 Europe/Berlin] Error en obtenerCostosPorMes: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:24 Europe/Berlin] Error en obtenerTodos (OrdenTrabajo): SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:24 Europe/Berlin] Error en obtenerEstadisticasFinancieras: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:24 Europe/Berlin] Error en obtenerCostosPorPlanta: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:24 Europe/Berlin] Error en obtenerCostosPorTecnico: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:24 Europe/Berlin] Error en obtenerCostosPorMes: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:24 Europe/Berlin] Error en obtenerTodos (OrdenTrabajo): SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:24 Europe/Berlin] Error en obtenerEstadisticasFinancieras: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:24 Europe/Berlin] Error en obtenerCostosPorPlanta: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:24 Europe/Berlin] Error en obtenerCostosPorTecnico: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:24 Europe/Berlin] Error en obtenerCostosPorMes: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 20:25:24 Europe/Berlin] Error en obtenerTodos (OrdenTrabajo): SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mantenimiento_db.ordenes_trabajo' doesn't exist
+[26-Aug-2026 21:27:38 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined method OrdenTrabajo::obtenerCostosPorPlanta() in C:\xampp\htdocs\proyecto\controller\ReporteController.php:59
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(183): ReporteController->index()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\ReporteController.php on line 59
+[26-Aug-2026 21:27:41 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined method OrdenTrabajo::obtenerCostosPorPlanta() in C:\xampp\htdocs\proyecto\controller\ReporteController.php:59
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(183): ReporteController->index()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\ReporteController.php on line 59
+[26-Aug-2026 21:28:12 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined method OrdenTrabajo::obtenerCostosPorPlanta() in C:\xampp\htdocs\proyecto\controller\ReporteController.php:59
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(183): ReporteController->index()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\ReporteController.php on line 59
+[26-Aug-2026 21:34:48 Europe/Berlin] Método no encontrado: financiero en ReporteController
+[26-Aug-2026 21:34:52 Europe/Berlin] Método no encontrado: financiero en ReporteController
+[26-Aug-2026 21:35:07 Europe/Berlin] Método no encontrado: financiero en ReporteController
+[26-Aug-2026 21:35:21 Europe/Berlin] Método no encontrado: financiero en ReporteController
+[26-Aug-2026 21:36:53 Europe/Berlin] Método no encontrado: financiero en ReporteController
+[26-Aug-2026 21:36:53 Europe/Berlin] Método no encontrado: financiero en ReporteController
+[26-Aug-2026 21:36:54 Europe/Berlin] Método no encontrado: financiero en ReporteController
+[26-Aug-2026 21:36:54 Europe/Berlin] Método no encontrado: financiero en ReporteController
+[26-Aug-2026 21:36:58 Europe/Berlin] Método no encontrado: financiero en ReporteController
+[26-Aug-2026 21:46:20 Europe/Berlin] Método no encontrado: financiero en ReporteController
+[26-Aug-2026 21:46:20 Europe/Berlin] Método no encontrado: financiero en ReporteController
+[26-Aug-2026 21:46:21 Europe/Berlin] Método no encontrado: financiero en ReporteController
+[26-Aug-2026 21:48:47 Europe/Berlin] Método no encontrado: financiero en ReporteController
+[26-Aug-2026 21:48:50 Europe/Berlin] Método no encontrado: financiero en ReporteController
+[26-Aug-2026 21:57:38 Europe/Berlin] Intento de acceso con controlador inválido: regenerar_hash.php
+[26-Aug-2026 22:00:19 Europe/Berlin] Intento de acceso con controlador inválido: generar_hash.php
+[26-Aug-2026 22:00:20 Europe/Berlin] Intento de acceso con controlador inválido: generar_hash.php
+[26-Aug-2026 22:00:55 Europe/Berlin] Intento de acceso con controlador inválido: generar_hash.php
+[26-Aug-2026 22:00:55 Europe/Berlin] Intento de acceso con controlador inválido: generar_hash.php
+[26-Aug-2026 22:00:55 Europe/Berlin] Intento de acceso con controlador inválido: generar_hash.php
+[26-Aug-2026 22:01:45 Europe/Berlin] Intento de acceso con controlador inválido: generar_hash.php
+[26-Aug-2026 22:02:09 Europe/Berlin] Intento de acceso con controlador inválido: generar_hash.php
+[26-Aug-2026 22:05:32 Europe/Berlin] Intento de acceso con controlador inválido: regenerar_hash.php
+[26-Aug-2026 22:05:39 Europe/Berlin] Intento de acceso con controlador inválido: generar_hash.php
+[26-Aug-2026 22:06:46 Europe/Berlin] Intento de acceso con controlador inválido: generar_token.php
+[26-Aug-2026 22:08:24 Europe/Berlin] Contraseña incorrecta para: admin@proyecto.com
+[26-Aug-2026 22:08:32 Europe/Berlin] Contraseña incorrecta para: admin@proyecto.com
+[26-Aug-2026 22:11:10 Europe/Berlin] Contraseña incorrecta para: admin@proyecto.com
+[26-Aug-2026 22:11:18 Europe/Berlin] Contraseña incorrecta para: admin@proyecto.com
+[26-Aug-2026 22:13:42 Europe/Berlin] Contraseña incorrecta para: admin@proyecto.com
+[26-Aug-2026 22:15:03 Europe/Berlin] Clase no encontrada: AdminController
+[26-Aug-2026 22:15:05 Europe/Berlin] Clase no encontrada: AdminController
+[26-Aug-2026 22:15:07 Europe/Berlin] Clase no encontrada: AdminController
+[26-Aug-2026 22:15:07 Europe/Berlin] Clase no encontrada: AdminController
+[26-Aug-2026 22:15:07 Europe/Berlin] Clase no encontrada: AdminController
+[26-Aug-2026 22:15:08 Europe/Berlin] Clase no encontrada: AdminController
+[26-Aug-2026 22:15:08 Europe/Berlin] Clase no encontrada: AdminController
+[26-Aug-2026 22:15:08 Europe/Berlin] Clase no encontrada: AdminController
+[26-Aug-2026 22:15:08 Europe/Berlin] Clase no encontrada: AdminController
+[26-Aug-2026 22:15:09 Europe/Berlin] Clase no encontrada: AdminController
+[26-Aug-2026 22:15:09 Europe/Berlin] Clase no encontrada: AdminController
+[26-Aug-2026 22:15:10 Europe/Berlin] Clase no encontrada: AdminController
+[26-Aug-2026 22:15:10 Europe/Berlin] Clase no encontrada: AdminController
+[26-Aug-2026 22:16:16 Europe/Berlin] Clase no encontrada: AdminController
+[26-Aug-2026 22:16:17 Europe/Berlin] Clase no encontrada: AdminController
+[26-Aug-2026 22:16:19 Europe/Berlin] Clase no encontrada: AdminController
+[26-Aug-2026 22:16:19 Europe/Berlin] Clase no encontrada: AdminController
+[26-Aug-2026 22:16:19 Europe/Berlin] Clase no encontrada: AdminController
+[26-Aug-2026 22:16:20 Europe/Berlin] Clase no encontrada: AdminController
+[26-Aug-2026 22:16:20 Europe/Berlin] Clase no encontrada: AdminController
+[26-Aug-2026 22:16:20 Europe/Berlin] Clase no encontrada: AdminController
+[26-Aug-2026 22:16:20 Europe/Berlin] Clase no encontrada: AdminController
+[26-Aug-2026 22:16:21 Europe/Berlin] Clase no encontrada: AdminController
+[26-Aug-2026 22:16:25 Europe/Berlin] Clase no encontrada: AdminController
+[26-Aug-2026 22:17:24 Europe/Berlin] Clase no encontrada: AdminController
+[26-Aug-2026 22:17:24 Europe/Berlin] Clase no encontrada: AdminController
+[26-Aug-2026 22:17:24 Europe/Berlin] Clase no encontrada: AdminController
+[26-Aug-2026 22:17:25 Europe/Berlin] Clase no encontrada: AdminController
+[26-Aug-2026 22:17:25 Europe/Berlin] Clase no encontrada: AdminController
+[26-Aug-2026 22:17:32 Europe/Berlin] Clase no encontrada: AdminController
+[26-Aug-2026 22:17:38 Europe/Berlin] Clase no encontrada: AdminController
+[26-Aug-2026 22:19:05 Europe/Berlin] Clase no encontrada: AdminController
+[26-Aug-2026 22:34:36 Europe/Berlin] PHP Warning:  Array to string conversion in C:\xampp\htdocs\proyecto\model\AreasModel.php on line 36
+[26-Aug-2026 22:34:36 Europe/Berlin] PHP Warning:  Array to string conversion in C:\xampp\htdocs\proyecto\model\EquiposModel.php on line 37
+[26-Aug-2026 22:42:23 Europe/Berlin] PHP Warning:  Array to string conversion in C:\xampp\htdocs\proyecto\model\AreasModel.php on line 36
+[26-Aug-2026 22:42:23 Europe/Berlin] PHP Warning:  Array to string conversion in C:\xampp\htdocs\proyecto\model\EquiposModel.php on line 37
+[26-Aug-2026 22:44:06 Europe/Berlin] PHP Warning:  Array to string conversion in C:\xampp\htdocs\proyecto\model\AreasModel.php on line 36
+[26-Aug-2026 22:44:06 Europe/Berlin] PHP Warning:  Array to string conversion in C:\xampp\htdocs\proyecto\model\EquiposModel.php on line 37
+[26-Aug-2026 22:48:09 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../views/tecnicos/form.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 77
+[26-Aug-2026 22:48:09 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../views/tecnicos/form.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\controller\TecnicosController.php:77
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(308): TecnicosController->crear()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 77
+[26-Aug-2026 22:49:27 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../views/tecnicos/form.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 77
+[26-Aug-2026 22:49:27 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../views/tecnicos/form.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\controller\TecnicosController.php:77
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(308): TecnicosController->crear()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 77
+[26-Aug-2026 22:49:27 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../views/tecnicos/form.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 77
+[26-Aug-2026 22:49:27 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../views/tecnicos/form.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\controller\TecnicosController.php:77
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(308): TecnicosController->crear()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 77
+[26-Aug-2026 22:49:28 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../views/tecnicos/form.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 77
+[26-Aug-2026 22:49:28 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../views/tecnicos/form.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\controller\TecnicosController.php:77
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(308): TecnicosController->crear()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 77
+[26-Aug-2026 22:49:28 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../views/tecnicos/form.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 77
+[26-Aug-2026 22:49:28 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../views/tecnicos/form.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\controller\TecnicosController.php:77
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(308): TecnicosController->crear()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 77
+[26-Aug-2026 22:51:57 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../views/tecnicos/form.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 92
+[26-Aug-2026 22:51:57 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../views/tecnicos/form.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\controller\TecnicosController.php:92
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(308): TecnicosController->crear()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 92
+[26-Aug-2026 22:52:17 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../views/tecnicos/form.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 92
+[26-Aug-2026 22:52:17 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../views/tecnicos/form.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\controller\TecnicosController.php:92
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(308): TecnicosController->crear()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 92
+[26-Aug-2026 22:52:17 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../views/tecnicos/form.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 92
+[26-Aug-2026 22:52:17 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../views/tecnicos/form.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\controller\TecnicosController.php:92
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(308): TecnicosController->crear()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\TecnicosController.php on line 92
+[26-Aug-2026 22:55:06 Europe/Berlin] Error en Tecnico::crear: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'password' in 'field list'
+[26-Aug-2026 22:55:59 Europe/Berlin] Error en Tecnico::crear: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'password' in 'field list'
+[26-Aug-2026 22:57:30 Europe/Berlin] Error en Tecnico::crear: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'tarifa' in 'field list'
+[26-Aug-2026 23:04:12 Europe/Berlin] Error en crear (Supervisor): SQLSTATE[42S22]: Column not found: 1054 Unknown column 'telefono' in 'field list'
+[26-Aug-2026 23:05:47 Europe/Berlin] PHP Notice:  session_start(): Ignoring session_start() because a session is already active in C:\xampp\htdocs\proyecto\views\inventario\crear.php on line 2
+[26-Aug-2026 23:06:17 Europe/Berlin] Método no encontrado: guardar en InventarioController
+[26-Aug-2026 23:07:23 Europe/Berlin] Método no encontrado: guardar en InventarioController
+[26-Aug-2026 23:07:57 Europe/Berlin] Método no encontrado: guardar en InventarioController
+[26-Aug-2026 23:09:22 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../model/InventarioModel.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\InventarioController.php on line 35
+[26-Aug-2026 23:09:22 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../model/InventarioModel.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\controller\InventarioController.php:35
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(287): InventarioController->__construct()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\InventarioController.php on line 35
+[26-Aug-2026 23:11:41 Europe/Berlin] Método no encontrado: guardar en InventarioController
+[26-Aug-2026 23:13:56 Europe/Berlin] Método no encontrado: guardar en InventarioController
+[26-Aug-2026 23:14:00 Europe/Berlin] Método no encontrado: guardar en InventarioController
+[26-Aug-2026 23:18:47 Europe/Berlin] Error en Inventario::obtenerTodos: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'tipo' in 'field list'
+[26-Aug-2026 23:18:47 Europe/Berlin] Error en Inventario::obtenerEstadisticas: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'activo' in 'where clause'
+[26-Aug-2026 23:18:47 Europe/Berlin] Error en Inventario::obtenerTodos: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'tipo' in 'field list'
+[26-Aug-2026 23:18:48 Europe/Berlin] Error en Inventario::obtenerTodos: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'tipo' in 'field list'
+[26-Aug-2026 23:18:48 Europe/Berlin] Error en Inventario::obtenerEstadisticas: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'activo' in 'where clause'
+[26-Aug-2026 23:18:48 Europe/Berlin] Error en Inventario::obtenerTodos: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'tipo' in 'field list'
+[26-Aug-2026 23:18:53 Europe/Berlin] Error en Inventario::obtenerTodos: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'tipo' in 'field list'
+[26-Aug-2026 23:18:53 Europe/Berlin] Error en Inventario::obtenerEstadisticas: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'activo' in 'where clause'
+[26-Aug-2026 23:18:53 Europe/Berlin] Error en Inventario::obtenerTodos: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'tipo' in 'field list'
+[26-Aug-2026 23:22:05 Europe/Berlin] Error en Inventario::obtenerTodos: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'tipo' in 'field list'
+[26-Aug-2026 23:22:05 Europe/Berlin] Error en Inventario::obtenerEstadisticas: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'activo' in 'where clause'
+[26-Aug-2026 23:22:06 Europe/Berlin] Error en Inventario::obtenerTodos: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'tipo' in 'field list'
+[26-Aug-2026 23:23:48 Europe/Berlin] Error en Inventario::obtenerTodos: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'tipo' in 'field list'
+[26-Aug-2026 23:23:48 Europe/Berlin] Error en Inventario::obtenerEstadisticas: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'activo' in 'where clause'
+[26-Aug-2026 23:23:48 Europe/Berlin] Error en Inventario::obtenerTodos: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'tipo' in 'field list'
+[26-Aug-2026 23:29:54 Europe/Berlin] Error en Inventario::obtenerTodos: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'tipo' in 'field list'
+[26-Aug-2026 23:29:54 Europe/Berlin] Error en Inventario::obtenerEstadisticas: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'activo' in 'where clause'
+[26-Aug-2026 23:29:54 Europe/Berlin] Error en Inventario::obtenerTodos: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'tipo' in 'field list'
+[26-Aug-2026 23:30:55 Europe/Berlin] Error en Inventario::obtenerTodos: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'tipo' in 'field list'
+[26-Aug-2026 23:30:55 Europe/Berlin] Error en Inventario::obtenerEstadisticas: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'activo' in 'where clause'
+[26-Aug-2026 23:30:55 Europe/Berlin] Error en Inventario::obtenerTodos: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'tipo' in 'field list'
+[26-Aug-2026 23:31:27 Europe/Berlin] Error en Inventario::obtenerTodos: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'tipo' in 'field list'
+[26-Aug-2026 23:31:27 Europe/Berlin] Error en Inventario::obtenerEstadisticas: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'activo' in 'where clause'
+[26-Aug-2026 23:31:28 Europe/Berlin] Error en Inventario::obtenerTodos: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'tipo' in 'field list'
+[26-Aug-2026 23:31:28 Europe/Berlin] Error en Inventario::obtenerTodos: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'tipo' in 'field list'
+[26-Aug-2026 23:31:28 Europe/Berlin] Error en Inventario::obtenerEstadisticas: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'activo' in 'where clause'
+[26-Aug-2026 23:31:28 Europe/Berlin] Error en Inventario::obtenerTodos: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'tipo' in 'field list'
+[26-Aug-2026 23:40:47 Europe/Berlin] Método no encontrado: guardar en InventarioController
+[26-Aug-2026 23:41:06 Europe/Berlin] Método no encontrado: guardar en InventarioController
+[26-Aug-2026 23:49:48 Europe/Berlin] Método no encontrado: guardar en InventarioController
+[26-Aug-2026 23:49:56 Europe/Berlin] Error en obtenerPorId: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[26-Aug-2026 23:50:02 Europe/Berlin] Error en obtenerPorId: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[26-Aug-2026 23:52:09 Europe/Berlin] Error en obtenerPorId: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[26-Aug-2026 23:52:13 Europe/Berlin] Error en obtenerPorId: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[26-Aug-2026 23:52:48 Europe/Berlin] Error en obtenerPorId: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[26-Aug-2026 23:52:49 Europe/Berlin] Error en obtenerPorId: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[26-Aug-2026 23:55:27 Europe/Berlin] Error en obtenerPorId: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[26-Aug-2026 23:55:29 Europe/Berlin] Error en obtenerPorId: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[26-Aug-2026 23:56:32 Europe/Berlin] Error en obtenerPorId: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[26-Aug-2026 23:56:34 Europe/Berlin] Error en obtenerPorId: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[26-Aug-2026 23:59:23 Europe/Berlin] Error en obtenerPorId: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[26-Aug-2026 23:59:28 Europe/Berlin] Error en obtenerPorId: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[26-Aug-2026 23:59:49 Europe/Berlin] Error en obtenerPorId: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[27-Aug-2026 00:00:29 Europe/Berlin] === PERFIL CONTROLLER ===
+[27-Aug-2026 00:00:29 Europe/Berlin] Session ID: gn81cq7fm9casfh1t4h4g021cb
+[27-Aug-2026 00:00:29 Europe/Berlin] Usuario ID: 1
+[27-Aug-2026 00:00:29 Europe/Berlin] ✅ UsuariosModel cargado correctamente
+[27-Aug-2026 00:00:29 Europe/Berlin] === PerfilController::index() ===
+[27-Aug-2026 00:00:29 Europe/Berlin] User ID: 1
+[27-Aug-2026 00:00:29 Europe/Berlin] Error en obtenerPorId: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[27-Aug-2026 00:00:29 Europe/Berlin] ❌ Usuario no encontrado: 1
+[27-Aug-2026 00:00:33 Europe/Berlin] === PERFIL CONTROLLER ===
+[27-Aug-2026 00:00:33 Europe/Berlin] Session ID: gn81cq7fm9casfh1t4h4g021cb
+[27-Aug-2026 00:00:33 Europe/Berlin] Usuario ID: 1
+[27-Aug-2026 00:00:33 Europe/Berlin] ✅ UsuariosModel cargado correctamente
+[27-Aug-2026 00:00:33 Europe/Berlin] === PerfilController::index() ===
+[27-Aug-2026 00:00:33 Europe/Berlin] User ID: 1
+[27-Aug-2026 00:00:33 Europe/Berlin] Error en obtenerPorId: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[27-Aug-2026 00:00:33 Europe/Berlin] ❌ Usuario no encontrado: 1
+[28-Aug-2026 16:56:14 Europe/Berlin] Intento de acceso con controlador inválido: login.php
+[28-Aug-2026 16:56:34 Europe/Berlin] Error en autenticar: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[28-Aug-2026 16:56:41 Europe/Berlin] Error en autenticar: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[28-Aug-2026 16:56:47 Europe/Berlin] Error en autenticar: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[29-Aug-2026 17:40:18 Europe/Berlin] Error en autenticar: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[29-Aug-2026 17:42:06 Europe/Berlin] Error en autenticar: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[29-Aug-2026 17:46:05 Europe/Berlin] Intento de acceso con controlador inválido: login.php
+[29-Aug-2026 17:46:12 Europe/Berlin] Intento de acceso con acción inválida: index.php
+[29-Aug-2026 17:46:26 Europe/Berlin] Error en autenticar: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[31-Aug-2026 15:51:37 Europe/Berlin] === PERFIL CONTROLLER ===
+[31-Aug-2026 15:51:37 Europe/Berlin] Session ID: 5io9raupu54dvtbm68qb7e2g43
+[31-Aug-2026 15:51:37 Europe/Berlin] Usuario ID: NO DEFINIDO
+[31-Aug-2026 15:51:45 Europe/Berlin] Error en autenticar: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[31-Aug-2026 15:52:29 Europe/Berlin] Error en autenticar: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[31-Aug-2026 15:53:15 Europe/Berlin] Error en autenticar: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[31-Aug-2026 15:54:14 Europe/Berlin] Error en autenticar: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[31-Aug-2026 15:54:33 Europe/Berlin] Error en autenticar: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[31-Aug-2026 15:59:00 Europe/Berlin] Error en autenticar: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[01-Sep-2026 16:30:40 Europe/Berlin] Intento de acceso con controlador inválido: index.php
+[01-Sep-2026 16:30:48 Europe/Berlin] Error en autenticar: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[01-Sep-2026 16:43:13 Europe/Berlin] Error en autenticar (PDOException): SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[01-Sep-2026 16:43:13 Europe/Berlin] Trace: #0 C:\xampp\htdocs\proyecto\model\UsuariosModel.php(34): PDO->prepare('SELECT id, nomb...')
+#1 C:\xampp\htdocs\proyecto\controller\AuthController.php(62): UsuariosModel->autenticar('admin@proyecto....', 'admin123')
+#2 C:\xampp\htdocs\proyecto\index.php(316): AuthController->authenticate()
+#3 {main}
+[01-Sep-2026 16:46:37 Europe/Berlin] === UsuariosModel::autenticar() ===
+[01-Sep-2026 16:46:37 Europe/Berlin] Email: admin@proyecto.com
+[01-Sep-2026 16:46:37 Europe/Berlin] Error en autenticar: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[01-Sep-2026 16:46:43 Europe/Berlin] === UsuariosModel::autenticar() ===
+[01-Sep-2026 16:46:43 Europe/Berlin] Email: admin@proyecto.com
+[01-Sep-2026 16:46:43 Europe/Berlin] Error en autenticar: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[01-Sep-2026 16:50:32 Europe/Berlin] Autenticación exitosa para: admin@proyecto.com
+[01-Sep-2026 16:50:49 Europe/Berlin] === PERFIL CONTROLLER ===
+[01-Sep-2026 16:50:49 Europe/Berlin] Session ID: 6bk7obv46l1picrnh6nj0t279m
+[01-Sep-2026 16:50:49 Europe/Berlin] Usuario ID: 1
+[01-Sep-2026 16:50:49 Europe/Berlin] ✅ UsuariosModel cargado correctamente
+[01-Sep-2026 16:50:49 Europe/Berlin] === PerfilController::index() ===
+[01-Sep-2026 16:50:49 Europe/Berlin] User ID: 1
+[01-Sep-2026 16:50:49 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined method UsuariosModel::obtenerPorId() in C:\xampp\htdocs\proyecto\controller\PerfilController.php:54
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(327): PerfilController->index()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\PerfilController.php on line 54
+[01-Sep-2026 16:51:29 Europe/Berlin] === PERFIL CONTROLLER ===
+[01-Sep-2026 16:51:29 Europe/Berlin] Session ID: 6bk7obv46l1picrnh6nj0t279m
+[01-Sep-2026 16:51:29 Europe/Berlin] Usuario ID: 1
+[01-Sep-2026 16:51:29 Europe/Berlin] ✅ UsuariosModel cargado correctamente
+[01-Sep-2026 16:51:29 Europe/Berlin] === PerfilController::index() ===
+[01-Sep-2026 16:51:29 Europe/Berlin] User ID: 1
+[01-Sep-2026 16:51:29 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined method UsuariosModel::obtenerPorId() in C:\xampp\htdocs\proyecto\controller\PerfilController.php:54
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(327): PerfilController->index()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\PerfilController.php on line 54
+[01-Sep-2026 16:51:30 Europe/Berlin] === PERFIL CONTROLLER ===
+[01-Sep-2026 16:51:30 Europe/Berlin] Session ID: 6bk7obv46l1picrnh6nj0t279m
+[01-Sep-2026 16:51:30 Europe/Berlin] Usuario ID: 1
+[01-Sep-2026 16:51:30 Europe/Berlin] ✅ UsuariosModel cargado correctamente
+[01-Sep-2026 16:51:30 Europe/Berlin] === PerfilController::index() ===
+[01-Sep-2026 16:51:30 Europe/Berlin] User ID: 1
+[01-Sep-2026 16:51:30 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined method UsuariosModel::obtenerPorId() in C:\xampp\htdocs\proyecto\controller\PerfilController.php:54
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(327): PerfilController->index()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\PerfilController.php on line 54
+[01-Sep-2026 16:51:30 Europe/Berlin] === PERFIL CONTROLLER ===
+[01-Sep-2026 16:51:30 Europe/Berlin] Session ID: 6bk7obv46l1picrnh6nj0t279m
+[01-Sep-2026 16:51:30 Europe/Berlin] Usuario ID: 1
+[01-Sep-2026 16:51:30 Europe/Berlin] ✅ UsuariosModel cargado correctamente
+[01-Sep-2026 16:51:30 Europe/Berlin] === PerfilController::index() ===
+[01-Sep-2026 16:51:30 Europe/Berlin] User ID: 1
+[01-Sep-2026 16:51:30 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined method UsuariosModel::obtenerPorId() in C:\xampp\htdocs\proyecto\controller\PerfilController.php:54
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(327): PerfilController->index()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\PerfilController.php on line 54
+[01-Sep-2026 16:51:30 Europe/Berlin] === PERFIL CONTROLLER ===
+[01-Sep-2026 16:51:30 Europe/Berlin] Session ID: 6bk7obv46l1picrnh6nj0t279m
+[01-Sep-2026 16:51:30 Europe/Berlin] Usuario ID: 1
+[01-Sep-2026 16:51:30 Europe/Berlin] ✅ UsuariosModel cargado correctamente
+[01-Sep-2026 16:51:30 Europe/Berlin] === PerfilController::index() ===
+[01-Sep-2026 16:51:30 Europe/Berlin] User ID: 1
+[01-Sep-2026 16:51:30 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined method UsuariosModel::obtenerPorId() in C:\xampp\htdocs\proyecto\controller\PerfilController.php:54
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(327): PerfilController->index()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\PerfilController.php on line 54
+[01-Sep-2026 16:51:31 Europe/Berlin] === PERFIL CONTROLLER ===
+[01-Sep-2026 16:51:31 Europe/Berlin] Session ID: 6bk7obv46l1picrnh6nj0t279m
+[01-Sep-2026 16:51:31 Europe/Berlin] Usuario ID: 1
+[01-Sep-2026 16:51:31 Europe/Berlin] ✅ UsuariosModel cargado correctamente
+[01-Sep-2026 16:51:31 Europe/Berlin] === PerfilController::index() ===
+[01-Sep-2026 16:51:31 Europe/Berlin] User ID: 1
+[01-Sep-2026 16:51:31 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined method UsuariosModel::obtenerPorId() in C:\xampp\htdocs\proyecto\controller\PerfilController.php:54
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(327): PerfilController->index()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\PerfilController.php on line 54
+[01-Sep-2026 16:51:31 Europe/Berlin] === PERFIL CONTROLLER ===
+[01-Sep-2026 16:51:31 Europe/Berlin] Session ID: 6bk7obv46l1picrnh6nj0t279m
+[01-Sep-2026 16:51:31 Europe/Berlin] Usuario ID: 1
+[01-Sep-2026 16:51:31 Europe/Berlin] ✅ UsuariosModel cargado correctamente
+[01-Sep-2026 16:51:31 Europe/Berlin] === PerfilController::index() ===
+[01-Sep-2026 16:51:31 Europe/Berlin] User ID: 1
+[01-Sep-2026 16:51:31 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined method UsuariosModel::obtenerPorId() in C:\xampp\htdocs\proyecto\controller\PerfilController.php:54
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(327): PerfilController->index()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\PerfilController.php on line 54
+[01-Sep-2026 16:51:31 Europe/Berlin] === PERFIL CONTROLLER ===
+[01-Sep-2026 16:51:31 Europe/Berlin] Session ID: 6bk7obv46l1picrnh6nj0t279m
+[01-Sep-2026 16:51:31 Europe/Berlin] Usuario ID: 1
+[01-Sep-2026 16:51:31 Europe/Berlin] ✅ UsuariosModel cargado correctamente
+[01-Sep-2026 16:51:31 Europe/Berlin] === PerfilController::index() ===
+[01-Sep-2026 16:51:31 Europe/Berlin] User ID: 1
+[01-Sep-2026 16:51:31 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined method UsuariosModel::obtenerPorId() in C:\xampp\htdocs\proyecto\controller\PerfilController.php:54
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(327): PerfilController->index()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\PerfilController.php on line 54
+[01-Sep-2026 16:52:43 Europe/Berlin] PHP Parse error:  syntax error, unexpected token ";", expecting "function" or "const" in C:\xampp\htdocs\proyecto\model\UsuariosModel.php on line 77
+[01-Sep-2026 16:52:44 Europe/Berlin] PHP Parse error:  syntax error, unexpected token ";", expecting "function" or "const" in C:\xampp\htdocs\proyecto\model\UsuariosModel.php on line 77
+[01-Sep-2026 16:52:45 Europe/Berlin] PHP Parse error:  syntax error, unexpected token ";", expecting "function" or "const" in C:\xampp\htdocs\proyecto\model\UsuariosModel.php on line 77
+[01-Sep-2026 16:53:11 Europe/Berlin] === PERFIL CONTROLLER ===
+[01-Sep-2026 16:53:11 Europe/Berlin] Session ID: 6bk7obv46l1picrnh6nj0t279m
+[01-Sep-2026 16:53:11 Europe/Berlin] Usuario ID: 1
+[01-Sep-2026 16:53:11 Europe/Berlin] ✅ UsuariosModel cargado correctamente
+[01-Sep-2026 16:53:11 Europe/Berlin] === PerfilController::index() ===
+[01-Sep-2026 16:53:11 Europe/Berlin] User ID: 1
+[01-Sep-2026 16:53:11 Europe/Berlin] Error en obtenerPorId: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[01-Sep-2026 16:53:11 Europe/Berlin] ❌ Usuario no encontrado: 1
+[01-Sep-2026 16:53:14 Europe/Berlin] === PERFIL CONTROLLER ===
+[01-Sep-2026 16:53:14 Europe/Berlin] Session ID: 6bk7obv46l1picrnh6nj0t279m
+[01-Sep-2026 16:53:14 Europe/Berlin] Usuario ID: 1
+[01-Sep-2026 16:53:14 Europe/Berlin] ✅ UsuariosModel cargado correctamente
+[01-Sep-2026 16:53:14 Europe/Berlin] === PerfilController::index() ===
+[01-Sep-2026 16:53:14 Europe/Berlin] User ID: 1
+[01-Sep-2026 16:53:14 Europe/Berlin] Error en obtenerPorId: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[01-Sep-2026 16:53:14 Europe/Berlin] ❌ Usuario no encontrado: 1
+[01-Sep-2026 16:53:16 Europe/Berlin] === PERFIL CONTROLLER ===
+[01-Sep-2026 16:53:16 Europe/Berlin] Session ID: 6bk7obv46l1picrnh6nj0t279m
+[01-Sep-2026 16:53:16 Europe/Berlin] Usuario ID: 1
+[01-Sep-2026 16:53:16 Europe/Berlin] ✅ UsuariosModel cargado correctamente
+[01-Sep-2026 16:53:16 Europe/Berlin] === PerfilController::index() ===
+[01-Sep-2026 16:53:16 Europe/Berlin] User ID: 1
+[01-Sep-2026 16:53:16 Europe/Berlin] Error en obtenerPorId: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[01-Sep-2026 16:53:16 Europe/Berlin] ❌ Usuario no encontrado: 1
+[01-Sep-2026 16:55:36 Europe/Berlin] Error en obtenerPorId: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[01-Sep-2026 16:57:01 Europe/Berlin] Error en obtenerPorId: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[01-Sep-2026 16:58:45 Europe/Berlin] Error en obtenerPorId: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[01-Sep-2026 16:58:47 Europe/Berlin] Error en obtenerPorId: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[01-Sep-2026 17:04:48 Europe/Berlin] Error en obtenerPorId: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[01-Sep-2026 17:05:01 Europe/Berlin] Error en obtenerPorId: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[01-Sep-2026 17:06:41 Europe/Berlin] Error en obtenerPorId: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[01-Sep-2026 17:20:57 Europe/Berlin] Error en obtenerPorId: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[01-Sep-2026 17:21:00 Europe/Berlin] Error en obtenerPorId: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[01-Sep-2026 17:22:36 Europe/Berlin] Error en obtenerPorId: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[01-Sep-2026 17:23:24 Europe/Berlin] Error en obtenerPorId: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[01-Sep-2026 17:46:31 Europe/Berlin] Error en obtenerPorId: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[01-Sep-2026 18:09:18 Europe/Berlin] Error en obtenerPorId: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[01-Sep-2026 18:25:14 Europe/Berlin] Error en obtenerPorId: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[01-Sep-2026 18:30:26 Europe/Berlin] Error en obtenerPorId: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[01-Sep-2026 18:30:30 Europe/Berlin] Error en obtenerPorId: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[01-Sep-2026 18:34:31 Europe/Berlin] Intento de acceso con acción inválida: index.php
+[01-Sep-2026 18:36:33 Europe/Berlin] Error en obtenerPorId: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'apellido' in 'field list'
+[01-Sep-2026 18:48:19 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\views\perfil/../model/UsuariosModel.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\views\perfil\index.php on line 5
+[01-Sep-2026 18:48:19 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\views\perfil/../model/UsuariosModel.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\views\perfil\index.php:5
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\controller\PerfilController.php(45): require_once()
+#1 C:\xampp\htdocs\proyecto\index.php(327): PerfilController->index()
+#2 {main}
+  thrown in C:\xampp\htdocs\proyecto\views\perfil\index.php on line 5
+[01-Sep-2026 18:49:35 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\views\perfil/../model/UsuariosModel.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\views\perfil\index.php on line 5
+[01-Sep-2026 18:49:35 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\views\perfil/../model/UsuariosModel.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\views\perfil\index.php:5
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\controller\PerfilController.php(45): require_once()
+#1 C:\xampp\htdocs\proyecto\index.php(327): PerfilController->index()
+#2 {main}
+  thrown in C:\xampp\htdocs\proyecto\views\perfil\index.php on line 5
+[01-Sep-2026 18:49:35 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\views\perfil/../model/UsuariosModel.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\views\perfil\index.php on line 5
+[01-Sep-2026 18:49:35 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\views\perfil/../model/UsuariosModel.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\views\perfil\index.php:5
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\controller\PerfilController.php(45): require_once()
+#1 C:\xampp\htdocs\proyecto\index.php(327): PerfilController->index()
+#2 {main}
+  thrown in C:\xampp\htdocs\proyecto\views\perfil\index.php on line 5
+[01-Sep-2026 18:49:35 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\views\perfil/../model/UsuariosModel.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\views\perfil\index.php on line 5
+[01-Sep-2026 18:49:35 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\views\perfil/../model/UsuariosModel.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\views\perfil\index.php:5
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\controller\PerfilController.php(45): require_once()
+#1 C:\xampp\htdocs\proyecto\index.php(327): PerfilController->index()
+#2 {main}
+  thrown in C:\xampp\htdocs\proyecto\views\perfil\index.php on line 5
+[01-Sep-2026 18:49:36 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\views\perfil/../model/UsuariosModel.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\views\perfil\index.php on line 5
+[01-Sep-2026 18:49:36 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\views\perfil/../model/UsuariosModel.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\views\perfil\index.php:5
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\controller\PerfilController.php(45): require_once()
+#1 C:\xampp\htdocs\proyecto\index.php(327): PerfilController->index()
+#2 {main}
+  thrown in C:\xampp\htdocs\proyecto\views\perfil\index.php on line 5
+[01-Sep-2026 18:49:36 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\views\perfil/../model/UsuariosModel.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\views\perfil\index.php on line 5
+[01-Sep-2026 18:49:36 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\views\perfil/../model/UsuariosModel.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\views\perfil\index.php:5
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\controller\PerfilController.php(45): require_once()
+#1 C:\xampp\htdocs\proyecto\index.php(327): PerfilController->index()
+#2 {main}
+  thrown in C:\xampp\htdocs\proyecto\views\perfil\index.php on line 5
+[01-Sep-2026 18:49:36 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\views\perfil/../model/UsuariosModel.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\views\perfil\index.php on line 5
+[01-Sep-2026 18:49:36 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\views\perfil/../model/UsuariosModel.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\views\perfil\index.php:5
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\controller\PerfilController.php(45): require_once()
+#1 C:\xampp\htdocs\proyecto\index.php(327): PerfilController->index()
+#2 {main}
+  thrown in C:\xampp\htdocs\proyecto\views\perfil\index.php on line 5
+[01-Sep-2026 18:49:36 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\views\perfil/../model/UsuariosModel.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\views\perfil\index.php on line 5
+[01-Sep-2026 18:49:36 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\views\perfil/../model/UsuariosModel.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\views\perfil\index.php:5
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\controller\PerfilController.php(45): require_once()
+#1 C:\xampp\htdocs\proyecto\index.php(327): PerfilController->index()
+#2 {main}
+  thrown in C:\xampp\htdocs\proyecto\views\perfil\index.php on line 5
+[01-Sep-2026 18:49:36 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\views\perfil/../model/UsuariosModel.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\views\perfil\index.php on line 5
+[01-Sep-2026 18:49:36 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\views\perfil/../model/UsuariosModel.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\views\perfil\index.php:5
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\controller\PerfilController.php(45): require_once()
+#1 C:\xampp\htdocs\proyecto\index.php(327): PerfilController->index()
+#2 {main}
+  thrown in C:\xampp\htdocs\proyecto\views\perfil\index.php on line 5
+[01-Sep-2026 18:49:36 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\views\perfil/../model/UsuariosModel.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\views\perfil\index.php on line 5
+[01-Sep-2026 18:49:36 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\views\perfil/../model/UsuariosModel.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\views\perfil\index.php:5
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\controller\PerfilController.php(45): require_once()
+#1 C:\xampp\htdocs\proyecto\index.php(327): PerfilController->index()
+#2 {main}
+  thrown in C:\xampp\htdocs\proyecto\views\perfil\index.php on line 5
+[01-Sep-2026 19:17:35 Europe/Berlin] Autenticación exitosa para: william@proyecto.com
+[01-Sep-2026 19:17:52 Europe/Berlin] PHP Notice:  session_start(): Ignoring session_start() because a session is already active in C:\xampp\htdocs\proyecto\views\reportes\tecnicos.php on line 2
+[01-Sep-2026 19:17:52 Europe/Berlin] Controlador no encontrado: ReportesController
+[01-Sep-2026 19:17:52 Europe/Berlin] Controlador no encontrado: ReportesController
+[01-Sep-2026 19:18:08 Europe/Berlin] Usuario no encontrado: tecnico@produmar.com
+[01-Sep-2026 19:18:15 Europe/Berlin] Usuario no encontrado: Ramses@gmail.com
+[01-Sep-2026 19:18:24 Europe/Berlin] Usuario no encontrado: Ramses@proyecto.com
+[01-Sep-2026 19:18:36 Europe/Berlin] Autenticación exitosa para: admin@proyecto.com
+[01-Sep-2026 19:26:11 Europe/Berlin] Método no encontrado: cambiar_password en PerfilController
+[01-Sep-2026 19:26:14 Europe/Berlin] Método no encontrado: cambiar_password en PerfilController
+[02-Sep-2026 15:38:34 Europe/Berlin] Clase no encontrada: AuthController
+[02-Sep-2026 15:39:39 Europe/Berlin] Clase no encontrada: AuthController
+[02-Sep-2026 15:39:43 Europe/Berlin] Clase no encontrada: AuthController
+[02-Sep-2026 15:39:45 Europe/Berlin] Clase no encontrada: AuthController
+[02-Sep-2026 15:39:45 Europe/Berlin] Clase no encontrada: AuthController
+[02-Sep-2026 15:39:45 Europe/Berlin] Clase no encontrada: AuthController
+[02-Sep-2026 15:39:45 Europe/Berlin] Clase no encontrada: AuthController
+[02-Sep-2026 15:39:46 Europe/Berlin] Clase no encontrada: AuthController
+[02-Sep-2026 15:39:47 Europe/Berlin] Clase no encontrada: AuthController
+[02-Sep-2026 15:40:05 Europe/Berlin] Intento de acceso con controlador inválido: login.php
+[02-Sep-2026 15:40:07 Europe/Berlin] Clase no encontrada: AuthController
+[02-Sep-2026 15:40:08 Europe/Berlin] Clase no encontrada: AuthController
+[02-Sep-2026 15:40:08 Europe/Berlin] Clase no encontrada: AuthController
+[02-Sep-2026 15:40:09 Europe/Berlin] Clase no encontrada: AuthController
+[02-Sep-2026 15:40:09 Europe/Berlin] Clase no encontrada: AuthController
+[02-Sep-2026 15:40:10 Europe/Berlin] Clase no encontrada: AuthController
+[02-Sep-2026 15:41:54 Europe/Berlin] Clase no encontrada: AuthController
+[02-Sep-2026 15:41:57 Europe/Berlin] Clase no encontrada: AuthController
+[02-Sep-2026 15:41:59 Europe/Berlin] Clase no encontrada: AuthController
+[02-Sep-2026 15:42:03 Europe/Berlin] Clase no encontrada: AuthController
+[02-Sep-2026 15:42:07 Europe/Berlin] Clase no encontrada: AuthController
+[02-Sep-2026 15:44:14 Europe/Berlin] Autenticación exitosa para: admin@proyecto.com
+[02-Sep-2026 15:45:01 Europe/Berlin] Usuario no encontrado: Ramses@proyecto.com
+[02-Sep-2026 15:45:08 Europe/Berlin] Autenticación exitosa para: admin@proyecto.com
+[02-Sep-2026 15:45:39 Europe/Berlin] Usuario no encontrado: Ramses@proyecto.com
+[02-Sep-2026 15:45:54 Europe/Berlin] Autenticación exitosa para: admin@proyecto.com
+[02-Sep-2026 15:48:46 Europe/Berlin] Usuario no encontrado: Ramses@proyecto.com
+[02-Sep-2026 15:51:37 Europe/Berlin] Autenticación exitosa para: Ramses@proyecto.com
+[02-Sep-2026 15:54:40 Europe/Berlin] Error de conexión a la base de datos: SQLSTATE[HY000] [2002] No se puede establecer una conexión ya que el equipo de destino denegó expresamente dicha conexión
+[02-Sep-2026 15:54:49 Europe/Berlin] Error de conexión a la base de datos: SQLSTATE[HY000] [2002] No se puede establecer una conexión ya que el equipo de destino denegó expresamente dicha conexión
+[02-Sep-2026 15:54:55 Europe/Berlin] Error de conexión a la base de datos: SQLSTATE[HY000] [2002] No se puede establecer una conexión ya que el equipo de destino denegó expresamente dicha conexión
+[02-Sep-2026 15:55:07 Europe/Berlin] Error de conexión a la base de datos: SQLSTATE[HY000] [2002] No se puede establecer una conexión ya que el equipo de destino denegó expresamente dicha conexión
+[02-Sep-2026 15:55:11 Europe/Berlin] Error de conexión a la base de datos: SQLSTATE[HY000] [2002] No se puede establecer una conexión ya que el equipo de destino denegó expresamente dicha conexión
+[02-Sep-2026 15:55:15 Europe/Berlin] Error de conexión a la base de datos: SQLSTATE[HY000] [2002] No se puede establecer una conexión ya que el equipo de destino denegó expresamente dicha conexión
+[02-Sep-2026 15:55:44 Europe/Berlin] Error de conexión a la base de datos: SQLSTATE[HY000] [2002] No se puede establecer una conexión ya que el equipo de destino denegó expresamente dicha conexión
+[02-Sep-2026 15:56:30 Europe/Berlin] Error de conexión a la base de datos: SQLSTATE[HY000] [2002] No se puede establecer una conexión ya que el equipo de destino denegó expresamente dicha conexión
+[02-Sep-2026 15:56:34 Europe/Berlin] Error de conexión a la base de datos: SQLSTATE[HY000] [2002] No se puede establecer una conexión ya que el equipo de destino denegó expresamente dicha conexión
+[02-Sep-2026 15:56:43 Europe/Berlin] Error de conexión a la base de datos: SQLSTATE[HY000] [2002] No se puede establecer una conexión ya que el equipo de destino denegó expresamente dicha conexión
+[02-Sep-2026 15:57:52 Europe/Berlin] Error de conexión a la base de datos: SQLSTATE[HY000] [2002] No se puede establecer una conexión ya que el equipo de destino denegó expresamente dicha conexión
+[02-Sep-2026 16:01:10 Europe/Berlin] Autenticación exitosa para: admin@proyecto.com
+[02-Sep-2026 16:02:06 Europe/Berlin] Autenticación exitosa para: william@proyecto.com
+[02-Sep-2026 16:34:47 Europe/Berlin] Usuario no encontrado: tecnico@produmar.com
+[02-Sep-2026 16:34:54 Europe/Berlin] Autenticación exitosa para: admin@proyecto.com
+[02-Sep-2026 16:54:02 Europe/Berlin] Autenticación exitosa para: almacen@proyecto.com
+[28-Sep-2026 03:28:43 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 03:28:43 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\controller\AuthController.php:7
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(293): require_once()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 03:30:22 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 03:30:22 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\controller\AuthController.php:7
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(293): require_once()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 03:30:23 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 03:30:23 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\controller\AuthController.php:7
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(293): require_once()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 03:31:38 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 03:31:38 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\controller\AuthController.php:7
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(293): require_once()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 03:31:38 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 03:31:38 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\controller\AuthController.php:7
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(293): require_once()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 03:31:38 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 03:31:38 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\controller\AuthController.php:7
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(293): require_once()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 03:31:38 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 03:31:38 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\controller\AuthController.php:7
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(293): require_once()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 03:32:09 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 03:32:09 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\controller\AuthController.php:7
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(552): require_once()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 03:32:10 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 03:32:10 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\controller\AuthController.php:7
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(552): require_once()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 03:32:10 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 03:32:10 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\controller\AuthController.php:7
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(552): require_once()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 04:33:14 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 04:33:14 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\controller\AuthController.php:7
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(552): require_once()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 04:33:16 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 04:33:16 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\controller\AuthController.php:7
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(552): require_once()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 04:54:19 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 04:54:19 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\controller\AuthController.php:7
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(552): require_once()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 04:54:19 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 04:54:19 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\controller\AuthController.php:7
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(552): require_once()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 04:54:20 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 04:54:20 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\controller\AuthController.php:7
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(552): require_once()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 04:54:20 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 04:54:20 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\controller\AuthController.php:7
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(552): require_once()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 05:20:18 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 05:20:18 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\controller\AuthController.php:7
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(552): require_once()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 05:21:38 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 05:21:38 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\controller\AuthController.php:7
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(552): require_once()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 16:02:36 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 16:02:36 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\controller\AuthController.php:7
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(552): require_once()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 16:44:44 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 16:44:44 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../model/AuditoriaModel.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\controller\AuthController.php:7
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(552): require_once()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\AuthController.php on line 7
+[28-Sep-2026 16:52:06 Europe/Berlin] Autenticación exitosa para: admin2@proyecto.com
+[28-Sep-2026 16:52:10 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../views/checklists/index.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\ChecklistController.php on line 47
+[28-Sep-2026 16:52:10 Europe/Berlin] Error en ejecución: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../views/checklists/index.php' (include_path='C:\xampp\php\PEAR')
+[28-Sep-2026 16:52:10 Europe/Berlin] Stack trace: #0 C:\xampp\htdocs\proyecto\index.php(601): ChecklistController->index()
+#1 {main}
+[28-Sep-2026 16:52:20 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../views/checklists/index.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\ChecklistController.php on line 47
+[28-Sep-2026 16:52:20 Europe/Berlin] Error en ejecución: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../views/checklists/index.php' (include_path='C:\xampp\php\PEAR')
+[28-Sep-2026 16:52:20 Europe/Berlin] Stack trace: #0 C:\xampp\htdocs\proyecto\index.php(601): ChecklistController->index()
+#1 {main}
+[28-Sep-2026 16:56:41 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../model/MantenimientoEquiposModel.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\MantenimientoEquiposController.php on line 7
+[28-Sep-2026 16:56:41 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../model/MantenimientoEquiposModel.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\proyecto\controller\MantenimientoEquiposController.php:7
+Stack trace:
+#0 C:\xampp\htdocs\proyecto\index.php(552): require_once()
+#1 {main}
+  thrown in C:\xampp\htdocs\proyecto\controller\MantenimientoEquiposController.php on line 7
+[28-Sep-2026 16:58:13 Europe/Berlin] 📋 Filtros aplicados en list(): Array
+(
+    [orden] => nombre
+)
+
+[28-Sep-2026 16:58:17 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../views/admin/auditoria/index.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\AuditoriaController.php on line 53
+[28-Sep-2026 16:58:17 Europe/Berlin] Error en ejecución: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../views/admin/auditoria/index.php' (include_path='C:\xampp\php\PEAR')
+[28-Sep-2026 16:58:17 Europe/Berlin] Stack trace: #0 C:\xampp\htdocs\proyecto\index.php(601): AuditoriaController->index()
+#1 {main}
+[28-Sep-2026 17:18:02 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../views/admin/auditoria/index.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\AuditoriaController.php on line 53
+[28-Sep-2026 17:18:02 Europe/Berlin] Error en ejecución: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../views/admin/auditoria/index.php' (include_path='C:\xampp\php\PEAR')
+[28-Sep-2026 17:18:02 Europe/Berlin] Stack trace: #0 C:\xampp\htdocs\proyecto\index.php(601): AuditoriaController->index()
+#1 {main}
+[28-Sep-2026 17:18:02 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../views/admin/auditoria/index.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\AuditoriaController.php on line 53
+[28-Sep-2026 17:18:02 Europe/Berlin] Error en ejecución: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../views/admin/auditoria/index.php' (include_path='C:\xampp\php\PEAR')
+[28-Sep-2026 17:18:02 Europe/Berlin] Stack trace: #0 C:\xampp\htdocs\proyecto\index.php(601): AuditoriaController->index()
+#1 {main}
+[28-Sep-2026 17:18:06 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../views/admin/auditoria/index.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\AuditoriaController.php on line 53
+[28-Sep-2026 17:18:06 Europe/Berlin] Error en ejecución: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../views/admin/auditoria/index.php' (include_path='C:\xampp\php\PEAR')
+[28-Sep-2026 17:18:06 Europe/Berlin] Stack trace: #0 C:\xampp\htdocs\proyecto\index.php(601): AuditoriaController->index()
+#1 {main}
+[28-Sep-2026 17:49:55 Europe/Berlin] 📋 Filtros aplicados en list(): Array
+(
+    [orden] => nombre
+)
+
+[28-Sep-2026 18:13:30 Europe/Berlin] Intento de acceso con controlador inválido: index.php
+[28-Sep-2026 18:25:48 Europe/Berlin] 📋 Filtros aplicados en list(): Array
+(
+    [orden] => nombre
+)
+
+[28-Sep-2026 18:42:56 Europe/Berlin] 📋 Filtros aplicados en list(): Array
+(
+    [orden] => nombre
+)
+
+[28-Sep-2026 18:49:13 Europe/Berlin] 📋 Filtros aplicados en list(): Array
+(
+    [orden] => nombre
+)
+
+[28-Sep-2026 18:56:58 Europe/Berlin] 📋 Filtros aplicados en list(): Array
+(
+    [orden] => nombre
+)
+
+[29-Sep-2026 04:06:33 Europe/Berlin] Autenticación exitosa para: admin2@proyecto.com
+[29-Sep-2026 04:23:29 Europe/Berlin] 📋 Filtros aplicados en list(): Array
+(
+    [orden] => nombre
+)
+
+[29-Sep-2026 04:24:16 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../views/admin/auditoria/index.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\AuditoriaController.php on line 53
+[29-Sep-2026 04:24:16 Europe/Berlin] Error en ejecución: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../views/admin/auditoria/index.php' (include_path='C:\xampp\php\PEAR')
+[29-Sep-2026 04:24:16 Europe/Berlin] Stack trace: #0 C:\xampp\htdocs\proyecto\index.php(594): AuditoriaController->index()
+#1 {main}
+[29-Sep-2026 04:24:23 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../views/admin/auditoria/index.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\AuditoriaController.php on line 53
+[29-Sep-2026 04:24:23 Europe/Berlin] Error en ejecución: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../views/admin/auditoria/index.php' (include_path='C:\xampp\php\PEAR')
+[29-Sep-2026 04:24:23 Europe/Berlin] Stack trace: #0 C:\xampp\htdocs\proyecto\index.php(594): AuditoriaController->index()
+#1 {main}
+[29-Sep-2026 04:27:03 Europe/Berlin] 📋 Filtros aplicados en list(): Array
+(
+    [orden] => nombre
+)
+
+[29-Sep-2026 15:55:18 Europe/Berlin] Autenticación exitosa para: admin2@proyecto.com
+[29-Sep-2026 15:56:49 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\proyecto\controller/../views/admin/auditoria/index.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\proyecto\controller\AuditoriaController.php on line 53
+[29-Sep-2026 15:56:49 Europe/Berlin] Error en ejecución: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../views/admin/auditoria/index.php' (include_path='C:\xampp\php\PEAR')
+[29-Sep-2026 15:56:49 Europe/Berlin] Stack trace: #0 C:\xampp\htdocs\proyecto\index.php(594): AuditoriaController->index()
+#1 {main}
