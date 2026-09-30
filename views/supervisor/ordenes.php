@@ -3,6 +3,7 @@
 // Órdenes para Revisar - Vista del Supervisor
 // ✅ FIX: Eliminado CSS personalizado que rompía el tema global (modo oscuro)
 // ✅ FIX: Botones y tablas usan las clases estándar del sistema
+// ✅ FIX NUEVO: contenedor .table-actions + btn-icon + btn-header-action en JS
 
 if (!isset($seccion)) { $seccion = 'supervisor'; }
 if (!isset($titulo)) { $titulo = 'Órdenes para Revisar'; }
@@ -22,8 +23,8 @@ include_once __DIR__ . '/../layouts/header.php';
                 <i class="fas fa-info-circle me-1"></i> Administra y evalúa las órdenes de trabajo del sistema
             </p>
         </div>
-        <a href="/proyecto/supervisor" class="btn btn-secondary">
-            <i class="fas fa-arrow-left me-1"></i> Volver al Panel
+        <a href="/proyecto/supervisor" class="btn btn-secondary btn-header-action">
+            <i class="fas fa-arrow-left"></i> Volver al Panel
         </a>
     </div>
 
@@ -165,6 +166,7 @@ function cargarOrdenes(page = 1) {
 
                     const tr = document.createElement('tr');
 
+                    // ✅ FIX: contenedor .table-actions + btn-icon
                     tr.innerHTML = `
                         <td class="ps-4"><span class="fw-bold">#${escapeHTML(orden.id)}</span></td>
                         <td>
@@ -185,12 +187,18 @@ function cargarOrdenes(page = 1) {
                             </span>
                         </td>
                         <td class="text-center pe-4">
-                            <div class="d-flex justify-content-center gap-1">
-                                <a href="/proyecto/supervisor/ver_orden/${encodeURIComponent(orden.id)}" class="btn btn-sm btn-outline-info" title="Ver Detalle">
+                            <div class="table-actions">
+                                <a href="/proyecto/supervisor/ver_orden/${encodeURIComponent(orden.id)}" 
+                                   class="btn btn-sm btn-outline-info btn-icon" 
+                                   title="Ver Detalle"
+                                   aria-label="Ver detalle">
                                     <i class="fas fa-eye"></i>
                                 </a>
                                 ${orden.estado === 'CERRADA' && orden.supervision_estado !== 'APROBADA' ? `
-                                    <a href="/proyecto/supervisor/revisar/${encodeURIComponent(orden.id)}" class="btn btn-sm btn-outline-warning" title="Revisar Orden">
+                                    <a href="/proyecto/supervisor/revisar/${encodeURIComponent(orden.id)}" 
+                                       class="btn btn-sm btn-outline-warning btn-icon" 
+                                       title="Revisar Orden"
+                                       aria-label="Revisar orden">
                                         <i class="fas fa-edit"></i>
                                     </a>
                                 ` : ''}

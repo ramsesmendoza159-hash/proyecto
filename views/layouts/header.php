@@ -22,6 +22,7 @@ if (!class_exists('ToastHelper')) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="<?= SecurityHelper::generateCSRFToken() ?>">
     <title><?= $titulo ?? 'Sistema de Mantenimiento' ?></title>
     
     <!-- Bootstrap 5 -->
@@ -656,14 +657,69 @@ if (!class_exists('ToastHelper')) {
         [data-theme="dark"] .btn-outline-info:hover { background-color: #22d3ee !important; color: #0a0a0f !important; }
         
         /* ========================================== */
-        /* Botones de acción en tablas - Más padding */
+        /* BOTONES DE ACCIÓN EN TABLAS (ESTÁNDAR) */
         /* ========================================== */
-        
+
+        /* Contenedor estándar de acciones en tablas */
+        .table-actions {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: nowrap;
+        }
+
+        /* Botón de acción cuadradito 32×32px (solo ícono) */
+        .btn-icon {
+            width: 32px;
+            height: 32px;
+            padding: 0 !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border-radius: 8px !important;
+            font-size: 0.85rem !important;
+            transition: all 0.2s ease !important;
+            flex-shrink: 0;
+        }
+
+        .btn-icon:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+        }
+
+        .btn-icon:active {
+            transform: translateY(0);
+        }
+
+        /* Botones de header con texto */
+        .btn-header-action {
+            padding: 8px 16px !important;
+            font-size: 0.85rem !important;
+            font-weight: 500 !important;
+            border-radius: 8px !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 6px !important;
+            transition: all 0.2s ease !important;
+        }
+
+        .btn-header-action:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+        }
+
+        /* Compatibilidad: cualquier .btn-sm dentro de tabla mantiene el look */
         .table .btn-sm {
             padding: 6px 12px !important;
             min-width: 36px !important;
             border-radius: 8px !important;
             transition: all 0.2s ease !important;
+        }
+
+        .table .btn-icon {
+            padding: 0 !important;
+            min-width: 32px !important;
         }
         
         /* ========================================== */

@@ -7,8 +7,10 @@
 // ✅ FIX: inicializarFirmas() usa transacción
 // ✅ FIX: contarPendientesDelDia() suma vencidos de días anteriores
 // ✅ FIX: crearRegistrosDelDia() optimizado con INSERT masivo
+// ✅ FIX: sanitización SVG en método firmar() usando SVGSanitizer
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../helpers/SVGSanitizer.php';  // ✅ NUEVO
 
 class MonitoreoModel {
     private $db;
@@ -666,22 +668,34 @@ class MonitoreoModel {
         }
     }
 
+    /**
+     * Registra una firma en un registro de monitoreo.
+     * ✅ FIX: sanitizar firma_svg con SVGSanitizer (defensa en profundidad)
+     * ✅ FIX: hash calculado sobre el SVG YA sanitizado
+     */
     public function firmar($registro_id, $paso_id, $usuario_id, $usuario_nombre, $firma_svg, $comentario = null) {
         try {
             $registro_id = (int)$registro_id;
             $paso_id = (int)$paso_id;
 
+            // ==========================================
+            // ✅ FIX: Sanitizar el SVG ANTES de cualquier cosa
+            // ==========================================
             if (empty($firma_svg)) {
                 return ['success' => false, 'mensaje' => 'La firma está vacía'];
             }
-            if (strpos($firma_svg, '<svg') === false || strpos($firma_svg, '</svg>') === false) {
-                return ['success' => false, 'mensaje' => 'La firma no tiene formato SVG válido'];
-            }
-            if (strlen($firma_svg) > 204800) {
-                return ['success' => false, 'mensaje' => 'La firma excede los 200 KB'];
+
+            if (!SVGSanitizer::esFormatoValido($firma_svg)) {
+                return ['success' => false, 'mensaje' => 'La firma no tiene formato SVG válido o excede el tamaño máximo'];
             }
 
-            // ✅ FIX: validar que el paso sea el actual
+            $firma_svg = SVGSanitizer::sanitize($firma_svg);
+
+            if (empty($firma_svg)) {
+                return ['success' => false, 'mensaje' => 'La firma no pudo ser procesada (contiene elementos no permitidos)'];
+            }
+
+            // Validar que el paso sea el actual
             $paso_actual = $this->obtenerPasoActual($registro_id);
             if (!$paso_actual || (int)$paso_actual['id'] !== $paso_id) {
                 return ['success' => false, 'mensaje' => 'Este paso no es el actual o ya fue procesado'];
@@ -699,6 +713,7 @@ class MonitoreoModel {
                 throw new Exception('El paso no existe o ya fue procesado');
             }
 
+            // ✅ FIX: hash sobre el SVG sanitizado
             $firma_hash = hash('sha256', $firma_svg);
 
             $sql = "UPDATE monitoreo_firmas
@@ -745,7 +760,8 @@ class MonitoreoModel {
                 'success' => true,
                 'mensaje' => $completada ? 'Firmas completadas' : 'Firma registrada',
                 'completada' => $completada,
-                'siguiente_paso' => $hay_pendientes ? (int)$next['proximo'] : null
+                'siguiente_paso' => $hay_pendientes ? (int)$next['proximo'] : null,
+                'firma_hash' => $firma_hash
             ];
 
         } catch (Throwable $e) {

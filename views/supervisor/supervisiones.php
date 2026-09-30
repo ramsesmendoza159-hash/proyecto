@@ -1,8 +1,9 @@
 <?php
 // views/supervisor/supervisiones.php
-// Mis Supervisiones - VERSIÓN COMPLETA
+// Mis Supervisiones - VERSIÓN ESTANDARIZADA
 // ✅ FIX: Botones cambiados a btn-outline-* (estilo admin)
 // ✅ FIX: credentials: 'same-origin' en el fetch de supervisionesList
+// ✅ FIX NUEVO: contenedor .table-actions + btn-icon + btn-header-action
 
 if (!isset($seccion)) {
     $seccion = 'supervisor';
@@ -26,8 +27,8 @@ include_once __DIR__ . '/../layouts/header.php';
                 <i class="fas fa-info-circle me-1"></i> Historial de supervisiones realizadas
             </p>
         </div>
-        <a href="/proyecto/supervisor" class="btn btn-secondary">
-            <i class="fas fa-arrow-left me-1"></i> Volver al Panel
+        <a href="/proyecto/supervisor" class="btn btn-secondary btn-header-action">
+            <i class="fas fa-arrow-left"></i> Volver al Panel
         </a>
     </div>
 
@@ -86,7 +87,7 @@ include_once __DIR__ . '/../layouts/header.php';
                             <th>Estado</th>
                             <th>Cumple</th>
                             <th>Fecha</th>
-                            <th class="text-center">Acciones</th>
+                            <th class="text-center" style="width:100px;">Acciones</th>
                         </tr>
                     </thead>
                     <tbody id="supervisionesBody">
@@ -132,7 +133,6 @@ function cargarSupervisiones(page = 1) {
     params.append('page', page);
     params.append('limit', porPagina);
 
-    // ✅ FIX: credentials: 'same-origin'
     fetch(`/proyecto/supervisor/supervisionesList?${params.toString()}`, {
         credentials: 'same-origin'
     })
@@ -149,7 +149,7 @@ function cargarSupervisiones(page = 1) {
                                               'text-danger';
 
                     const tr = document.createElement('tr');
-                    // ✅ FIX: Botones cambiados a btn-outline-* (estilo admin)
+                    // ✅ FIX: contenedor .table-actions + btn-icon
                     tr.innerHTML = `
                         <td><span class="fw-semibold">${supervision.id}</span></td>
                         <td>#${supervision.orden_id}</td>
@@ -166,8 +166,11 @@ function cargarSupervisiones(page = 1) {
                         <td>${supervision.cumple ? '✅ Sí' : '❌ No'}</td>
                         <td><small>${supervision.fecha_creacion}</small></td>
                         <td>
-                            <div class="d-flex justify-content-center">
-                                <a href="/proyecto/supervisor/ver_supervision/${supervision.id}" class="btn btn-sm btn-outline-info" title="Ver">
+                            <div class="table-actions">
+                                <a href="/proyecto/supervisor/ver_supervision/${supervision.id}" 
+                                   class="btn btn-sm btn-outline-info btn-icon" 
+                                   title="Ver"
+                                   aria-label="Ver supervisión">
                                     <i class="fas fa-eye"></i>
                                 </a>
                             </div>

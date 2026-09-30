@@ -1,7 +1,8 @@
 <?php
 // views/firmas/firmar.php
 // Formulario para firmar un paso - CON SIGNATUREPAD SVG VECTORIAL
-// ✅ FIX: agregado require_once FirmaSecuenciaHelper
+// ✅ FIX: validación de tamaño y estructura SVG del lado cliente
+// ⚠️ NOTA: La sanitización real se hace en FirmaModel::firmar() (servidor)
 
 require_once __DIR__ . '/../../helpers/FirmaSecuenciaHelper.php';
 
@@ -185,9 +186,24 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const svg = signaturePadFirma.toSVG();
 
-        if (svg.length > 200000) {
+        // Validación del lado cliente (refuerzo, la real es en el servidor)
+        if (svg.length > 204800) {
             e.preventDefault();
             alert('⚠️ La firma es demasiado grande (' + Math.round(svg.length / 1024) + ' KB). Intenta dibujar más simple.');
+            return false;
+        }
+
+        // Validación de estructura SVG
+        if (svg.indexOf('<svg') === -1 || svg.indexOf('</svg>') === -1) {
+            e.preventDefault();
+            alert('⚠️ La firma no tiene el formato SVG correcto. Intenta nuevamente.');
+            return false;
+        }
+
+        // Validación de no contener script (refuerzo cliente)
+        if (/<script/i.test(svg)) {
+            e.preventDefault();
+            alert('⚠️ La firma contiene elementos no permitidos. Intenta nuevamente.');
             return false;
         }
 

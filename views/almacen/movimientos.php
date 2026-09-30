@@ -29,12 +29,12 @@ include_once __DIR__ . '/../layouts/header.php';
                 <?php endif; ?>
             </p>
         </div>
-        <div>
-            <a href="/proyecto/almacen" class="btn btn-secondary">
-                <i class="fas fa-arrow-left me-1"></i> Volver
+        <div class="d-flex gap-2">
+            <a href="/proyecto/almacen" class="btn btn-secondary btn-header-action">
+                <i class="fas fa-arrow-left"></i> Volver
             </a>
-            <button onclick="window.location.reload()" class="btn btn-outline-primary ms-2">
-                <i class="fas fa-sync-alt me-1"></i> Actualizar
+            <button onclick="window.location.reload()" class="btn btn-outline-primary btn-header-action">
+                <i class="fas fa-sync-alt"></i> Actualizar
             </button>
         </div>
     </div>

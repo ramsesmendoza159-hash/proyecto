@@ -1,6 +1,7 @@
 <?php
 // views/backdating/index.php
-// Listado de registros de backdating
+// Listado de registros de backdating - VERSIÓN ESTANDARIZADA
+// ✅ FIX NUEVO: contenedor .table-actions + btn-icon
 
 if (!isset($seccion)) $seccion = 'backdating';
 if (!isset($titulo)) $titulo = 'Registros Retroactivos';
@@ -151,7 +152,7 @@ include_once __DIR__ . '/../layouts/header.php';
                             <th>Fecha Nueva</th>
                             <th>Solicitante</th>
                             <th>Estado</th>
-                            <th class="text-center">Acciones</th>
+                            <th class="text-center" style="width:100px;">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -202,10 +203,15 @@ include_once __DIR__ . '/../layouts/header.php';
                                             <?= ucfirst($r['estado']) ?>
                                         </span>
                                     </td>
-                                    <td class="text-center">
-                                        <a href="/proyecto/backdating/ver/<?= $r['id'] ?>" class="btn btn-sm btn-outline-primary">
-                                            <i class="fas fa-eye"></i>
-                                        </a>
+                                    <td>
+                                        <div class="table-actions">
+                                            <a href="/proyecto/backdating/ver/<?= $r['id'] ?>" 
+                                               class="btn btn-sm btn-outline-info btn-icon" 
+                                               title="Ver"
+                                               aria-label="Ver registro">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                        </div>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>

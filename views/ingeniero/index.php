@@ -1,13 +1,11 @@
 <?php
 // views/ingeniero/index.php
-// Dashboard del Ingeniero
+// Dashboard del Ingeniero - VERSIÓN ESTANDARIZADA
 // ✅ FIX: Verificación de sesión y rol
 // ✅ FIX: Guards para $total_pendientes y $pendientes
-// ✅ FIX: color púrpura correcto (var(--accent-primary) + inline)
-// ✅ FIX: htmlspecialchars con ?? '' en todos los campos
-// ✅ FIX: exit; después de header()
+// ✅ FIX NUEVO: botones con btn-header-action y btn-icon
 
-// ✅ Validar sesión
+// Validar sesión
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -17,14 +15,13 @@ if (!isset($_SESSION['usuario_id']) || empty($_SESSION['usuario_id'])) {
     exit;
 }
 
-// ✅ Validar rol (solo ingeniero)
 if (($_SESSION['rol'] ?? '') !== 'ingeniero') {
     $_SESSION['error'] = 'No tienes permisos para acceder a esta sección';
     header('Location: /proyecto/dashboard');
     exit;
 }
 
-// ✅ Guard: si las variables no vienen del controlador, inicializarlas con defaults
+// Guard
 $total_pendientes = $total_pendientes ?? 0;
 $pendientes       = $pendientes ?? [];
 
@@ -44,8 +41,8 @@ include_once __DIR__ . '/../layouts/header.php';
                 Revisión y aprobación de órdenes de trabajo
             </p>
         </div>
-        <a href="/proyecto/firmas/pendientes" class="btn btn-primary">
-            <i class="fas fa-signature me-1"></i> Ver Firmas Pendientes
+        <a href="/proyecto/firmas/pendientes" class="btn btn-primary btn-header-action">
+            <i class="fas fa-signature"></i> Ver Firmas Pendientes
         </a>
     </div>
 
@@ -92,7 +89,7 @@ include_once __DIR__ . '/../layouts/header.php';
                                 <th>Título</th>
                                 <th>Estado</th>
                                 <th>Fecha</th>
-                                <th class="text-center">Acciones</th>
+                                <th class="text-center" style="width:130px;">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -120,11 +117,15 @@ include_once __DIR__ . '/../layouts/header.php';
                                                 : 'N/A' ?>
                                         </small>
                                     </td>
-                                    <td class="text-center">
-                                        <a href="/proyecto/firmas/firmar/<?= $orden_id ?>/<?= $firma_id ?>" 
-                                           class="btn btn-sm btn-primary">
-                                            <i class="fas fa-signature me-1"></i> Firmar
-                                        </a>
+                                    <td>
+                                        <div class="table-actions">
+                                            <a href="/proyecto/firmas/firmar/<?= $orden_id ?>/<?= $firma_id ?>" 
+                                               class="btn btn-sm btn-outline-primary btn-icon"
+                                               title="Firmar orden"
+                                               aria-label="Firmar orden">
+                                                <i class="fas fa-signature"></i>
+                                            </a>
+                                        </div>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -136,5 +137,12 @@ include_once __DIR__ . '/../layouts/header.php';
     </div>
 
 </div>
+
+<style>
+.card {
+    border-radius: 16px;
+    box-shadow: 0 2px 12px var(--shadow-color);
+}
+</style>
 
 <?php include_once __DIR__ . '/../layouts/footer.php'; ?>

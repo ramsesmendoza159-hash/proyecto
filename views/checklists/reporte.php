@@ -2,10 +2,10 @@
 // views/checklists/reporte.php
 // Vista imprimible de un registro de checklist
 // ✅ FIX: validar autenticación
-// ✅ FIX: sanitizar SVG de firmas (XSS persistente)
+// ✅ FIX: usar SVGSanitizer centralizado (antes usaba función inline)
 // ✅ FIX: rowspan seguro en batch_por_equipo
 
-// ✅ FIX: validar sesión
+// Validar sesión
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -18,6 +18,9 @@ if (!isset($registro) || !$registro) {
     die('Registro no disponible');
 }
 
+// ✅ Usar el helper centralizado
+require_once __DIR__ . '/../../helpers/SVGSanitizer.php';
+
 $secciones = $registro['secciones'] ?? [];
 $matriz    = $registro['matriz'] ?? [];
 $firmas    = $registro['firmas'] ?? [];
@@ -27,22 +30,6 @@ $fecha     = $registro['fecha'] ?? date('Y-m-d');
 $turno     = $registro['turno'] ?? null;
 $operador  = $registro['operador_nombre'] ?? 'N/A';
 $estado    = $registro['estado'] ?? 'BORRADOR';
-
-/**
- * ✅ FIX: sanitizar SVG para prevenir XSS persistente
- */
-function sanitizarSVGReporte($svg) {
-    if (empty($svg)) return '';
-    $svg = preg_replace('#<script[^>]*>.*?</script>#is', '', $svg);
-    $svg = preg_replace('#<script[^>]*/?>#i', '', $svg);
-    $svg = preg_replace('#\son[a-z]+\s*=\s*"[^"]*"#i', '', $svg);
-    $svg = preg_replace("#\son[a-z]+\s*=\s*'[^']*'#i", '', $svg);
-    $svg = preg_replace('#javascript\s*:#i', '', $svg);
-    $svg = preg_replace('#<foreignObject[^>]*>.*?</foreignObject>#is', '', $svg);
-    $svg = preg_replace('#<foreignObject[^>]*/?>#i', '', $svg);
-    $svg = preg_replace('#<(iframe|embed|object|link|meta|base)[^>]*>#i', '', $svg);
-    return $svg;
-}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -349,7 +336,6 @@ function sanitizarSVGReporte($svg) {
                         ksort($filas);
                         if (empty($filas)) $filas[0] = [];
                         
-                        // ✅ FIX: validar que count($filas) >= 1 antes de usar rowspan
                         $total_filas = count($filas);
                         if ($total_filas < 1) $total_filas = 1;
                         
@@ -399,7 +385,7 @@ function sanitizarSVGReporte($svg) {
 
                     <?php if (($f['estado'] ?? '') === 'FIRMADO' && !empty($f['firma_svg'])): ?>
                         <div class="firma-svg-container">
-                            <?= sanitizarSVGReporte($f['firma_svg']) ?>
+                            <?= SVGSanitizer::sanitize($f['firma_svg']) ?>
                         </div>
                         <small><?= htmlspecialchars($f['usuario_nombre'] ?? '') ?></small>
                         <small><?= date('d/m/Y H:i', strtotime($f['fecha_firma'] ?? 'now')) ?></small>

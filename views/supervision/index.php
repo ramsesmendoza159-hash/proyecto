@@ -1,9 +1,9 @@
 <?php
 // views/supervision/index.php
-// Panel de Supervisión - VERSIÓN COMPLETA
-// ✅ FIX: Botones cambiados a btn-outline-* (estilo admin)
-// ✅ NUEVO: Botón "Eliminar" agregado (solo admin)
-// ✅ FIX: Eliminada doble inclusión de sidebar.php si existía
+// Panel de Supervisión - VERSIÓN ESTANDARIZADA
+// ✅ FIX: match normalizado con strtoupper() porque la BD guarda minúsculas
+// ✅ FIX: contenedor de acciones usa .table-actions + btn-icon
+// ✅ FIX: botón Reporte usa btn-header-action
 
 require_once __DIR__ . '/../../helpers/SecurityHelper.php';
 
@@ -46,13 +46,13 @@ include_once __DIR__ . '/../layouts/header.php';
             </p>
         </div>
         <div>
-            <a href="/proyecto/supervision/reporte" class="btn btn-info">
-                <i class="fas fa-chart-bar me-2"></i> Reporte
+            <a href="/proyecto/supervision/reporte" class="btn btn-info text-white btn-header-action">
+                <i class="fas fa-chart-bar"></i> Reporte
             </a>
         </div>
     </div>
 
-    <!-- Mensajes de éxito/error -->
+    <!-- Mensajes -->
     <?php if (isset($_SESSION['success']) && !empty($_SESSION['success'])): ?>
         <div class="alert alert-success alert-dismissible fade show">
             <i class="fas fa-check-circle me-2"></i> <?= htmlspecialchars($_SESSION['success']) ?>
@@ -133,9 +133,9 @@ include_once __DIR__ . '/../layouts/header.php';
                     <label class="form-label fw-semibold small">Estado</label>
                     <select name="estado" class="form-select form-select-sm">
                         <option value="">Todos</option>
-                        <option value="PENDIENTE" <?= isset($_GET['estado']) && $_GET['estado'] === 'PENDIENTE' ? 'selected' : '' ?>>Pendiente</option>
-                        <option value="APROBADA" <?= isset($_GET['estado']) && $_GET['estado'] === 'APROBADA' ? 'selected' : '' ?>>Aprobada</option>
-                        <option value="RECHAZADA" <?= isset($_GET['estado']) && $_GET['estado'] === 'RECHAZADA' ? 'selected' : '' ?>>Rechazada</option>
+                        <option value="pendiente" <?= isset($_GET['estado']) && $_GET['estado'] === 'pendiente' ? 'selected' : '' ?>>Pendiente</option>
+                        <option value="aprobada" <?= isset($_GET['estado']) && $_GET['estado'] === 'aprobada' ? 'selected' : '' ?>>Aprobada</option>
+                        <option value="rechazada" <?= isset($_GET['estado']) && $_GET['estado'] === 'rechazada' ? 'selected' : '' ?>>Rechazada</option>
                     </select>
                 </div>
                 <div class="col-md-2">
@@ -186,7 +186,7 @@ include_once __DIR__ . '/../layouts/header.php';
                             <th>Estado</th>
                             <th>Fecha</th>
                             <th>Cumple</th>
-                            <th class="text-center">Acciones</th>
+                            <th class="text-center" style="width:150px;">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -215,38 +215,47 @@ include_once __DIR__ . '/../layouts/header.php';
                                     </td>
                                     <td>
                                         <?php
-                                        $estadoClases = [
+                                        // ✅ FIX: normalizar con strtoupper() porque la BD guarda minúsculas
+                                        $estadoRaw = strtoupper($supervision['estado'] ?? 'PENDIENTE');
+                                        $estadoClase = match($estadoRaw) {
                                             'PENDIENTE' => 'warning',
-                                            'APROBADA' => 'success',
-                                            'RECHAZADA' => 'danger'
-                                        ];
-                                        $estadoClase = $estadoClases[$supervision['estado'] ?? 'PENDIENTE'] ?? 'secondary';
+                                            'APROBADA'  => 'success',
+                                            'RECHAZADA' => 'danger',
+                                            default     => 'secondary'
+                                        };
                                         ?>
                                         <span class="badge-status bg-<?= $estadoClase ?> bg-opacity-10 text-<?= $estadoClase ?>">
                                             <i class="fas fa-circle me-1" style="font-size:6px;"></i>
-                                            <?= $supervision['estado'] ?? 'PENDIENTE' ?>
+                                            <?= htmlspecialchars(ucfirst(strtolower($supervision['estado'] ?? 'PENDIENTE'))) ?>
                                         </span>
                                     </td>
                                     <td><small><?= isset($supervision['fecha_creacion']) ? date('d/m/Y', strtotime($supervision['fecha_creacion'])) : '-' ?></small></td>
                                     <td><?= ($supervision['cumple'] ?? 0) ? '✅ Sí' : '❌ No' ?></td>
                                     <td>
-                                        <div class="d-flex justify-content-center gap-1">
-                                            <!-- ✅ Ver - btn-outline-info -->
-                                            <a href="/proyecto/supervision/ver/<?= $supervision['id'] ?>" class="btn btn-sm btn-outline-info" title="Ver">
+                                        <div class="table-actions">
+                                            <!-- Ver -->
+                                            <a href="/proyecto/supervision/ver/<?= $supervision['id'] ?>" 
+                                               class="btn btn-sm btn-outline-info btn-icon" 
+                                               title="Ver"
+                                               aria-label="Ver supervisión">
                                                 <i class="fas fa-eye"></i>
                                             </a>
-                                            
-                                            <!-- ✅ Editar - btn-outline-warning -->
-                                            <a href="/proyecto/supervision/editar/<?= $supervision['id'] ?>" class="btn btn-sm btn-outline-warning" title="Editar">
+
+                                            <!-- Editar -->
+                                            <a href="/proyecto/supervision/editar/<?= $supervision['id'] ?>" 
+                                               class="btn btn-sm btn-outline-warning btn-icon" 
+                                               title="Editar"
+                                               aria-label="Editar supervisión">
                                                 <i class="fas fa-edit"></i>
                                             </a>
-                                            
-                                            <!-- ✅ NUEVO: Eliminar - btn-outline-danger (solo admin) -->
+
+                                            <!-- Eliminar (solo admin) -->
                                             <?php if ($rol_actual === 'admin'): ?>
-                                                <button type="button" 
-                                                        class="btn btn-sm btn-outline-danger" 
+                                                <button type="button"
+                                                        class="btn btn-sm btn-outline-danger btn-icon"
                                                         title="Eliminar"
-                                                        onclick="confirmarEliminarSupervision(<?= $supervision['id'] ?>, '<?= htmlspecialchars($supervision['num_om'] ?? 'Orden #' . $supervision['orden_id']) ?>')">
+                                                        aria-label="Eliminar supervisión"
+                                                        onclick="confirmarEliminarSupervision(<?= $supervision['id'] ?>, '<?= htmlspecialchars($supervision['num_om'] ?? 'Orden #' . $supervision['orden_id'], ENT_QUOTES, 'UTF-8') ?>')">
                                                     <i class="fas fa-trash"></i>
                                                 </button>
                                             <?php endif; ?>

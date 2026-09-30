@@ -962,3 +962,46 @@ Stack trace:
 [29-Sep-2026 15:56:49 Europe/Berlin] Error en ejecución: Failed opening required 'C:\xampp\htdocs\proyecto\controller/../views/admin/auditoria/index.php' (include_path='C:\xampp\php\PEAR')
 [29-Sep-2026 15:56:49 Europe/Berlin] Stack trace: #0 C:\xampp\htdocs\proyecto\index.php(594): AuditoriaController->index()
 #1 {main}
+[29-Sep-2026 17:01:22 Europe/Berlin] 📋 Filtros aplicados en list(): Array
+(
+    [orden] => nombre
+)
+
+[29-Sep-2026 17:02:57 Europe/Berlin] 📋 Filtros aplicados en list(): Array
+(
+    [orden] => nombre
+)
+
+[29-Sep-2026 17:17:48 Europe/Berlin] 📋 Filtros aplicados en list(): Array
+(
+    [orden] => nombre
+)
+
+[29-Sep-2026 17:17:52 Europe/Berlin] 📋 Filtros aplicados en list(): Array
+(
+    [orden] => nombre
+)
+
+[29-Sep-2026 17:19:23 Europe/Berlin] 📋 Filtros aplicados en list(): Array
+(
+    [orden] => nombre
+)
+
+[29-Sep-2026 17:19:24 Europe/Berlin] 📋 Filtros aplicados en list(): Array
+(
+    [orden] => nombre
+)
+
+[29-Sep-2026 17:50:50 Europe/Berlin] 📋 Filtros aplicados en list(): Array
+(
+    [orden] => nombre
+)
+
+[29-Sep-2026 18:52:27 Europe/Berlin] 📋 Filtros aplicados en list(): Array
+(
+    [orden] => nombre
+)
+
+[29-Sep-2026 18:55:39 Europe/Berlin] Error en MonitoreoController::cerrar: Faltan lecturas. Completadas: 0 / 52
+[29-Sep-2026 18:59:51 Europe/Berlin] Autenticación exitosa para: operador@proyecto.com
+[29-Sep-2026 18:59:51 Europe/Berlin] Monitoreo: 1 registros auto-creados para usuario 14

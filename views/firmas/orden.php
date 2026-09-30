@@ -1,11 +1,10 @@
 <?php
 // views/firmas/orden.php
 // Panel de firmas de una orden con timeline - CON OMITIDOS
-// ✅ FIX: agregado require_once FirmaSecuenciaHelper
-// ✅ FIX: guards para variables que vienen del controlador
-// ✅ FIX: accesos seguros a $resumen con ?? 0
+// ✅ FIX: sanitizar firma_svg al mostrarla (antes era XSS vulnerable)
 
 require_once __DIR__ . '/../../helpers/FirmaSecuenciaHelper.php';
+require_once __DIR__ . '/../../helpers/SVGSanitizer.php';
 
 if (!isset($orden) || !$orden) {
     header('Location: /proyecto/ordenes');
@@ -43,8 +42,8 @@ include_once __DIR__ . '/../layouts/header.php';
             </p>
         </div>
         <div class="d-flex gap-2">
-            <a href="/proyecto/ordenes/ver/<?= (int)$orden['id'] ?>" class="btn btn-secondary">
-                <i class="fas fa-arrow-left me-1"></i> Volver a la Orden
+            <a href="/proyecto/ordenes/ver/<?= (int)$orden['id'] ?>" class="btn btn-secondary btn-header-action">
+                <i class="fas fa-arrow-left"></i> Volver a la Orden
             </a>
         </div>
     </div>
@@ -172,6 +171,12 @@ include_once __DIR__ . '/../layouts/header.php';
                                                 <i class="fas fa-comment me-1"></i>
                                                 <?= nl2br(htmlspecialchars($firma['comentario'])) ?>
                                             </p>
+                                        <?php endif; ?>
+                                        
+                                        <?php if (!empty($firma['firma_svg'])): ?>
+                                            <div class="mt-3 p-2 border rounded" style="background:#fff; max-height:100px; overflow:hidden;">
+                                                <?= SVGSanitizer::sanitize($firma['firma_svg']) ?>
+                                            </div>
                                         <?php endif; ?>
                                         
                                     <?php elseif (($firma['estado'] ?? '') === 'RECHAZADO'): ?>

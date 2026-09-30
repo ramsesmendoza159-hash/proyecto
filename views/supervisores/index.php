@@ -1,11 +1,12 @@
 <?php
 // views/supervisores/index.php
-// Lista de supervisores - VERSIÓN CORREGIDA CON ASTEROADMIN
+// Lista de supervisores - VERSIÓN ESTANDARIZADA
+// ✅ FIX: contenedor de acciones usa .table-actions (antes era btn-group)
+// ✅ FIX: botón "Ver" con texto ahora es solo ícono con tooltip
+// ✅ FIX: TODOS los botones usan btn-icon para uniformidad
 
-// Incluir helpers necesarios
 require_once __DIR__ . '/../../helpers/SecurityHelper.php';
 
-// Verificar sesión
 if (!isset($_SESSION['usuario_id']) || ($_SESSION['rol'] ?? '') !== 'admin') {
     header('Location: /proyecto/auth/login');
     exit;
@@ -14,18 +15,16 @@ if (!isset($_SESSION['usuario_id']) || ($_SESSION['rol'] ?? '') !== 'admin') {
 $seccion = 'supervisores';
 $titulo = 'Gestión de Supervisores';
 
-// Asegurar que las variables existan
 $supervisores = $supervisores ?? [];
 $estadisticas = $estadisticas ?? ['total' => 0, 'activos' => 0, 'inactivos' => 0, 'areas' => 0];
 $filtros = $filtros ?? [];
 
 include_once __DIR__ . '/../layouts/header.php';
-// ❌ ELIMINAR: include_once __DIR__ . '/../layouts/sidebar.php';
 ?>
 
 <div class="container-fluid px-0">
 
-    <!-- ✅ Header -->
+    <!-- Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h4 class="mb-1 fw-bold">
@@ -37,13 +36,13 @@ include_once __DIR__ . '/../layouts/header.php';
             </p>
         </div>
         <div>
-            <a href="/proyecto/supervisores/crear" class="btn btn-primary">
-                <i class="fas fa-plus-circle me-2"></i>Nuevo Supervisor
+            <a href="/proyecto/supervisores/crear" class="btn btn-primary btn-header-action">
+                <i class="fas fa-plus-circle"></i>Nuevo Supervisor
             </a>
         </div>
     </div>
 
-    <!-- ✅ Mensajes -->
+    <!-- Mensajes -->
     <?php if (isset($_SESSION['mensaje']) && !empty($_SESSION['mensaje'])): ?>
         <div class="alert alert-<?php echo $_SESSION['mensaje_tipo'] ?? 'success'; ?> alert-dismissible fade show">
             <i class="fas fa-check-circle me-2"></i> <?php echo htmlspecialchars($_SESSION['mensaje']); ?>
@@ -60,7 +59,7 @@ include_once __DIR__ . '/../layouts/header.php';
         <?php unset($_SESSION['error']); ?>
     <?php endif; ?>
 
-    <!-- ✅ Tarjetas de Estadísticas -->
+    <!-- Tarjetas de Estadísticas -->
     <div class="row g-3 mb-4">
         <div class="col-xl-3 col-lg-6 col-md-6">
             <div class="stat-card-mini">
@@ -131,7 +130,7 @@ include_once __DIR__ . '/../layouts/header.php';
         </div>
     </div>
 
-    <!-- ✅ Filtros -->
+    <!-- Filtros -->
     <div class="card border-0 mb-4">
         <div class="card-body">
             <form method="GET" action="/proyecto/supervisores" class="row g-3">
@@ -166,7 +165,7 @@ include_once __DIR__ . '/../layouts/header.php';
         </div>
     </div>
 
-    <!-- ✅ Tabla -->
+    <!-- Tabla -->
     <div class="card border-0">
         <div class="card-body p-0">
             <?php if (empty($supervisores)): ?>
@@ -189,7 +188,7 @@ include_once __DIR__ . '/../layouts/header.php';
                                 <th>Área</th>
                                 <th>Teléfono</th>
                                 <th style="width:120px;">Estado</th>
-                                <th style="width:180px;">Acciones</th>
+                                <th style="width:180px;" class="text-center">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -231,22 +230,36 @@ include_once __DIR__ . '/../layouts/header.php';
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <div class="btn-group btn-group-sm">
+                                        <div class="table-actions">
+                                            <!-- Editar -->
                                             <a href="/proyecto/supervisores/editar/<?php echo $supervisor['id']; ?>" 
-                                               class="btn btn-outline-warning" title="Editar">
+                                               class="btn btn-sm btn-outline-warning btn-icon" 
+                                               title="Editar"
+                                               aria-label="Editar supervisor">
                                                 <i class="fas fa-edit"></i>
                                             </a>
-                                            <button class="btn btn-outline-primary" title="Cambiar Contraseña"
-                                                    onclick="cambiarPassword(<?php echo $supervisor['id']; ?>, '<?php echo htmlspecialchars($supervisor['nombre']); ?>')">
+
+                                            <!-- Cambiar contraseña -->
+                                            <button class="btn btn-sm btn-outline-primary btn-icon" 
+                                                    title="Cambiar Contraseña"
+                                                    aria-label="Cambiar contraseña"
+                                                    onclick="cambiarPassword(<?php echo $supervisor['id']; ?>, '<?php echo htmlspecialchars($supervisor['nombre'], ENT_QUOTES, 'UTF-8'); ?>')">
                                                 <i class="fas fa-key"></i>
                                             </button>
-                                            <button class="btn <?php echo ($supervisor['estado'] ?? 'activo') === 'activo' ? 'btn-outline-secondary' : 'btn-outline-success'; ?>" 
+
+                                            <!-- Activar / Desactivar -->
+                                            <button class="btn btn-sm <?php echo ($supervisor['estado'] ?? 'activo') === 'activo' ? 'btn-outline-secondary' : 'btn-outline-success'; ?> btn-icon" 
                                                     title="<?php echo ($supervisor['estado'] ?? 'activo') === 'activo' ? 'Desactivar' : 'Activar'; ?>"
+                                                    aria-label="<?php echo ($supervisor['estado'] ?? 'activo') === 'activo' ? 'Desactivar' : 'Activar'; ?>"
                                                     onclick="cambiarEstado(<?php echo $supervisor['id']; ?>, '<?php echo ($supervisor['estado'] ?? 'activo') === 'activo' ? 'inactivo' : 'activo'; ?>')">
                                                 <i class="fas fa-<?php echo ($supervisor['estado'] ?? 'activo') === 'activo' ? 'pause' : 'play'; ?>"></i>
                                             </button>
-                                            <button class="btn btn-outline-danger" title="Eliminar"
-                                                    onclick="confirmarEliminar(<?php echo $supervisor['id']; ?>, '<?php echo htmlspecialchars($supervisor['nombre']); ?>')">
+
+                                            <!-- Eliminar -->
+                                            <button class="btn btn-sm btn-outline-danger btn-icon" 
+                                                    title="Eliminar"
+                                                    aria-label="Eliminar supervisor"
+                                                    onclick="confirmarEliminar(<?php echo $supervisor['id']; ?>, '<?php echo htmlspecialchars($supervisor['nombre'], ENT_QUOTES, 'UTF-8'); ?>')">
                                                 <i class="fas fa-trash"></i>
                                             </button>
                                         </div>
@@ -269,7 +282,7 @@ include_once __DIR__ . '/../layouts/header.php';
 
 </div>
 
-<!-- ✅ Modales -->
+<!-- Modales -->
 <!-- Modal Cambiar Password -->
 <div class="modal fade" id="modalPassword" tabindex="-1">
     <div class="modal-dialog">
@@ -354,7 +367,7 @@ include_once __DIR__ . '/../layouts/header.php';
     </div>
 </div>
 
-<!-- ✅ Scripts -->
+<!-- Scripts -->
 <script>
 function cambiarPassword(id, nombre) {
     document.getElementById('passwordId').value = id;
@@ -403,18 +416,19 @@ function confirmarEliminar(id, nombre) {
 }
 </script>
 
-<!-- ✅ Estilos adicionales -->
+<!-- Estilos adicionales -->
 <style>
 .stat-card-mini {
-    background: #fff;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
     border-radius: 12px;
     padding: 16px 20px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    box-shadow: 0 2px 8px var(--shadow-color);
     transition: all 0.3s ease;
 }
 .stat-card-mini:hover {
     transform: translateY(-3px);
-    box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+    box-shadow: 0 8px 25px var(--shadow-hover);
 }
 .stat-card-mini .stat-icon-mini {
     width: 44px;
@@ -430,13 +444,13 @@ function confirmarEliminar(id, nombre) {
     font-size: 0.65rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    color: #6c757d;
+    color: var(--text-secondary);
     font-weight: 600;
 }
 .stat-card-mini .stat-number-mini {
     font-size: 1.5rem;
     font-weight: 700;
-    color: #1a1a2e;
+    color: var(--text-primary);
     line-height: 1.2;
 }
 .badge-status {
@@ -460,18 +474,14 @@ function confirmarEliminar(id, nombre) {
 }
 .card {
     border-radius: 16px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
-}
-.btn-group .btn {
-    border-radius: 6px;
-    padding: 0.25rem 0.6rem;
+    box-shadow: 0 2px 12px var(--shadow-color);
 }
 .table th {
     font-weight: 600;
     font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    color: #6c757d;
+    color: var(--text-secondary);
 }
 </style>
 

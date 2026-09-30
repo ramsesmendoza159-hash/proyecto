@@ -1,7 +1,9 @@
 <?php
 // views/checklists/mis_checklists.php
+// Mis Checklists - VERSIÓN ESTANDARIZADA
 // ✅ FIX: substr seguro sobre $t['descripcion']
 // ✅ FIX: manejo de $fecha null
+// ✅ FIX NUEVO: btn-header-action en el botón Volver
 
 if (!isset($seccion)) $seccion = 'checklists';
 if (!isset($titulo)) $titulo = 'Mis Checklists';
@@ -9,7 +11,6 @@ if (!isset($titulo)) $titulo = 'Mis Checklists';
 $tipos = $tipos ?? [];
 $fecha = $fecha ?? date('Y-m-d');
 
-// ✅ FIX: validar fecha
 if (empty($fecha) || !strtotime($fecha)) {
     $fecha = date('Y-m-d');
 }
@@ -28,8 +29,8 @@ include_once __DIR__ . '/../layouts/header.php';
                 <i class="fas fa-calendar me-1"></i> <?= date('d/m/Y', strtotime($fecha)) ?>
             </p>
         </div>
-        <a href="/proyecto/checklists" class="btn btn-secondary">
-            <i class="fas fa-arrow-left me-1"></i> Volver
+        <a href="/proyecto/checklists" class="btn btn-secondary btn-header-action">
+            <i class="fas fa-arrow-left"></i> Volver
         </a>
     </div>
 
@@ -81,9 +82,11 @@ include_once __DIR__ . '/../layouts/header.php';
                     }
                 }
                 
-                // ✅ FIX: substr seguro
                 $descripcion = $t['descripcion'] ?? '';
                 $descripcion_corta = mb_substr($descripcion, 0, 100);
+                if (mb_strlen($descripcion) > 100) {
+                    $descripcion_corta .= '...';
+                }
             ?>
                 <div class="col-xl-4 col-lg-6">
                     <div class="card border-0 h-100">

@@ -1,9 +1,7 @@
 <?php
 // views/checklists/historial.php
-// ✅ FIX: sanitizar filtros (evita inyección de arrays)
-// ✅ FIX: paginación con LIMIT/OFFSET
-// ✅ FIX: búsqueda por texto
-// ✅ FIX: validar fecha_desde/fecha_hasta
+// Historial de checklists - VERSIÓN ESTANDARIZADA
+// ✅ FIX NUEVO: contenedor .table-actions + btn-icon + btn-header-action
 
 if (!isset($seccion)) $seccion = 'checklists';
 if (!isset($titulo)) $titulo = 'Historial de Checklists';
@@ -11,7 +9,6 @@ if (!isset($titulo)) $titulo = 'Historial de Checklists';
 $registros = $registros ?? [];
 $tipos = $tipos ?? [];
 
-// ✅ FIX: sanitizar cada filtro individualmente (evita arrays maliciosos)
 $filtros = [
     'tipo_id'     => isset($_GET['tipo_id']) && is_scalar($_GET['tipo_id']) ? (int)$_GET['tipo_id'] : '',
     'fecha_desde' => isset($_GET['fecha_desde']) && is_scalar($_GET['fecha_desde']) ? trim((string)$_GET['fecha_desde']) : date('Y-m-01'),
@@ -20,11 +17,9 @@ $filtros = [
     'buscar'      => isset($_GET['buscar']) && is_scalar($_GET['buscar']) ? trim((string)$_GET['buscar']) : '',
 ];
 
-// ✅ FIX: validar fechas
 if (!strtotime($filtros['fecha_desde'])) $filtros['fecha_desde'] = date('Y-m-01');
 if (!strtotime($filtros['fecha_hasta'])) $filtros['fecha_hasta'] = date('Y-m-d');
 
-// ✅ FIX: validar estado contra whitelist
 $estados_validos = ['BORRADOR', 'CERRADO', 'FIRMADO', 'RECHAZADO'];
 if (!empty($filtros['estado']) && !in_array($filtros['estado'], $estados_validos, true)) {
     $filtros['estado'] = '';
@@ -47,8 +42,8 @@ include_once __DIR__ . '/../layouts/header.php';
                 <?php endif; ?>
             </p>
         </div>
-        <a href="/proyecto/checklists" class="btn btn-secondary">
-            <i class="fas fa-arrow-left me-1"></i> Volver
+        <a href="/proyecto/checklists" class="btn btn-secondary btn-header-action">
+            <i class="fas fa-arrow-left"></i> Volver
         </a>
     </div>
 
@@ -129,7 +124,7 @@ include_once __DIR__ . '/../layouts/header.php';
                                 <th>Estado</th>
                                 <th class="text-center">Lecturas</th>
                                 <th class="text-center">Alertas</th>
-                                <th class="text-center">Acciones</th>
+                                <th class="text-center" style="width:150px;">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -170,21 +165,27 @@ include_once __DIR__ . '/../layouts/header.php';
                                             <span class="text-muted">—</span>
                                         <?php endif; ?>
                                     </td>
-                                    <td class="text-center">
-                                        <div class="d-flex justify-content-center gap-1">
+                                    <td>
+                                        <div class="table-actions">
                                             <a href="/proyecto/checklists/ver/<?= (int)$r['id'] ?>" 
-                                               class="btn btn-sm btn-outline-info" title="Ver">
+                                               class="btn btn-sm btn-outline-info btn-icon" 
+                                               title="Ver"
+                                               aria-label="Ver registro">
                                                 <i class="fas fa-eye"></i>
                                             </a>
                                             <?php if (($r['estado'] ?? '') === 'BORRADOR'): ?>
                                                 <a href="/proyecto/checklists/llenar/<?= (int)$r['id'] ?>" 
-                                                   class="btn btn-sm btn-outline-warning" title="Continuar">
+                                                   class="btn btn-sm btn-outline-warning btn-icon" 
+                                                   title="Continuar"
+                                                   aria-label="Continuar llenando">
                                                     <i class="fas fa-edit"></i>
                                                 </a>
                                             <?php endif; ?>
                                             <a href="/proyecto/checklists/reporte/<?= (int)$r['id'] ?>" 
                                                target="_blank" 
-                                               class="btn btn-sm btn-outline-primary" title="Imprimir">
+                                               class="btn btn-sm btn-outline-primary btn-icon" 
+                                               title="Imprimir"
+                                               aria-label="Imprimir">
                                                 <i class="fas fa-print"></i>
                                             </a>
                                         </div>

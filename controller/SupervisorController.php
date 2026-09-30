@@ -1,7 +1,7 @@
 <?php
 // controller/SupervisorController.php
-// Panel del Supervisor - VERSIÓN COMPLETA
-// Maneja: dashboard, órdenes para revisar, supervisiones, aprobar/rechazar
+// Panel del Supervisor - VERSIÓN COMPLETA CORREGIDA
+// ✅ FIX NUEVO: ver_supervision() trae todos los campos necesarios con JOIN completo
 
 require_once __DIR__ . '/../helpers/Controller.php';
 require_once __DIR__ . '/../config/database.php';
@@ -37,9 +37,6 @@ class SupervisorController extends Controller {
         $this->tecnicoModel = new Tecnico();
     }
 
-    /**
-     * Obtener el supervisor_id a partir del email del usuario logueado
-     */
     private function obtenerSupervisorId() {
         try {
             $email = $_SESSION['email'] ?? '';
@@ -51,22 +48,16 @@ class SupervisorController extends Controller {
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
             
             return $result ? (int)$result['id'] : null;
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             error_log("Error en obtenerSupervisorId: " . $e->getMessage());
             return null;
         }
     }
 
-    /**
-     * Dashboard del Supervisor
-     * URL: /supervisor
-     */
     public function index() {
         try {
-            // KPIs
             $kpis = $this->calcularKPIs();
             
-            // Últimas órdenes pendientes de revisar
             $sql = "SELECT o.id, o.num_om, o.titulo, o.status, o.prioridad,
                            o.fecha_finalizacion, o.fecha_creacion,
                            t.nombre as tecnico_nombre
@@ -79,7 +70,7 @@ class SupervisorController extends Controller {
             $stmt->execute();
             $ordenes_pendientes = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             error_log("Error en SupervisorController::index - " . $e->getMessage());
             $kpis = [
                 'total_ordenes' => 0,
@@ -93,24 +84,18 @@ class SupervisorController extends Controller {
         $titulo = 'Panel de Supervisor';
         $seccion = 'supervisor';
         
-        // Pasar variables a la vista
         $supervisor_kpis = $kpis;
         $supervisor_ordenes = $ordenes_pendientes;
         
         require_once __DIR__ . '/../views/supervisor/index.php';
     }
 
-    /**
-     * API JSON - Datos para el dashboard del supervisor
-     * URL: /supervisor/dashboardData
-     */
     public function dashboardData() {
         header('Content-Type: application/json; charset=utf-8');
         
         try {
             $kpis = $this->calcularKPIs();
             
-            // Órdenes pendientes de revisar
             $sql = "SELECT o.id, o.num_om, o.titulo, o.prioridad,
                            o.fecha_finalizacion, o.status,
                            t.nombre as tecnico_nombre
@@ -123,13 +108,13 @@ class SupervisorController extends Controller {
             $stmt->execute();
             $ordenes = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
-            // Formatear
             foreach ($ordenes as &$orden) {
                 $orden['fecha_cierre'] = $orden['fecha_finalizacion'] 
                     ? date('d/m/Y H:i', strtotime($orden['fecha_finalizacion'])) 
                     : 'N/A';
                 $orden['tecnico'] = $orden['tecnico_nombre'] ?? 'Sin asignar';
             }
+            unset($orden);
             
             echo json_encode([
                 'success' => true,
@@ -140,7 +125,7 @@ class SupervisorController extends Controller {
                 'ordenes' => $ordenes
             ]);
             
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             error_log("Error en dashboardData: " . $e->getMessage());
             echo json_encode([
                 'success' => false,
@@ -155,9 +140,6 @@ class SupervisorController extends Controller {
         exit;
     }
 
-    /**
-     * Calcular KPIs para el supervisor
-     */
     private function calcularKPIs() {
         try {
             $sql = "SELECT 
@@ -176,7 +158,7 @@ class SupervisorController extends Controller {
                 'aprobadas' => (int)($result['aprobadas'] ?? 0),
                 'rechazadas' => (int)($result['rechazadas'] ?? 0)
             ];
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             error_log("Error en calcularKPIs: " . $e->getMessage());
             return [
                 'total_ordenes' => 0,
@@ -187,20 +169,12 @@ class SupervisorController extends Controller {
         }
     }
 
-    /**
-     * Listado de órdenes para revisar
-     * URL: /supervisor/ordenes
-     */
     public function ordenes() {
         $titulo = 'Órdenes para Revisar';
         $seccion = 'supervisor';
         require_once __DIR__ . '/../views/supervisor/ordenes.php';
     }
 
-    /**
-     * API JSON - Listado de órdenes con filtros
-     * URL: /supervisor/ordenesList
-     */
     public function ordenesList() {
         header('Content-Type: application/json; charset=utf-8');
         
@@ -220,7 +194,6 @@ class SupervisorController extends Controller {
                 $where[] = "o.status = ?";
                 $params[] = $estado;
             } else {
-                // Por defecto, mostrar CERRADAS y APROBADAS y RECHAZADAS
                 $where[] = "o.status IN ('CERRADA', 'APROBADA', 'RECHAZADA')";
             }
             
@@ -241,7 +214,6 @@ class SupervisorController extends Controller {
             
             $where_sql = implode(' AND ', $where);
             
-            // Total
             $sqlCount = "SELECT COUNT(*) as total 
                          FROM ordenes_mantenimiento o 
                          WHERE $where_sql";
@@ -249,7 +221,6 @@ class SupervisorController extends Controller {
             $stmtCount->execute($params);
             $total = (int)$stmtCount->fetch(PDO::FETCH_ASSOC)['total'];
             
-            // Datos
             $sql = "SELECT o.id, o.num_om, o.titulo, o.status, o.prioridad,
                            o.fecha_finalizacion, o.fecha_creacion,
                            t.nombre as tecnico,
@@ -264,13 +235,13 @@ class SupervisorController extends Controller {
             $stmt->execute($params);
             $ordenes = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
-            // Formatear
             foreach ($ordenes as &$orden) {
                 $orden['estado'] = $orden['status'];
                 $orden['fecha_creacion'] = $orden['fecha_finalizacion'] 
                     ? date('d/m/Y', strtotime($orden['fecha_finalizacion']))
                     : date('d/m/Y', strtotime($orden['fecha_creacion']));
             }
+            unset($orden);
             
             echo json_encode([
                 'success' => true,
@@ -279,7 +250,7 @@ class SupervisorController extends Controller {
                 'paginas' => ceil($total / $limit)
             ]);
             
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             error_log("Error en ordenesList: " . $e->getMessage());
             echo json_encode([
                 'success' => false,
@@ -292,10 +263,6 @@ class SupervisorController extends Controller {
         exit;
     }
 
-    /**
-     * Formulario para revisar una orden
-     * URL: /supervisor/revisar/{id}
-     */
     public function revisar($id) {
         $id = (int)$id;
         if ($id <= 0) {
@@ -317,17 +284,12 @@ class SupervisorController extends Controller {
         require_once __DIR__ . '/../views/supervisor/revisar.php';
     }
 
-    /**
-     * Guardar revisión (aprobar/rechazar)
-     * URL: /supervisor/guardar_revision (POST)
-     */
     public function guardar_revision() {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             header('Location: /proyecto/supervisor/ordenes');
             exit();
         }
         
-        // Verificar CSRF
         $token = $_POST['csrf_token'] ?? '';
         if (!SecurityHelper::verifyCSRFToken($token)) {
             $_SESSION['error'] = 'Token de seguridad inválido';
@@ -358,14 +320,12 @@ class SupervisorController extends Controller {
             
             $supervisor_id = $this->obtenerSupervisorId();
             
-            // Verificar si ya existe una supervisión para esta orden
             $sqlCheck = "SELECT id FROM supervisiones WHERE orden_id = ? LIMIT 1";
             $stmtCheck = $this->db->prepare($sqlCheck);
             $stmtCheck->execute([$orden_id]);
             $existe = $stmtCheck->fetch(PDO::FETCH_ASSOC);
             
             if ($existe) {
-                // UPDATE
                 $sql = "UPDATE supervisiones 
                         SET supervisor_id = ?,
                             calificacion = ?,
@@ -385,7 +345,6 @@ class SupervisorController extends Controller {
                     $existe['id']
                 ]);
             } else {
-                // INSERT
                 $sql = "INSERT INTO supervisiones 
                         (orden_id, supervisor_id, calificacion, estado, observaciones, cumple, fecha_supervision, fecha_creacion)
                         VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())";
@@ -400,7 +359,6 @@ class SupervisorController extends Controller {
                 ]);
             }
             
-            // Actualizar estado de la orden
             $nuevoStatus = ($estado === 'APROBADA') ? 'APROBADA' : 'RECHAZADA';
             $sqlUpdate = "UPDATE ordenes_mantenimiento 
                           SET status = ?, fecha_actualizacion = NOW()
@@ -408,7 +366,6 @@ class SupervisorController extends Controller {
             $stmtUpdate = $this->db->prepare($sqlUpdate);
             $stmtUpdate->execute([$nuevoStatus, $orden_id]);
             
-            // Auditoría
             try {
                 require_once __DIR__ . '/../model/AuditoriaModel.php';
                 $auditoria = new AuditoriaModel();
@@ -422,7 +379,7 @@ class SupervisorController extends Controller {
                     null,
                     ['estado' => $estado, 'calificacion' => $calificacion]
                 );
-            } catch (Exception $e) {
+            } catch (Throwable $e) {
                 error_log("Error auditoría: " . $e->getMessage());
             }
             
@@ -433,8 +390,10 @@ class SupervisorController extends Controller {
             header('Location: /proyecto/supervisor/ordenes');
             exit();
             
-        } catch (Exception $e) {
-            $this->db->rollBack();
+        } catch (Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             error_log("Error en guardar_revision: " . $e->getMessage());
             $_SESSION['error'] = 'Error al guardar la revisión: ' . $e->getMessage();
             header('Location: /proyecto/supervisor/revisar/' . $orden_id);
@@ -442,20 +401,12 @@ class SupervisorController extends Controller {
         }
     }
 
-    /**
-     * Listado de supervisiones del supervisor
-     * URL: /supervisor/supervisiones
-     */
     public function supervisiones() {
         $titulo = 'Mis Supervisiones';
         $seccion = 'supervisor';
         require_once __DIR__ . '/../views/supervisor/supervisiones.php';
     }
 
-    /**
-     * API JSON - Listado de supervisiones
-     * URL: /supervisor/supervisionesList
-     */
     public function supervisionesList() {
         header('Content-Type: application/json; charset=utf-8');
         
@@ -487,13 +438,11 @@ class SupervisorController extends Controller {
             
             $where_sql = implode(' AND ', $where);
             
-            // Total
             $sqlCount = "SELECT COUNT(*) as total FROM supervisiones s WHERE $where_sql";
             $stmtCount = $this->db->prepare($sqlCount);
             $stmtCount->execute($params);
             $total = (int)$stmtCount->fetch(PDO::FETCH_ASSOC)['total'];
             
-            // Datos
             $sql = "SELECT s.id, s.orden_id, s.calificacion, s.estado, s.cumple,
                            s.observaciones, s.fecha_supervision,
                            o.num_om, o.titulo,
@@ -508,12 +457,12 @@ class SupervisorController extends Controller {
             $stmt->execute($params);
             $supervisiones = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
-            // Formatear
             foreach ($supervisiones as &$sup) {
                 $sup['fecha_creacion'] = $sup['fecha_supervision'] 
                     ? date('d/m/Y', strtotime($sup['fecha_supervision']))
                     : 'N/A';
             }
+            unset($sup);
             
             echo json_encode([
                 'success' => true,
@@ -522,7 +471,7 @@ class SupervisorController extends Controller {
                 'paginas' => ceil($total / $limit)
             ]);
             
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             error_log("Error en supervisionesList: " . $e->getMessage());
             echo json_encode([
                 'success' => false,
@@ -535,10 +484,6 @@ class SupervisorController extends Controller {
         exit;
     }
 
-    /**
-     * Ver orden
-     * URL: /supervisor/ver_orden/{id}
-     */
     public function ver_orden($id) {
         $id = (int)$id;
         if ($id <= 0) {
@@ -561,8 +506,9 @@ class SupervisorController extends Controller {
     }
 
     /**
-     * Ver supervisión
-     * URL: /supervisor/ver_supervision/{id}
+     * ✅ FIX NUEVO: JOIN completo con ordenes_mantenimiento, areas, plantas, tecnicos
+     * para que la vista ver_supervision.php tenga todos los campos que necesita:
+     * num_om, orden_titulo, nombre_area, prioridad, tecnico, estado de la orden, etc.
      */
     public function ver_supervision($id) {
         $id = (int)$id;
@@ -573,12 +519,25 @@ class SupervisorController extends Controller {
         }
         
         try {
-            $sql = "SELECT s.*, 
-                           o.num_om, o.titulo,
-                           t.nombre as tecnico
+            $sql = "SELECT 
+                        s.*,
+                        o.num_om,
+                        o.titulo AS orden_titulo,
+                        o.status AS orden_status,
+                        o.prioridad,
+                        o.descripcion_mantenimiento,
+                        o.fecha_creacion AS orden_fecha_creacion,
+                        o.fecha_finalizacion AS orden_fecha_finalizacion,
+                        a.nombre_area,
+                        p.nombre_planta,
+                        t.nombre AS tecnico,
+                        u.nombre AS supervisor_nombre
                     FROM supervisiones s
                     LEFT JOIN ordenes_mantenimiento o ON s.orden_id = o.id
+                    LEFT JOIN areas a ON o.id_area = a.id_area
+                    LEFT JOIN plantas p ON o.id_planta = p.id_planta
                     LEFT JOIN tecnicos t ON o.tecnico_id = t.id
+                    LEFT JOIN usuarios u ON s.supervisor_id = u.id
                     WHERE s.id = ?";
             $stmt = $this->db->prepare($sql);
             $stmt->execute([$id]);
@@ -589,7 +548,7 @@ class SupervisorController extends Controller {
                 header('Location: /proyecto/supervisor/supervisiones');
                 exit();
             }
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             error_log("Error en ver_supervision: " . $e->getMessage());
             $_SESSION['error'] = 'Error al cargar la supervisión';
             header('Location: /proyecto/supervisor/supervisiones');
@@ -601,10 +560,6 @@ class SupervisorController extends Controller {
         require_once __DIR__ . '/../views/supervisor/ver_supervision.php';
     }
 
-    /**
-     * API JSON - Listado de técnicos
-     * URL: /supervisor/tecnicosList
-     */
     public function tecnicosList() {
         header('Content-Type: application/json; charset=utf-8');
         
@@ -618,11 +573,10 @@ class SupervisorController extends Controller {
             $tecnicos = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
             echo json_encode($tecnicos);
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             error_log("Error en tecnicosList: " . $e->getMessage());
             echo json_encode([]);
         }
         exit;
     }
 }
-?>

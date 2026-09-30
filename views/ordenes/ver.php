@@ -1,9 +1,10 @@
 <?php
 // views/ordenes/ver.php
-// Detalle de orden de trabajo - VERSIÓN CORREGIDA
+// Detalle de orden de trabajo - VERSIÓN ESTANDARIZADA
 // ✅ FIX 1: Total ahora usa solo costo_total (no sumaba duplicado)
 // ✅ FIX 2: Botón "Cancelar" solo aparece en estados válidos
 // ✅ FIX 3: uses ENT_QUOTES en el onclick
+// ✅ FIX 4: botones de header usan btn-header-action (estándar unificado)
 
 if (!isset($_SESSION['usuario_id'])) {
     header('Location: /proyecto/auth/login');
@@ -36,22 +37,22 @@ include_once __DIR__ . '/../layouts/header.php';
             </p>
         </div>
         <div class="d-flex gap-2">
-            <a href="/proyecto/ordenes" class="btn btn-secondary">
-                <i class="fas fa-arrow-left me-1"></i> Volver
+            <a href="/proyecto/ordenes" class="btn btn-secondary btn-header-action">
+                <i class="fas fa-arrow-left"></i> Volver
             </a>
             <?php if (in_array($orden['status'] ?? '', ['EJECUTADA', 'EN_PROCESO'])): ?>
-                <a href="/proyecto/ordenes/cerrar/<?php echo $orden['id']; ?>" class="btn btn-success">
-                    <i class="fas fa-check me-1"></i> Cerrar
+                <a href="/proyecto/ordenes/cerrar/<?php echo $orden['id']; ?>" class="btn btn-success btn-header-action">
+                    <i class="fas fa-check"></i> Cerrar
                 </a>
             <?php endif; ?>
             <?php if (($orden['status'] ?? '') === 'PENDIENTE'): ?>
-                <a href="/proyecto/ordenes/editar/<?php echo $orden['id']; ?>" class="btn btn-warning">
-                    <i class="fas fa-edit me-1"></i> Editar
+                <a href="/proyecto/ordenes/editar/<?php echo $orden['id']; ?>" class="btn btn-warning btn-header-action">
+                    <i class="fas fa-edit"></i> Editar
                 </a>
             <?php endif; ?>
             <?php if (in_array($orden['status'] ?? '', ['PENDIENTE', 'EN_PROCESO', 'EJECUTADA'], true)): ?>
-                <button class="btn btn-danger" onclick="confirmarCancelar()">
-                    <i class="fas fa-times me-1"></i> Cancelar
+                <button class="btn btn-danger btn-header-action" onclick="confirmarCancelar()">
+                    <i class="fas fa-times"></i> Cancelar
                 </button>
             <?php endif; ?>
         </div>

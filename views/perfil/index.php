@@ -1,9 +1,7 @@
 <?php
 // views/perfil/index.php
-// Ver perfil - CON CANVAS DE FIRMA MEJORADO + SANITIZACIÓN SVG
-// ✅ FIX: sanitizar SVG de firma antes de mostrarla (evitar XSS almacenado)
-// ✅ FIX: validación de tamaño en cliente
-// ✅ FIX: fetch con manejo de errores HTTP
+// Ver perfil - CON CANVAS DE FIRMA MEJORADO + SANITIZACIÓN SVG CENTRALIZADA
+// ✅ FIX: usar SVGSanitizer en vez de función inline
 
 if (!isset($usuario) || empty($usuario)) {
     $_SESSION['error'] = 'No se pudo cargar la información del usuario.';
@@ -14,35 +12,10 @@ if (!isset($usuario) || empty($usuario)) {
 $titulo = 'Mi Perfil';
 $seccion = 'perfil';
 
+// ✅ FIX: usar el helper centralizado
+require_once __DIR__ . '/../../helpers/SVGSanitizer.php';
+
 $firma_actual = $usuario['firma_svg'] ?? null;
-
-/**
- * ✅ FIX: sanitizar SVG para prevenir XSS persistente
- * Solo permite tags SVG y atributos seguros, bloquea <script>, on*, javascript:
- */
-function sanitizarSVGFirma($svg) {
-    if (empty($svg)) return '';
-
-    // Bloquear <script> y contenido peligroso
-    $svg = preg_replace('#<script[^>]*>.*?</script>#is', '', $svg);
-    $svg = preg_replace('#<script[^>]*/?>#i', '', $svg);
-
-    // Bloquear atributos on* (onclick, onload, etc.)
-    $svg = preg_replace('#\son[a-z]+\s*=\s*"[^"]*"#i', '', $svg);
-    $svg = preg_replace("#\son[a-z]+\s*=\s*'[^']*'#i", '', $svg);
-
-    // Bloquear javascript: y data: con script
-    $svg = preg_replace('#javascript\s*:#i', '', $svg);
-
-    // Bloquear <foreignObject> (permite HTML arbitrario)
-    $svg = preg_replace('#<foreignObject[^>]*>.*?</foreignObject>#is', '', $svg);
-    $svg = preg_replace('#<foreignObject[^>]*/?>#i', '', $svg);
-
-    // Bloquear <iframe>, <embed>, <object>
-    $svg = preg_replace('#<(iframe|embed|object|link|meta|base)[^>]*>#i', '', $svg);
-
-    return $svg;
-}
 
 // Validar si la firma SVG está bien formada
 $firma_es_valida = false;
@@ -50,13 +23,17 @@ $firma_esta_truncada = false;
 
 if (!empty($firma_actual)) {
     $firma_actual = trim($firma_actual);
-    $tiene_inicio = (strpos($firma_actual, '<svg') !== false);
-    $tiene_fin = (strpos($firma_actual, '</svg>') !== false);
+    $tiene_inicio = (stripos($firma_actual, '<svg') !== false);
+    $tiene_fin = (stripos($firma_actual, '</svg>') !== false);
 
     if ($tiene_inicio && $tiene_fin) {
         $firma_es_valida = true;
-        // ✅ FIX: sanitizar antes de mostrar
-        $firma_actual = sanitizarSVGFirma($firma_actual);
+        // ✅ Sanitizar con el helper centralizado
+        $firma_actual = SVGSanitizer::sanitize($firma_actual);
+        if (empty($firma_actual)) {
+            // Si la sanitización devolvió vacío, la firma no es recuperable
+            $firma_es_valida = false;
+        }
     } else {
         if ($tiene_inicio && !$tiene_fin) {
             $firma_esta_truncada = true;
@@ -78,8 +55,8 @@ include_once __DIR__ . '/../layouts/header.php';
                 <i class="fas fa-info-circle me-1"></i> Información de tu cuenta
             </p>
         </div>
-        <a href="/proyecto/dashboard" class="btn btn-secondary">
-            <i class="fas fa-arrow-left me-1"></i> Volver
+        <a href="/proyecto/dashboard" class="btn btn-secondary btn-header-action">
+            <i class="fas fa-arrow-left"></i> Volver
         </a>
     </div>
 

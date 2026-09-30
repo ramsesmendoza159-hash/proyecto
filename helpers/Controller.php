@@ -4,6 +4,7 @@
 // ✅ FIX: view() sin extract() inseguro
 // ✅ FIX: redirect() valida URLs externas
 // ✅ FIX: requirePost() usa http_response_code en vez de header HTTP/1.0
+// ✅ FIX NUEVO: protege 'authHelper' además de 'view' y 'viewFile'
 
 if (!class_exists('AuthHelper')) {
     require_once __DIR__ . '/AuthHelper.php';
@@ -42,6 +43,7 @@ class Controller
 
     /**
      * ✅ FIX: No usa extract(), asigna variables una por una con guard
+     * ✅ FIX NUEVO: protege 'authHelper' (no se puede sobreescribir desde $data)
      */
     protected function view(string $view, array $data = []): void
     {
@@ -51,8 +53,11 @@ class Controller
             die("Vista no encontrada: " . htmlspecialchars($view));
         }
 
+        // ✅ Claves protegidas que NO se pueden sobreescribir
+        $clavesProtegidas = ['view', 'viewFile', 'authHelper'];
+
         foreach ($data as $key => $value) {
-            if ($key === 'view' || $key === 'viewFile') {
+            if (in_array($key, $clavesProtegidas, true)) {
                 continue;
             }
             $$key = $value;
@@ -63,10 +68,12 @@ class Controller
 
     /**
      * ✅ FIX: Bloquea redirecciones a URLs externas
+     * ✅ FIX NUEVO: también bloquea protocol-relative (//evil.com)
      */
     protected function redirect(string $url): void
     {
-        if (preg_match('#^https?://#i', $url)) {
+        // Bloquear http://, https:// y protocol-relative //
+        if (preg_match('#^(https?:)?//#i', $url)) {
             error_log("Intento de redirección externa bloqueado: {$url}");
             $url = '/';
         }

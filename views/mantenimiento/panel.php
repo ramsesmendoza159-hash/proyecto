@@ -2,6 +2,7 @@
 // views/mantenimiento/panel.php
 // Panel de control del mantenimiento preventivo
 // ✅ FIX: botones en outline-* según la regla
+// ✅ FIX NUEVO: contenedor .table-actions + btn-icon + btn-header-action
 
 if (!isset($seccion)) $seccion = 'mantenimiento';
 if (!isset($titulo)) $titulo = 'Panel de Mantenimiento Preventivo';
@@ -28,8 +29,8 @@ include_once __DIR__ . '/../layouts/header.php';
                 <?php endif; ?>
             </p>
         </div>
-        <a href="/proyecto/equipos" class="btn btn-secondary">
-            <i class="fas fa-industry me-1"></i> Ver Equipos
+        <a href="/proyecto/equipos" class="btn btn-secondary btn-header-action">
+            <i class="fas fa-industry"></i> Ver Equipos
         </a>
     </div>
 
@@ -195,7 +196,7 @@ include_once __DIR__ . '/../layouts/header.php';
                                 <th>Estado</th>
                                 <th>Faltante</th>
                                 <th>Responsable</th>
-                                <th class="text-center">Acciones</th>
+                                <th class="text-center" style="width:120px;">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -259,17 +260,25 @@ include_once __DIR__ . '/../layouts/header.php';
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <div class="d-flex justify-content-center gap-1">
+                                        <div class="table-actions">
                                             <a href="/proyecto/mantenimiento/equipo/<?= (int)$alerta['id_equipo'] ?>" 
-                                               class="btn btn-sm btn-outline-info" title="Ver Equipo">
+                                               class="btn btn-sm btn-outline-info btn-icon" 
+                                               title="Ver Equipo"
+                                               aria-label="Ver equipo">
                                                 <i class="fas fa-eye"></i>
                                             </a>
-                                            <button class="btn btn-sm btn-outline-success" 
-                                                    data-bs-toggle="modal" 
-                                                    data-bs-target="#modalCompletar<?= (int)$alerta['id'] ?>"
-                                                    title="Registrar Mantenimiento">
-                                                <i class="fas fa-check"></i>
-                                            </button>
+                                            <?php
+                                            $alerta_id = (int)($alerta['id'] ?? 0);
+                                            if ($alerta_id > 0):
+                                            ?>
+                                                <button class="btn btn-sm btn-outline-success btn-icon" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#modalCompletar<?= $alerta_id ?>"
+                                                        title="Registrar Mantenimiento"
+                                                        aria-label="Registrar mantenimiento">
+                                                    <i class="fas fa-check"></i>
+                                                </button>
+                                            <?php endif; ?>
                                         </div>
                                     </td>
                                 </tr>
@@ -333,10 +342,18 @@ include_once __DIR__ . '/../layouts/header.php';
 
 <!-- Modales de Completar -->
 <?php foreach ($alertas as $alerta): ?>
-<div class="modal fade" id="modalCompletar<?= (int)$alerta['id'] ?>" tabindex="-1">
+    <?php
+    // ✅ FIX: guard contra alertas sin ID (evita colisión de IDs en modales)
+    $alerta_id = (int)($alerta['id'] ?? 0);
+    if ($alerta_id <= 0) {
+        error_log("Mantenimiento panel: alerta sin ID válido, se omite modal");
+        continue;
+    }
+    ?>
+<div class="modal fade" id="modalCompletar<?= $alerta_id ?>" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
-            <form method="POST" action="/proyecto/mantenimiento/completar/<?= (int)$alerta['id'] ?>">
+            <form method="POST" action="/proyecto/mantenimiento/completar/<?= $alerta_id ?>">
                 <input type="hidden" name="csrf_token" value="<?= SecurityHelper::generateCSRFToken() ?>">
                 <div class="modal-header bg-success text-white">
                     <h5 class="modal-title">

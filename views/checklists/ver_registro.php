@@ -1,7 +1,9 @@
 <?php
 // views/checklists/ver_registro.php
+// Detalle de un registro de checklist (solo lectura)
+// ✅ FIX: usar SVGSanitizer centralizado
 
-// ✅ FIX: validar sesión
+// Validar sesión
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -19,6 +21,9 @@ if (!$registro) {
     exit;
 }
 
+// ✅ Usar el helper centralizado
+require_once __DIR__ . '/../../helpers/SVGSanitizer.php';
+
 $secciones = $registro['secciones'] ?? [];
 $matriz = $registro['matriz'] ?? [];
 $firmas = $registro['firmas'] ?? [];
@@ -27,24 +32,6 @@ $estado = $registro['estado'] ?? 'BORRADOR';
 $puede_editar = false; // Solo lectura en esta vista
 
 include_once __DIR__ . '/../layouts/header.php';
-
-/**
- * ✅ FIX: sanitizar SVG para prevenir XSS persistente
- */
-function sanitizarSVG($svg) {
-    if (empty($svg)) return '';
-
-    $svg = preg_replace('#<script[^>]*>.*?</script>#is', '', $svg);
-    $svg = preg_replace('#<script[^>]*/?>#i', '', $svg);
-    $svg = preg_replace('#\son[a-z]+\s*=\s*"[^"]*"#i', '', $svg);
-    $svg = preg_replace("#\son[a-z]+\s*=\s*'[^']*'#i", '', $svg);
-    $svg = preg_replace('#javascript\s*:#i', '', $svg);
-    $svg = preg_replace('#<foreignObject[^>]*>.*?</foreignObject>#is', '', $svg);
-    $svg = preg_replace('#<foreignObject[^>]*/?>#i', '', $svg);
-    $svg = preg_replace('#<(iframe|embed|object|link|meta|base)[^>]*>#i', '', $svg);
-
-    return $svg;
-}
 ?>
 
 <div class="container-fluid px-0">
@@ -100,7 +87,7 @@ function sanitizarSVG($svg) {
         <?php
             $layout = $sec['layout_tipo'] ?? '';
 
-            // ✅ FIX: validar path traversal
+            // Validar path traversal
             if (!preg_match('/^[a-z_]+$/', $layout)) {
                 error_log("Layout inválido en ver_registro: {$layout}");
                 echo '<div class="alert alert-danger">Layout inválido: ' . htmlspecialchars($layout) . '</div>';
@@ -109,7 +96,7 @@ function sanitizarSVG($svg) {
 
             $layout_file = __DIR__ . '/layouts/' . $layout . '.php';
 
-            // ✅ FIX CRÍTICO: usar $seccion_data (NO $seccion)
+            // ✅ Usar $seccion_data (NO $seccion)
             $seccion_data = $sec;
 
             if (file_exists($layout_file)) {
@@ -152,7 +139,7 @@ function sanitizarSVG($svg) {
                                     </small>
                                     <?php if (!empty($f['firma_svg'])): ?>
                                         <div class="mt-2 border rounded p-2" style="background:#fff;max-height:80px;overflow:hidden;">
-                                            <?= sanitizarSVG($f['firma_svg']) ?>
+                                            <?= SVGSanitizer::sanitize($f['firma_svg']) ?>
                                         </div>
                                     <?php endif; ?>
                                 <?php elseif (($f['estado'] ?? '') === 'RECHAZADO'): ?>

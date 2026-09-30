@@ -33,8 +33,8 @@ include_once __DIR__ . '/../layouts/header.php';
                 <i class="fas fa-calendar me-1"></i> <?= date('d/m/Y', strtotime($fecha)) ?>
             </p>
         </div>
-        <a href="/proyecto/monitoreo" class="btn btn-secondary">
-            <i class="fas fa-arrow-left me-1"></i> Volver
+        <a href="/proyecto/monitoreo" class="btn btn-secondary btn-header-action">
+            <i class="fas fa-arrow-left"></i> Volver
         </a>
     </div>
 

@@ -1,6 +1,7 @@
 <?php
 // views/monitoreo/index.php
-// Lista de rutas de monitoreo
+// Lista de rutas de monitoreo - VERSIÓN ESTANDARIZADA
+// ✅ FIX NUEVO: contenedor .table-actions + btn-icon + btn-header-action
 
 if (!isset($seccion)) $seccion = 'monitoreo';
 if (!isset($titulo)) $titulo = 'Monitoreo de Equipos';
@@ -28,12 +29,12 @@ include_once __DIR__ . '/../layouts/header.php';
             </p>
         </div>
         <div class="d-flex gap-2">
-            <a href="/proyecto/monitoreo/mis-rutas" class="btn btn-primary">
-                <i class="fas fa-play-circle me-1"></i> Mis Rutas
+            <a href="/proyecto/monitoreo/mis-rutas" class="btn btn-primary btn-header-action">
+                <i class="fas fa-play-circle"></i> Mis Rutas
             </a>
             <?php if ($es_admin_sup): ?>
-                <a href="/proyecto/monitoreo/crear" class="btn btn-outline-primary">
-                    <i class="fas fa-plus-circle me-1"></i> Nueva Ruta
+                <a href="/proyecto/monitoreo/crear" class="btn btn-outline-primary btn-header-action">
+                    <i class="fas fa-plus-circle"></i> Nueva Ruta
                 </a>
             <?php endif; ?>
         </div>
@@ -136,7 +137,7 @@ include_once __DIR__ . '/../layouts/header.php';
                                 <th>Tipo / Unidad</th>
                                 <th class="text-center">Equipos</th>
                                 <th class="text-center">Horarios</th>
-                                <th class="text-center">Acciones</th>
+                                <th class="text-center" style="width:150px;">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -157,15 +158,24 @@ include_once __DIR__ . '/../layouts/header.php';
                                     <td class="text-center"><span class="badge bg-info bg-opacity-10 text-info"><?= (int)($r['total_equipos'] ?? 0) ?></span></td>
                                     <td class="text-center"><span class="badge bg-primary bg-opacity-10 text-primary"><?= (int)($r['total_horarios'] ?? 0) ?></span></td>
                                     <td>
-                                        <div class="d-flex justify-content-center gap-1">
-                                            <a href="/proyecto/monitoreo/mis-rutas" class="btn btn-sm btn-outline-info" title="Ver">
+                                        <div class="table-actions">
+                                            <a href="/proyecto/monitoreo/mis-rutas" 
+                                               class="btn btn-sm btn-outline-info btn-icon" 
+                                               title="Ver"
+                                               aria-label="Ver rutas">
                                                 <i class="fas fa-eye"></i>
                                             </a>
                                             <?php if ($es_admin_sup): ?>
-                                                <a href="/proyecto/monitoreo/editar/<?= (int)$r['id'] ?>" class="btn btn-sm btn-outline-warning" title="Editar">
+                                                <a href="/proyecto/monitoreo/editar/<?= (int)$r['id'] ?>" 
+                                                   class="btn btn-sm btn-outline-warning btn-icon" 
+                                                   title="Editar"
+                                                   aria-label="Editar ruta">
                                                     <i class="fas fa-edit"></i>
                                                 </a>
-                                                <a href="/proyecto/monitoreo/historial?ruta_id=<?= (int)$r['id'] ?>" class="btn btn-sm btn-outline-primary" title="Historial">
+                                                <a href="/proyecto/monitoreo/historial?ruta_id=<?= (int)$r['id'] ?>" 
+                                                   class="btn btn-sm btn-outline-primary btn-icon" 
+                                                   title="Historial"
+                                                   aria-label="Ver historial">
                                                     <i class="fas fa-history"></i>
                                                 </a>
                                             <?php endif; ?>
@@ -208,7 +218,7 @@ include_once __DIR__ . '/../layouts/header.php';
                                 <th>Operador</th>
                                 <th>Estado</th>
                                 <th class="text-center">Lecturas</th>
-                                <th class="text-center">Acciones</th>
+                                <th class="text-center" style="width:100px;">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -228,10 +238,15 @@ include_once __DIR__ . '/../layouts/header.php';
                                     <td><?= htmlspecialchars($reg['operador_nombre'] ?? 'Sin asignar') ?></td>
                                     <td><span class="badge bg-<?= $estado_badge ?>"><?= htmlspecialchars($reg['estado'] ?? '') ?></span></td>
                                     <td class="text-center"><?= (int)($reg['lecturas_completadas'] ?? 0) ?></td>
-                                    <td class="text-center">
-                                        <a href="/proyecto/monitoreo/ver/<?= (int)$reg['id'] ?>" class="btn btn-sm btn-outline-info" title="Ver">
-                                            <i class="fas fa-eye"></i>
-                                        </a>
+                                    <td>
+                                        <div class="table-actions">
+                                            <a href="/proyecto/monitoreo/ver/<?= (int)$reg['id'] ?>" 
+                                               class="btn btn-sm btn-outline-info btn-icon" 
+                                               title="Ver"
+                                               aria-label="Ver registro">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                        </div>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>

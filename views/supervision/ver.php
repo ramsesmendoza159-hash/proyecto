@@ -44,11 +44,11 @@ $estado = $supervision['estado'] ?? 'PENDIENTE';
             </p>
         </div>
         <div class="d-flex gap-2">
-            <a href="/proyecto/supervision" class="btn btn-secondary">
-                <i class="fas fa-arrow-left me-1"></i> Volver
+            <a href="/proyecto/supervision" class="btn btn-secondary btn-header-action">
+                <i class="fas fa-arrow-left"></i> Volver
             </a>
-            <a href="/proyecto/supervision/editar/<?= htmlspecialchars($supervision['id'] ?? '', ENT_QUOTES, 'UTF-8') ?>" class="btn btn-warning">
-                <i class="fas fa-edit me-1"></i> Editar
+            <a href="/proyecto/supervision/editar/<?= htmlspecialchars($supervision['id'] ?? '', ENT_QUOTES, 'UTF-8') ?>" class="btn btn-warning btn-header-action">
+                <i class="fas fa-edit"></i> Editar
             </a>
         </div>
     </div>

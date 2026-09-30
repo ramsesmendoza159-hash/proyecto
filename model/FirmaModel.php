@@ -1,8 +1,12 @@
 <?php
-
+// model/FirmaModel.php
+// Modelo de firmas secuenciales de órdenes
+// ✅ FIX: sanitizar firma_svg con SVGSanitizer (defensa en profundidad)
+// ✅ FIX: hash calculado sobre el SVG YA sanitizado
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../helpers/FirmaSecuenciaHelper.php';
+require_once __DIR__ . '/../helpers/SVGSanitizer.php';
 
 class FirmaModel {
 
@@ -36,7 +40,7 @@ class FirmaModel {
 
             $this->db->beginTransaction();
 
-            // ✅ FIX 3: bloquear la orden para evitar race condition
+            // Bloquear la orden para evitar race condition
             $stmtLock = $this->db->prepare("SELECT id FROM ordenes_mantenimiento WHERE id = ? FOR UPDATE");
             $stmtLock->execute([$orden_id]);
 
@@ -130,7 +134,7 @@ class FirmaModel {
     }
 
     /**
-     * ✅ FIX 7: obtener una firma específica por ID.
+     * Obtener una firma específica por ID.
      */
     public function obtenerFirmaPorId($id) {
         try {
@@ -148,7 +152,7 @@ class FirmaModel {
     }
 
     /**
-     * ✅ FIX 5: filtra por c.activo = 1 para evitar traer configs antiguas.
+     * Filtra por c.activo = 1 para evitar traer configs antiguas.
      */
     public function obtenerPasoActual($orden_id) {
         try {
@@ -199,8 +203,8 @@ class FirmaModel {
 
     /**
      * Registra una firma.
-     * ✅ FIX 1: valida que el paso sea el actual.
-     * ✅ FIX 2: valida el rol del usuario.
+     * ✅ FIX 1: sanitiza el SVG con SVGSanitizer (defensa en profundidad)
+     * ✅ FIX 2: el hash se calcula sobre el SVG YA sanitizado
      *
      * @param int $orden_id
      * @param int $paso_id
@@ -215,26 +219,33 @@ class FirmaModel {
             $orden_id = (int)$orden_id;
             $paso_id  = (int)$paso_id;
 
-            // Validaciones de formato
+            // ==========================================
+            // ✅ FIX: Sanitizar el SVG ANTES de cualquier cosa
+            // ==========================================
             if (!empty($firma_svg)) {
-                if (strpos($firma_svg, '<svg') === false || strpos($firma_svg, '</svg>') === false) {
-                    return ['success' => false, 'mensaje' => 'La firma no tiene formato SVG válido'];
+                // Validación básica de formato
+                if (!SVGSanitizer::esFormatoValido($firma_svg)) {
+                    return ['success' => false, 'mensaje' => 'La firma no tiene formato SVG válido o excede el tamaño máximo'];
                 }
-                if (strlen($firma_svg) > 204800) {
-                    return ['success' => false, 'mensaje' => 'La firma excede el tamaño máximo permitido (200 KB)'];
+
+                // Sanitizar
+                $firma_svg = SVGSanitizer::sanitize($firma_svg);
+
+                if (empty($firma_svg)) {
+                    return ['success' => false, 'mensaje' => 'La firma no pudo ser procesada (contiene elementos no permitidos)'];
                 }
             }
 
             $this->db->beginTransaction();
 
-            // ✅ FIX 1: validar que el paso sea el actual
+            // Validar que el paso sea el actual
             $paso_actual = $this->obtenerPasoActual($orden_id);
             if (!$paso_actual || (int)$paso_actual['id'] !== $paso_id) {
                 $this->db->rollBack();
                 return ['success' => false, 'mensaje' => 'Este paso no es el actual o ya fue procesado'];
             }
 
-            // ✅ FIX 2: validar el rol del usuario
+            // Validar el rol del usuario
             $rol_usuario = $_SESSION['rol'] ?? '';
             if ($rol_usuario !== $paso_actual['rol_firmante']) {
                 $this->db->rollBack();
@@ -266,14 +277,18 @@ class FirmaModel {
                 $usuario = $stmtFirma->fetch(PDO::FETCH_ASSOC);
 
                 if (!empty($usuario['firma_svg'])) {
-                    if (strpos($usuario['firma_svg'], '</svg>') === false) {
+                    // ✅ FIX: sanitizar también la firma del perfil
+                    $firma_perfil = SVGSanitizer::sanitize($usuario['firma_svg']);
+
+                    if (empty($firma_perfil)) {
                         $this->db->rollBack();
                         return [
                             'success' => false,
-                            'mensaje' => 'La firma guardada en tu perfil está truncada. Vuelve a dibujarla en /perfil'
+                            'mensaje' => 'La firma guardada en tu perfil no es válida. Vuelve a dibujarla en /perfil'
                         ];
                     }
-                    $firma_svg = $usuario['firma_svg'];
+
+                    $firma_svg = $firma_perfil;
                     $uso_firma_perfil = true;
                 }
             }
@@ -286,6 +301,7 @@ class FirmaModel {
                 ];
             }
 
+            // ✅ FIX: hash sobre el SVG sanitizado
             $firma_hash = hash('sha256', $firma_svg);
 
             $sql = "UPDATE firmas_orden 
@@ -381,8 +397,6 @@ class FirmaModel {
 
     /**
      * Rechaza un paso de firma.
-     * ✅ FIX 1: valida que el paso sea el actual.
-     * ✅ FIX 2: valida el rol del usuario.
      */
     public function rechazar($orden_id, $paso_id, $usuario_id, $usuario_nombre, $motivo) {
         try {
@@ -395,14 +409,12 @@ class FirmaModel {
 
             $this->db->beginTransaction();
 
-            // ✅ FIX 1: validar que el paso sea el actual
             $paso_actual = $this->obtenerPasoActual($orden_id);
             if (!$paso_actual || (int)$paso_actual['id'] !== $paso_id) {
                 $this->db->rollBack();
                 return ['success' => false, 'mensaje' => 'Este paso no es el actual o ya fue procesado'];
             }
 
-            // ✅ FIX 2: validar el rol del usuario
             $rol_usuario = $_SESSION['rol'] ?? '';
             if ($rol_usuario !== $paso_actual['rol_firmante']) {
                 $this->db->rollBack();
@@ -551,7 +563,7 @@ class FirmaModel {
     }
 
     /**
-     * ✅ FIX 8: alias semántico más claro.
+     * Alias semántico más claro.
      */
     public function contarFirmasPendientesPorRol($rol) {
         return $this->contarPendientesPorRol($rol);
@@ -562,7 +574,7 @@ class FirmaModel {
     // ==========================================
 
     /**
-     * ✅ FIX 4: usa transacción.
+     * Actualiza la secuencia de firmas configurada.
      */
     public function actualizarSecuencia($pasos) {
         try {
@@ -609,7 +621,7 @@ class FirmaModel {
     // ==========================================
 
     /**
-     * ✅ FIX 6: valida que firma_svg no sea null.
+     * Verifica que el hash de una firma coincida con su SVG.
      */
     public function verificarFirmaHash($firma_id) {
         try {

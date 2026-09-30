@@ -1,6 +1,8 @@
 <?php
 // views/almacen/index.php
 // Dashboard de Almacén - VERSIÓN COMPLETA CON GRÁFICOS
+// ✅ FIX NUEVO: gráficos con MutationObserver para cambios de tema
+// ✅ FIX NUEVO: color de borde del doughnut adaptable al tema
 
 if (!isset($_SESSION['usuario_id'])) {
     header('Location: /proyecto/auth/login');
@@ -50,17 +52,17 @@ include_once __DIR__ . '/../layouts/header.php';
                 <i class="fas fa-boxes me-1"></i> <?= $estadisticas['total'] ?? 0 ?> items registrados
             </p>
         </div>
-        <div>
-            <a href="/proyecto/almacen/entrada_seleccion" class="btn btn-success btn-sm">
-                <i class="fas fa-arrow-down me-1"></i> Entrada
+          <div class="d-flex gap-2">
+          <a href="/proyecto/almacen/entrada_seleccion" class="btn btn-success btn-header-action">
+                   <i class="fas fa-arrow-down"></i> Entrada
             </a>
-            <a href="/proyecto/almacen/salida_seleccion" class="btn btn-danger btn-sm">
-                <i class="fas fa-arrow-up me-1"></i> Salida
-            </a>
-            <a href="/proyecto/almacen/movimientos" class="btn btn-info btn-sm">
-                <i class="fas fa-history me-1"></i> Movimientos
-            </a>
-        </div>
+             <a href="/proyecto/almacen/salida_seleccion" class="btn btn-danger btn-header-action">
+               <i class="fas fa-arrow-up"></i> Salida
+                </a>
+                <a href="/proyecto/almacen/movimientos" class="btn btn-info text-white btn-header-action">
+                    <i class="fas fa-history"></i> Movimientos
+                </a>
+            </div>
     </div>
 
     <!-- Tarjetas de Estadísticas -->
@@ -374,97 +376,193 @@ include_once __DIR__ . '/../layouts/header.php';
 <!-- Scripts con Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+// ==========================================
+// Variables globales
+// ==========================================
+let chartMovimientos = null;
+let chartTopProductos = null;
 
-    // 1. Gráfico de Movimientos (Últimos 30 días)
+// ==========================================
+// Función para obtener colores según el tema
+// ==========================================
+function getThemeColorsAlmacen() {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    return {
+        isDark: isDark,
+        text: isDark ? '#ffffff' : '#1a1a2e',
+        grid: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+        tooltipBg: isDark ? '#1a1a2e' : '#ffffff',
+        tooltipBorder: isDark ? '#2a2a45' : '#e9ecef',
+        borderColor: isDark ? '#131320' : '#ffffff'
+    };
+}
+
+// ==========================================
+// Función principal que crea los gráficos
+// ==========================================
+function crearGraficosAlmacen() {
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js no está cargado aún');
+        return;
+    }
+
+    const colors = getThemeColorsAlmacen();
+
+    Chart.defaults.color = colors.text;
+    Chart.defaults.borderColor = colors.grid;
+    Chart.defaults.font.family = "'Inter', 'Segoe UI', sans-serif";
+    Chart.defaults.font.size = 12;
+
+    // Destruir gráficos existentes
+    if (chartMovimientos) { chartMovimientos.destroy(); chartMovimientos = null; }
+    if (chartTopProductos) { chartTopProductos.destroy(); chartTopProductos = null; }
+
+    // ==========================================
+    // 1. Gráfico de Movimientos
+    // ==========================================
     <?php if (!empty($movimientos_por_mes)): ?>
-    const ctxMovimientos = document.getElementById('movimientosChart').getContext('2d');
-    const meses = <?= json_encode(array_column($movimientos_por_mes, 'mes_nombre')) ?>;
-    const entradas = <?= json_encode(array_column($movimientos_por_mes, 'entradas')) ?>;
-    const salidas = <?= json_encode(array_column($movimientos_por_mes, 'salidas')) ?>;
+    const canvasMov = document.getElementById('movimientosChart');
+    if (canvasMov) {
+        const meses = <?= json_encode(array_column($movimientos_por_mes, 'mes_nombre')) ?>;
+        const entradas = <?= json_encode(array_column($movimientos_por_mes, 'entradas')) ?>;
+        const salidas = <?= json_encode(array_column($movimientos_por_mes, 'salidas')) ?>;
 
-    new Chart(ctxMovimientos, {
-        type: 'bar',
-        data: {
-            labels: meses,
-            datasets: [
-                {
-                    label: 'Entradas',
-                    data: entradas,
-                    backgroundColor: 'rgba(59, 165, 93, 0.7)',
-                    borderColor: '#3ba55d',
-                    borderWidth: 1,
-                    borderRadius: 4
-                },
-                {
-                    label: 'Salidas',
-                    data: salidas,
-                    backgroundColor: 'rgba(237, 66, 69, 0.7)',
-                    borderColor: '#ed4245',
-                    borderWidth: 1,
-                    borderRadius: 4
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'top',
-                    labels: { font: { size: 11 } }
-                }
+        chartMovimientos = new Chart(canvasMov.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: meses,
+                datasets: [
+                    {
+                        label: 'Entradas',
+                        data: entradas,
+                        backgroundColor: 'rgba(59, 165, 93, 0.7)',
+                        borderColor: '#3ba55d',
+                        borderWidth: 1,
+                        borderRadius: 4
+                    },
+                    {
+                        label: 'Salidas',
+                        data: salidas,
+                        backgroundColor: 'rgba(237, 66, 69, 0.7)',
+                        borderColor: '#ed4245',
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }
+                ]
             },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: { stepSize: 1 }
-                }
-            }
-        }
-    });
-    <?php endif; ?>
-
-    // 2. Gráfico de Top Productos
-    <?php if (!empty($top_productos)): ?>
-    const ctxTop = document.getElementById('topProductosChart').getContext('2d');
-    const nombres = <?= json_encode(array_column($top_productos, 'nombre')) ?>;
-    const movimientos = <?= json_encode(array_column($top_productos, 'total_movimientos')) ?>;
-
-    const colores = [
-        '#5865f2', '#3ba55d', '#faa61a', '#ed4245', '#60a5fa',
-        '#a18cd1', '#2ed573', '#ff6b6b', '#fdcb6e', '#487eb0'
-    ];
-
-    new Chart(ctxTop, {
-        type: 'doughnut',
-        data: {
-            labels: nombres,
-            datasets: [{
-                data: movimientos,
-                backgroundColor: colores.slice(0, movimientos.length),
-                borderColor: '#2b2d31',
-                borderWidth: 2
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: { 
-                        font: { size: 9 },
-                        padding: 8,
-                        boxWidth: 12
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            color: colors.text,
+                            font: { size: 11 },
+                            usePointStyle: true,
+                            pointStyle: 'circle'
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: colors.tooltipBg,
+                        titleColor: colors.text,
+                        bodyColor: colors.text,
+                        borderColor: colors.tooltipBorder,
+                        borderWidth: 1
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { stepSize: 1, color: colors.text },
+                        grid: { color: colors.grid, drawBorder: false }
+                    },
+                    x: {
+                        ticks: { color: colors.text },
+                        grid: { display: false }
                     }
                 }
-            },
-            cutout: '65%'
-        }
-    });
+            }
+        });
+    }
     <?php endif; ?>
 
+    // ==========================================
+    // 2. Gráfico de Top Productos
+    // ==========================================
+    <?php if (!empty($top_productos)): ?>
+    const canvasTop = document.getElementById('topProductosChart');
+    if (canvasTop) {
+        const nombres = <?= json_encode(array_column($top_productos, 'nombre')) ?>;
+        const movimientos = <?= json_encode(array_column($top_productos, 'total_movimientos')) ?>;
+
+        const colores = [
+            '#5865f2', '#3ba55d', '#faa61a', '#ed4245', '#60a5fa',
+            '#a18cd1', '#2ed573', '#ff6b6b', '#fdcb6e', '#487eb0'
+        ];
+
+        chartTopProductos = new Chart(canvasTop.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: nombres,
+                datasets: [{
+                    data: movimientos,
+                    backgroundColor: colores.slice(0, movimientos.length),
+                    borderColor: colors.borderColor,
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            color: colors.text,
+                            font: { size: 9 },
+                            padding: 8,
+                            boxWidth: 12
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: colors.tooltipBg,
+                        titleColor: colors.text,
+                        bodyColor: colors.text,
+                        borderColor: colors.tooltipBorder,
+                        borderWidth: 1
+                    }
+                },
+                cutout: '65%'
+            }
+        });
+    }
+    <?php endif; ?>
+}
+
+// ==========================================
+// INICIALIZACIÓN
+// ==========================================
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(function() {
+        crearGraficosAlmacen();
+    }, 200);
+});
+
+// ==========================================
+// OBSERVER para cambios de tema
+// ==========================================
+const themeObserverAlmacen = new MutationObserver(function(mutations) {
+    mutations.forEach(function(mutation) {
+        if (mutation.attributeName === 'data-theme') {
+            setTimeout(crearGraficosAlmacen, 100);
+        }
+    });
+});
+
+themeObserverAlmacen.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['data-theme']
 });
 </script>
 

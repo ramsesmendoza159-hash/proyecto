@@ -1,8 +1,4 @@
 <?php
-// controller/ReporteController.php
-// VERSIÓN CORREGIDA
-// ✅ FIX: Agregado método inventario() que faltaba
-// ✅ FIX: catch (Throwable) en vez de Exception
 
 require_once __DIR__ . '/../helpers/Controller.php';
 require_once __DIR__ . '/../model/OrdenTrabajo.php';
@@ -153,6 +149,11 @@ class ReporteController extends Controller {
         require_once __DIR__ . '/../views/reportes/tecnicos.php';
     }
 
+    /**
+     * ✅ FIX CRÍTICO: usa bindValue con PARAM_INT para LIMIT/OFFSET
+     * porque la conexión tiene PDO::ATTR_EMULATE_PREPARES = false
+     * y MariaDB rechaza placeholders como strings en LIMIT/OFFSET.
+     */
     public function tecnicosData() {
         header('Content-Type: application/json; charset=utf-8');
 
@@ -185,11 +186,19 @@ class ReporteController extends Controller {
             }
 
             $sql .= " GROUP BY t.id ORDER BY completadas DESC LIMIT ? OFFSET ?";
-            $params[] = $limit;
-            $params[] = $offset;
 
             $stmt = $this->db->prepare($sql);
-            $stmt->execute($params);
+
+            // ✅ FIX: bindValue explícito con PARAM_INT para LIMIT/OFFSET
+            $i = 1;
+            foreach ($params as $p) {
+                $tipo = is_int($p) ? PDO::PARAM_INT : PDO::PARAM_STR;
+                $stmt->bindValue($i++, $p, $tipo);
+            }
+            $stmt->bindValue($i++, (int)$limit, PDO::PARAM_INT);
+            $stmt->bindValue($i++, (int)$offset, PDO::PARAM_INT);
+
+            $stmt->execute();
             $tecnicos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             echo json_encode([
@@ -254,9 +263,6 @@ class ReporteController extends Controller {
         require_once __DIR__ . '/../views/reportes/supervision.php';
     }
 
-    /**
-     * ✅ NUEVO: Reporte de Inventario (faltaba el método)
-     */
     public function inventario() {
         try {
             $filtros = [

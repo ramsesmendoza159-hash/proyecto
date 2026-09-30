@@ -1,20 +1,34 @@
 <?php
 // views/mantenimiento/editar_mantenimiento.php
-// Formulario para editar un mantenimiento registrado
+// Formulario para editar un mantenimiento registrado - VERSIÓN ESTANDARIZADA
 // ✅ FIX: NO cargar EquiposModel dentro de la vista (usar $equipo del controlador)
-// ✅ FIX: guard si $equipo no viene
+// ✅ FIX NUEVO: guard robusto para $equipo y $mantenimiento
+// ✅ FIX NUEVO: botones de header con btn-header-action
 
 if (!isset($seccion)) $seccion = 'mantenimiento';
 if (!isset($titulo)) $titulo = 'Editar Mantenimiento';
 
+// ✅ Guards: si el controlador no pasa los datos, no romper
 $mantenimiento = $mantenimiento ?? null;
-$equipo = $equipo ?? null;
-$tecnicos = $tecnicos ?? [];
-$proveedores = $proveedores ?? [];
+$equipo        = $equipo ?? null;
+$tecnicos      = $tecnicos ?? [];
+$proveedores   = $proveedores ?? [];
 
 if (!$mantenimiento) {
+    $_SESSION['error'] = 'Mantenimiento no encontrado';
     header('Location: /proyecto/mantenimiento/panel');
     exit;
+}
+
+// ✅ Si $equipo no viene del controlador, mostrar warning pero no romper
+$equipo_faltante = false;
+if (!$equipo) {
+    $equipo_faltante = true;
+    $equipo = [
+        'id_equipo' => $mantenimiento['id_equipo'] ?? 0,
+        'nombre_equipo' => 'Equipo no cargado (ID: ' . ($mantenimiento['id_equipo'] ?? '?') . ')',
+        'codigo' => 'N/A',
+    ];
 }
 
 include_once __DIR__ . '/../layouts/header.php';
@@ -31,10 +45,18 @@ include_once __DIR__ . '/../layouts/header.php';
                 <i class="fas fa-info-circle me-1"></i> Modifica los datos del mantenimiento registrado
             </p>
         </div>
-        <a href="/proyecto/mantenimiento/detalle-mantenimiento/<?= (int)$mantenimiento['id'] ?>" class="btn btn-secondary">
-            <i class="fas fa-arrow-left me-1"></i> Volver
+        <a href="/proyecto/mantenimiento/detalle-mantenimiento/<?= (int)$mantenimiento['id'] ?>" class="btn btn-secondary btn-header-action">
+            <i class="fas fa-arrow-left"></i> Volver
         </a>
     </div>
+
+    <?php if ($equipo_faltante): ?>
+        <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>Equipo no cargado.</strong> El controlador no pasó la variable <code>$equipo</code>.
+            Verificá que <code>MantenimientoEquiposController::editarMantenimiento()</code> la esté enviando.
+        </div>
+    <?php endif; ?>
 
     <!-- Info del equipo (no editable) -->
     <div class="alert alert-info">

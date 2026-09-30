@@ -37,12 +37,12 @@ include_once __DIR__ . '/../layouts/header.php';
             </p>
         </div>
         <div class="d-flex gap-2">
-            <a href="/proyecto/mantenimiento/equipo/<?= $mantenimiento['id_equipo'] ?>" class="btn btn-secondary">
-                <i class="fas fa-arrow-left me-1"></i> Volver al Equipo
+            <a href="/proyecto/mantenimiento/equipo/<?= $mantenimiento['id_equipo'] ?>" class="btn btn-secondary btn-header-action">
+                <i class="fas fa-arrow-left"></i> Volver al Equipo
             </a>
             <?php if (($rol = $_SESSION['rol'] ?? '') === 'admin' || $rol === 'supervisor'): ?>
-                <button onclick="window.print()" class="btn btn-outline-primary">
-                    <i class="fas fa-print me-1"></i> Imprimir
+                <button onclick="window.print()" class="btn btn-outline-primary btn-header-action">
+                    <i class="fas fa-print"></i> Imprimir
                 </button>
             <?php endif; ?>
         </div>

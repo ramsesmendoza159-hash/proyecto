@@ -1,5 +1,7 @@
 <?php
 // views/checklists/index.php
+// Listado de tipos de checklist - VERSIÓN ESTANDARIZADA
+// ✅ FIX NUEVO: contenedor .table-actions + btn-icon + btn-header-action
 
 if (!isset($seccion)) $seccion = 'checklists';
 if (!isset($titulo)) $titulo = 'Checklists Operativos';
@@ -20,8 +22,8 @@ include_once __DIR__ . '/../layouts/header.php';
                 <i class="fas fa-info-circle me-1"></i> Formularios de inspección periódica
             </p>
         </div>
-        <a href="/proyecto/checklists/mis-checklists" class="btn btn-primary">
-            <i class="fas fa-play-circle me-1"></i> Mis Checklists
+        <a href="/proyecto/checklists/mis-checklists" class="btn btn-primary btn-header-action">
+            <i class="fas fa-play-circle"></i> Mis Checklists
         </a>
     </div>
 
@@ -50,7 +52,7 @@ include_once __DIR__ . '/../layouts/header.php';
                                 <th>Área</th>
                                 <th>Frecuencia</th>
                                 <th>Secciones</th>
-                                <th class="text-center">Acciones</th>
+                                <th class="text-center" style="width:120px;">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -70,13 +72,17 @@ include_once __DIR__ . '/../layouts/header.php';
                                     </td>
                                     <td><span class="badge bg-secondary"><?= (int)$t['total_secciones'] ?></span></td>
                                     <td>
-                                        <div class="d-flex justify-content-center gap-1">
+                                        <div class="table-actions">
                                             <a href="/proyecto/checklists/ver/<?= (int)$t['id'] ?>" 
-                                               class="btn btn-sm btn-outline-info" title="Ver">
+                                               class="btn btn-sm btn-outline-info btn-icon" 
+                                               title="Ver"
+                                               aria-label="Ver checklist">
                                                 <i class="fas fa-eye"></i>
                                             </a>
                                             <a href="/proyecto/checklists/iniciar/<?= (int)$t['id'] ?>" 
-                                               class="btn btn-sm btn-outline-success" title="Iniciar">
+                                               class="btn btn-sm btn-outline-success btn-icon" 
+                                               title="Iniciar"
+                                               aria-label="Iniciar checklist">
                                                 <i class="fas fa-play"></i>
                                             </a>
                                         </div>

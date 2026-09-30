@@ -1,6 +1,8 @@
 <?php
 // views/tecnicos/index.php
 // Gestión de Técnicos - VERSIÓN ESTANDARIZADA
+// ✅ FIX: botón "Editar" cambiado a btn-outline-warning (estándar de la regla de oro)
+// ✅ FIX: contenedor de acciones usa .table-actions (d-flex justify-content-center gap-1)
 
 // Verificar sesión
 if (!isset($_SESSION['usuario_id']) || ($_SESSION['rol'] ?? '') !== 'admin') {
@@ -35,12 +37,12 @@ include_once __DIR__ . '/../layouts/header.php';
                 <i class="fas fa-list me-1"></i> <?= $estadisticas['total'] ?? 0 ?> técnicos registrados
             </p>
         </div>
-        <a href="/proyecto/tecnicos/crear" class="btn btn-primary">
-            <i class="fas fa-plus-circle me-2"></i>Nuevo Técnico
+        <a href="/proyecto/tecnicos/crear" class="btn btn-primary btn-header-action">
+            <i class="fas fa-plus-circle"></i>Nuevo Técnico
         </a>
     </div>
 
-    <!-- Tarjetas de Estadísticas - ESTILO ESTÁNDAR -->
+    <!-- Tarjetas de Estadísticas -->
     <div class="row g-3 mb-4">
 
         <!-- 1. Total Técnicos -->
@@ -230,15 +232,19 @@ include_once __DIR__ . '/../layouts/header.php';
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <div class="d-flex justify-content-center gap-1">
+                                        <div class="table-actions">
                                             <a href="/proyecto/tecnicos/editar/<?= $tecnico['id'] ?>" 
-                                               class="btn btn-sm btn-outline-primary" title="Editar">
+                                               class="btn btn-sm btn-outline-warning btn-icon" 
+                                               title="Editar"
+                                               aria-label="Editar técnico">
                                                 <i class="fas fa-edit"></i>
                                             </a>
-                                            <button type="button" class="btn btn-sm btn-outline-danger" 
-                                                    onclick="confirmarEliminar(<?= $tecnico['id'] ?>, '<?= htmlspecialchars($tecnico['nombre'] ?? '') ?>')" 
-                                                    title="Eliminar">
-                                                <i class="fas fa-trash-alt"></i>
+                                            <button type="button" 
+                                                    class="btn btn-sm btn-outline-danger btn-icon" 
+                                                    onclick="confirmarEliminar(<?= $tecnico['id'] ?>, '<?= htmlspecialchars($tecnico['nombre'] ?? '', ENT_QUOTES, 'UTF-8') ?>')" 
+                                                    title="Eliminar"
+                                                    aria-label="Eliminar técnico">
+                                                <i class="fas fa-trash"></i>
                                             </button>
                                         </div>
                                     </td>

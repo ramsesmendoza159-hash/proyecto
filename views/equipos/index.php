@@ -1,7 +1,8 @@
 <?php
 // views/equipos/index.php
-// Gestión de Equipos - Listado
+// Gestión de Equipos - Listado - VERSIÓN ESTANDARIZADA
 // ✅ FIX: botón "Ver" cambiado a btn-outline-info
+// ✅ FIX: contenedor .table-actions + btn-icon + btn-header-action
 
 if (!isset($seccion)) $seccion = 'equipos';
 if (!isset($titulo)) $titulo = 'Gestión de Equipos';
@@ -31,8 +32,8 @@ include_once __DIR__ . '/../layouts/header.php';
             </p>
         </div>
         <?php if (in_array($rol, ['admin', 'supervisor'])): ?>
-            <a href="/proyecto/equipos/crear" class="btn btn-primary">
-                <i class="fas fa-plus-circle me-1"></i> Nuevo Equipo
+            <a href="/proyecto/equipos/crear" class="btn btn-primary btn-header-action">
+                <i class="fas fa-plus-circle"></i> Nuevo Equipo
             </a>
         <?php endif; ?>
     </div>
@@ -170,7 +171,7 @@ include_once __DIR__ . '/../layouts/header.php';
                             <th>Marca/Modelo</th>
                             <th>Planta / Área</th>
                             <th>Estado</th>
-                            <th class="text-center">Acciones</th>
+                            <th class="text-center" style="width:180px;">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -220,19 +221,26 @@ include_once __DIR__ . '/../layouts/header.php';
                                         </span>
                                     </td>
                                     <td>
-                                        <div class="d-flex justify-content-center gap-1">
-                                            <!-- Ver: outline-info -->
-                                            <a href="/proyecto/equipos/ver/<?= (int)$equipo['id_equipo'] ?>" class="btn btn-sm btn-outline-info" title="Ver">
+                                        <div class="table-actions">
+                                            <a href="/proyecto/equipos/ver/<?= (int)$equipo['id_equipo'] ?>" 
+                                               class="btn btn-sm btn-outline-info btn-icon" 
+                                               title="Ver"
+                                               aria-label="Ver equipo">
                                                 <i class="fas fa-eye"></i>
                                             </a>
 
                                             <?php if (in_array($rol, ['admin', 'supervisor'])): ?>
-                                                <a href="/proyecto/equipos/editar/<?= (int)$equipo['id_equipo'] ?>" class="btn btn-sm btn-outline-warning" title="Editar">
+                                                <a href="/proyecto/equipos/editar/<?= (int)$equipo['id_equipo'] ?>" 
+                                                   class="btn btn-sm btn-outline-warning btn-icon" 
+                                                   title="Editar"
+                                                   aria-label="Editar equipo">
                                                     <i class="fas fa-edit"></i>
                                                 </a>
 
                                                 <?php if ($rol === 'admin'): ?>
-                                                    <button class="btn btn-sm btn-outline-danger" title="Eliminar"
+                                                    <button class="btn btn-sm btn-outline-danger btn-icon" 
+                                                            title="Eliminar"
+                                                            aria-label="Eliminar equipo"
                                                             onclick="confirmarEliminar(<?= (int)$equipo['id_equipo'] ?>, '<?= htmlspecialchars($equipo['nombre_equipo'] ?? '', ENT_QUOTES, 'UTF-8') ?>')">
                                                         <i class="fas fa-trash"></i>
                                                     </button>

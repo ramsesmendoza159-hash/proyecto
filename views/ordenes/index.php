@@ -1,15 +1,15 @@
 <?php
 // views/ordenes/index.php
-// Listado unificado de órdenes - VERSIÓN BONITA Y UNIFICADA
-// ✅ FIX: Botones de acciones cambiados de btn-* relleno a btn-outline-* (estilo Técnicos)
-// ✅ FIX: Botón "Estadísticas" cambiado a btn-outline-info (cyan, estándar unificado)
+// Listado unificado de órdenes - VERSIÓN ESTANDARIZADA
+// ✅ FIX: contenedor de acciones usa .table-actions (d-flex justify-content-center gap-1)
+// ✅ FIX: botones de acciones usan btn-icon (cuadraditos 32×32)
+// ✅ FIX: TODOS los botones tienen aria-label para accesibilidad
 
 if (!isset($_SESSION['usuario_id'])) {
     header('Location: /proyecto/auth/login');
     exit;
 }
 
-// Asegurar que las variables existan
 if (!isset($ordenes)) {
     $ordenes = [];
 }
@@ -30,7 +30,7 @@ include_once __DIR__ . '/../layouts/header.php';
 
 <div class="container-fluid px-0">
 
-    <!-- Mensajes de éxito/error -->
+    <!-- Mensajes -->
     <?php if (isset($_SESSION['mensaje']) && !empty($_SESSION['mensaje'])): ?>
         <div class="alert alert-<?php echo $_SESSION['mensaje_tipo'] ?? 'success'; ?> alert-dismissible fade show">
             <i class="fas fa-check-circle me-2"></i> <?php echo htmlspecialchars($_SESSION['mensaje']); ?>
@@ -47,6 +47,7 @@ include_once __DIR__ . '/../layouts/header.php';
         <?php unset($_SESSION['error']); ?>
     <?php endif; ?>
 
+    <!-- Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h4 class="mb-1 fw-bold">
@@ -58,13 +59,12 @@ include_once __DIR__ . '/../layouts/header.php';
         </div>
         <div class="d-flex gap-2">
             <?php if (in_array($rol, ['admin', 'operador'])): ?>
-                <a href="/proyecto/ordenes/crear" class="btn btn-primary">
-                    <i class="fas fa-plus-circle me-1"></i> Nueva Orden
+                <a href="/proyecto/ordenes/crear" class="btn btn-primary btn-header-action">
+                    <i class="fas fa-plus-circle"></i> Nueva Orden
                 </a>
             <?php endif; ?>
-            <!-- ✅ FIX: Botón "Estadísticas" cambiado a btn-outline-info (cyan, estándar unificado) -->
-            <a href="/proyecto/ordenes/estadisticas" class="btn btn-outline-info">
-                <i class="fas fa-chart-bar me-1"></i> Estadísticas
+            <a href="/proyecto/ordenes/estadisticas" class="btn btn-outline-info btn-header-action">
+                <i class="fas fa-chart-bar"></i> Estadísticas
             </a>
         </div>
     </div>
@@ -165,7 +165,7 @@ include_once __DIR__ . '/../layouts/header.php';
                             <th>Estado</th>
                             <th>Prioridad</th>
                             <th>Fecha</th>
-                            <th class="text-center">Acciones</th>
+                            <th class="text-center" style="width:180px;">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -224,19 +224,21 @@ include_once __DIR__ . '/../layouts/header.php';
                                     </td>
                                     <td><small><?php echo date('d/m/Y', strtotime($orden['fecha_creacion'] ?? 'now')); ?></small></td>
                                     <td>
-                                        <div class="d-flex justify-content-center gap-1">
-                                            <!-- Ver (siempre visible) -->
+                                        <div class="table-actions">
+                                            <!-- Ver -->
                                             <a href="/proyecto/ordenes/ver/<?php echo $orden['id']; ?>" 
-                                               class="btn btn-sm btn-outline-info" 
-                                               title="Ver">
+                                               class="btn btn-sm btn-outline-info btn-icon" 
+                                               title="Ver"
+                                               aria-label="Ver orden">
                                                 <i class="fas fa-eye"></i>
                                             </a>
                                             
                                             <!-- Editar (solo PENDIENTES y admin/operador) -->
                                             <?php if (($orden['status'] ?? '') === 'PENDIENTE' && in_array($rol, ['admin', 'operador'])): ?>
                                                 <a href="/proyecto/ordenes/editar/<?php echo $orden['id']; ?>" 
-                                                   class="btn btn-sm btn-outline-warning" 
-                                                   title="Editar">
+                                                   class="btn btn-sm btn-outline-warning btn-icon" 
+                                                   title="Editar"
+                                                   aria-label="Editar orden">
                                                     <i class="fas fa-edit"></i>
                                                 </a>
                                             <?php endif; ?>
@@ -244,8 +246,9 @@ include_once __DIR__ . '/../layouts/header.php';
                                             <!-- Cerrar (EN_PROCESO o EJECUTADA) -->
                                             <?php if (in_array($orden['status'] ?? '', ['EN_PROCESO', 'EJECUTADA'])): ?>
                                                 <a href="/proyecto/ordenes/cerrar/<?php echo $orden['id']; ?>" 
-                                                   class="btn btn-sm btn-outline-success" 
-                                                   title="Cerrar">
+                                                   class="btn btn-sm btn-outline-success btn-icon" 
+                                                   title="Cerrar"
+                                                   aria-label="Cerrar orden">
                                                     <i class="fas fa-check-circle"></i>
                                                 </a>
                                             <?php endif; ?>
@@ -253,9 +256,10 @@ include_once __DIR__ . '/../layouts/header.php';
                                             <!-- Eliminar (solo PENDIENTES y admin) -->
                                             <?php if (($orden['status'] ?? '') === 'PENDIENTE' && $rol === 'admin'): ?>
                                                 <button type="button" 
-                                                        class="btn btn-sm btn-outline-danger" 
-                                                        onclick="confirmarEliminar(<?php echo $orden['id']; ?>, '<?php echo htmlspecialchars($orden['num_om'] ?? ''); ?>')" 
-                                                        title="Eliminar">
+                                                        class="btn btn-sm btn-outline-danger btn-icon" 
+                                                        onclick="confirmarEliminar(<?php echo $orden['id']; ?>, '<?php echo htmlspecialchars($orden['num_om'] ?? '', ENT_QUOTES, 'UTF-8'); ?>')" 
+                                                        title="Eliminar"
+                                                        aria-label="Eliminar orden">
                                                     <i class="fas fa-trash"></i>
                                                 </button>
                                             <?php endif; ?>

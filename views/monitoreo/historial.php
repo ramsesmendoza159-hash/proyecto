@@ -1,6 +1,7 @@
 <?php
 // views/monitoreo/historial.php
-// Historial de registros de monitoreo con filtros
+// Historial de registros de monitoreo con filtros - VERSIÓN ESTANDARIZADA
+// ✅ FIX NUEVO: contenedor .table-actions + btn-icon + btn-header-action
 
 if (!isset($seccion)) $seccion = 'monitoreo';
 if (!isset($titulo)) $titulo = 'Historial de Monitoreo';
@@ -33,11 +34,11 @@ include_once __DIR__ . '/../layouts/header.php';
             </p>
         </div>
         <div class="d-flex gap-2 flex-wrap">
-            <a href="/proyecto/monitoreo" class="btn btn-secondary">
-                <i class="fas fa-arrow-left me-1"></i> Volver
+            <a href="/proyecto/monitoreo" class="btn btn-secondary btn-header-action">
+                <i class="fas fa-arrow-left"></i> Volver
             </a>
-            <a href="/proyecto/monitoreo/exportar?<?= http_build_query($filtros) ?>" class="btn btn-outline-primary">
-                <i class="fas fa-file-csv me-1"></i> Exportar CSV
+            <a href="/proyecto/monitoreo/exportar?<?= http_build_query($filtros) ?>" class="btn btn-outline-primary btn-header-action">
+                <i class="fas fa-file-csv"></i> Exportar CSV
             </a>
         </div>
     </div>
@@ -170,7 +171,7 @@ include_once __DIR__ . '/../layouts/header.php';
                                 <th>Estado</th>
                                 <th class="text-center">Lecturas</th>
                                 <th class="text-center">Alertas</th>
-                                <th class="text-center">Acciones</th>
+                                <th class="text-center" style="width:150px;">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -196,18 +197,27 @@ include_once __DIR__ . '/../layouts/header.php';
                                             <span class="text-muted">—</span>
                                         <?php endif; ?>
                                     </td>
-                                    <td class="text-center">
-                                        <div class="d-flex justify-content-center gap-1">
-                                            <a href="/proyecto/monitoreo/ver/<?= (int)$reg['id'] ?>" class="btn btn-sm btn-outline-info" title="Ver">
+                                    <td>
+                                        <div class="table-actions">
+                                            <a href="/proyecto/monitoreo/ver/<?= (int)$reg['id'] ?>" 
+                                               class="btn btn-sm btn-outline-info btn-icon" 
+                                               title="Ver"
+                                               aria-label="Ver registro">
                                                 <i class="fas fa-eye"></i>
                                             </a>
                                             <?php if ($reg['estado'] === 'BORRADOR'): ?>
-                                                <a href="/proyecto/monitoreo/llenar/<?= (int)$reg['id'] ?>" class="btn btn-sm btn-outline-warning" title="Continuar">
+                                                <a href="/proyecto/monitoreo/llenar/<?= (int)$reg['id'] ?>" 
+                                                   class="btn btn-sm btn-outline-warning btn-icon" 
+                                                   title="Continuar"
+                                                   aria-label="Continuar llenando">
                                                     <i class="fas fa-edit"></i>
                                                 </a>
                                             <?php endif; ?>
                                             <?php if (in_array($reg['estado'], ['CERRADO', 'FIRMADO', 'RECHAZADO'], true)): ?>
-                                                <a href="/proyecto/monitoreo/firmar/<?= (int)$reg['id'] ?>" class="btn btn-sm btn-outline-primary" title="Firmas">
+                                                <a href="/proyecto/monitoreo/firmar/<?= (int)$reg['id'] ?>" 
+                                                   class="btn btn-sm btn-outline-primary btn-icon" 
+                                                   title="Firmas"
+                                                   aria-label="Ver firmas">
                                                     <i class="fas fa-signature"></i>
                                                 </a>
                                             <?php endif; ?>

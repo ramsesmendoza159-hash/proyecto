@@ -1,10 +1,14 @@
 <?php
 // views/monitoreo/reporte.php
 // Reporte imprimible - Formato MTTO R007
+// ✅ FIX: sanitizar firmas SVG (antes era XSS vulnerable)
 
 if (!isset($registro) || !$registro) {
     die('Registro no disponible');
 }
+
+// ✅ Usar el helper centralizado
+require_once __DIR__ . '/../../helpers/SVGSanitizer.php';
 
 $equipos  = $registro['equipos'] ?? [];
 $horarios = $registro['horarios'] ?? [];
@@ -128,7 +132,7 @@ $unidad   = $registro['unidad_medida'] ?? '%';
             <small><?= htmlspecialchars($f['rol_firmante']) ?></small>
             <?php if ($f['estado'] === 'FIRMADO' && !empty($f['firma_svg'])): ?>
                 <div class="firma-svg-container">
-                    <?= $f['firma_svg'] ?>
+                    <?= SVGSanitizer::sanitize($f['firma_svg']) ?>
                 </div>
                 <small><?= htmlspecialchars($f['usuario_nombre'] ?? '') ?></small>
                 <small><?= date('d/m/Y H:i', strtotime($f['fecha_firma'])) ?></small>

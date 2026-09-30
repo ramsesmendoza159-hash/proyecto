@@ -211,11 +211,16 @@ include_once __DIR__ . '/../../layouts/header.php';
                                     <td><?php echo $registro['registro_id'] ?? 'N/A'; ?></td>
                                     <td><small><?php echo htmlspecialchars($registro['ip']); ?></small></td>
                                     <td><small><?php echo date('d/m/Y H:i:s', strtotime($registro['fecha_creacion'])); ?></small></td>
-                                    <td>
-                                        <a href="/proyecto/auditoria/ver/<?php echo $registro['id']; ?>" class="btn btn-sm btn-outline-primary" title="Ver detalle">
+                               <td>
+                                    <div class="table-actions">
+                                        <a href="/proyecto/auditoria/ver/<?php echo $registro['id']; ?>" 
+                                        class="btn btn-sm btn-outline-info btn-icon" 
+                                        title="Ver detalle"
+                                        aria-label="Ver detalle">
                                             <i class="fas fa-eye"></i>
                                         </a>
-                                    </td>
+                                    </div>
+                                </td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php endif; ?>

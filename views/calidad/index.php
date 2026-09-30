@@ -1,9 +1,9 @@
 <?php
 // views/calidad/index.php
-// Dashboard de Calidad
+// Dashboard de Calidad - VERSIÓN ESTANDARIZADA
 // ✅ FIX: guards para $total_pendientes y $pendientes
 // ✅ FIX: verificación de sesión y rol
-// ✅ FIX: botón "Validar" en outline-info
+// ✅ FIX NUEVO: botones con btn-icon y btn-header-action
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -20,7 +20,7 @@ if (($_SESSION['rol'] ?? '') !== 'calidad') {
     exit;
 }
 
-// ✅ Guards
+// Guards
 $total_pendientes = $total_pendientes ?? 0;
 $pendientes = $pendientes ?? [];
 
@@ -41,8 +41,8 @@ include_once __DIR__ . '/../layouts/header.php';
                 Validación de calidad pre y post ejecución
             </p>
         </div>
-        <a href="/proyecto/firmas/pendientes" class="btn btn-info text-white">
-            <i class="fas fa-signature me-1"></i> Ver Firmas Pendientes
+        <a href="/proyecto/firmas/pendientes" class="btn btn-info text-white btn-header-action">
+            <i class="fas fa-signature"></i> Ver Firmas Pendientes
         </a>
     </div>
 
@@ -104,7 +104,7 @@ include_once __DIR__ . '/../layouts/header.php';
                                 <th>Título</th>
                                 <th>Paso</th>
                                 <th>Estado</th>
-                                <th class="text-center">Acciones</th>
+                                <th class="text-center" style="width:130px;">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -118,11 +118,15 @@ include_once __DIR__ . '/../layouts/header.php';
                                         </span>
                                     </td>
                                     <td><span class="badge bg-warning"><?= htmlspecialchars($p['status'] ?? '') ?></span></td>
-                                    <td class="text-center">
-                                        <a href="/proyecto/firmas/firmar/<?= (int)$p['id'] ?>/<?= (int)$p['firma_id'] ?>"
-                                           class="btn btn-sm btn-outline-info">
-                                            <i class="fas fa-signature me-1"></i> Validar
-                                        </a>
+                                    <td>
+                                        <div class="table-actions">
+                                            <a href="/proyecto/firmas/firmar/<?= (int)$p['id'] ?>/<?= (int)$p['firma_id'] ?>"
+                                               class="btn btn-sm btn-outline-info btn-icon"
+                                               title="Validar firma"
+                                               aria-label="Validar firma">
+                                                <i class="fas fa-signature"></i>
+                                            </a>
+                                        </div>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -134,5 +138,12 @@ include_once __DIR__ . '/../layouts/header.php';
     </div>
 
 </div>
+
+<style>
+.card {
+    border-radius: 16px;
+    box-shadow: 0 2px 12px var(--shadow-color);
+}
+</style>
 
 <?php include_once __DIR__ . '/../layouts/footer.php'; ?>

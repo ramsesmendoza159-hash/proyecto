@@ -1,8 +1,9 @@
 <?php
 // views/inventario/index.php
 // Inventario - LISTADO COMPLETO CON FILTROS AVANZADOS
-// ✅ FIX: agregado <meta name="csrf-token"> para que eliminarItem() funcione
-// ✅ FIX: agregado credentials: 'same-origin' en todos los fetch
+// ✅ FIX: meta CSRF está en header.php global
+// ✅ FIX: credenciales same-origin en todos los fetch
+// ✅ FIX NUEVO: contenedor .table-actions + btn-icon (via JS)
 
 if (!isset($_SESSION['usuario_id'])) {
     header('Location: /proyecto/auth/login');
@@ -34,9 +35,6 @@ $proveedores = $proveedores ?? [];
 include_once __DIR__ . '/../layouts/header.php';
 ?>
 
-<!-- ✅ FIX CRÍTICO: meta CSRF para que eliminarItem() funcione -->
-<meta name="csrf-token" content="<?= SecurityHelper::generateCSRFToken() ?>">
-
 <div class="container-fluid px-0">
 
     <!-- HEADER -->
@@ -52,12 +50,12 @@ include_once __DIR__ . '/../layouts/header.php';
             </p>
         </div>
         <div class="d-flex gap-2">
-            <a href="/proyecto/almacen" class="btn btn-secondary btn-sm">
-                <i class="fas fa-arrow-left me-1"></i> Volver
+            <a href="/proyecto/almacen" class="btn btn-secondary btn-header-action">
+                <i class="fas fa-arrow-left"></i> Volver
             </a>
             <?php if (in_array($rol, ['admin', 'almacen'])): ?>
-                <a href="/proyecto/inventario/crear" class="btn btn-primary btn-sm">
-                    <i class="fas fa-plus-circle me-2"></i>Agregar
+                <a href="/proyecto/inventario/crear" class="btn btn-primary btn-header-action">
+                    <i class="fas fa-plus-circle"></i>Agregar
                 </a>
             <?php endif; ?>
         </div>
@@ -461,6 +459,7 @@ function cargarInventario(page = 1) {
                     const stockClass = item.cantidad <= 5 ? 'text-danger' :
                                       item.cantidad <= 20 ? 'text-warning' : 'text-success';
 
+                    // ✅ FIX: contenedor .table-actions + btn-icon
                     tr.innerHTML = `
                         <td><span class="fw-semibold">${((page - 1) * porPagina) + index + 1}</span></td>
                         <td><strong>${item.nombre || 'N/A'}</strong></td>
@@ -480,11 +479,17 @@ function cargarInventario(page = 1) {
                             </span>
                         </td>
                         <td>
-                            <div class="d-flex justify-content-center gap-1">
-                                <a href="/proyecto/inventario/editar/${item.id}" class="btn btn-sm btn-outline-warning" title="Editar">
+                            <div class="table-actions">
+                                <a href="/proyecto/inventario/editar/${item.id}" 
+                                   class="btn btn-sm btn-outline-warning btn-icon" 
+                                   title="Editar"
+                                   aria-label="Editar item">
                                     <i class="fas fa-edit"></i>
                                 </a>
-                                <button class="btn btn-sm btn-outline-danger" onclick="eliminarItem(${item.id})" title="Eliminar">
+                                <button class="btn btn-sm btn-outline-danger btn-icon" 
+                                        onclick="eliminarItem(${item.id})" 
+                                        title="Eliminar"
+                                        aria-label="Eliminar item">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </div>
@@ -596,7 +601,6 @@ function eliminarItem(id) {
         return;
     }
 
-    // ✅ FIX: ahora sí encuentra el meta porque lo agregamos al inicio del body
     const token = document.querySelector('meta[name="csrf-token"]')?.content;
 
     if (!token) {

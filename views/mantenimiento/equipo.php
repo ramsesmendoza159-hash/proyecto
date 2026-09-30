@@ -39,14 +39,14 @@ include_once __DIR__ . '/../layouts/header.php';
             </p>
         </div>
         <div class="d-flex gap-2">
-            <a href="/proyecto/mantenimiento/panel" class="btn btn-secondary">
-                <i class="fas fa-arrow-left me-1"></i> Volver
+            <a href="/proyecto/mantenimiento/panel" class="btn btn-secondary btn-header-action">
+                <i class="fas fa-arrow-left"></i> Volver
             </a>
-            <button class="btn btn-info" data-bs-toggle="modal" data-bs-target="#modalHorometro">
-                <i class="fas fa-tachometer-alt me-1"></i> Registrar Horómetro
+            <button class="btn btn-info text-white btn-header-action" data-bs-toggle="modal" data-bs-target="#modalHorometro">
+                <i class="fas fa-tachometer-alt"></i> Registrar Horómetro
             </button>
-            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalNuevaTarea">
-                <i class="fas fa-plus me-1"></i> Nueva Tarea
+            <button class="btn btn-primary btn-header-action" data-bs-toggle="modal" data-bs-target="#modalNuevaTarea">
+                <i class="fas fa-plus"></i> Nueva Tarea
             </button>
         </div>
     </div>
@@ -73,9 +73,7 @@ include_once __DIR__ . '/../layouts/header.php';
         <?php unset($_SESSION['errores']); ?>
     <?php endif; ?>
 
-    <!-- ========================================== -->
-    <!-- TARJETAS DE INFO DEL EQUIPO - AZUL UNIFICADO -->
-    <!-- ========================================== -->
+    <!-- TARJETAS DE INFO DEL EQUIPO -->
     <div class="row g-3 mb-4">
         <div class="col-md-3">
             <div class="stat-card-modern">
@@ -234,7 +232,8 @@ include_once __DIR__ . '/../layouts/header.php';
                                         <?php else: ?>
                                             <button class="btn btn-sm btn-outline-primary" 
                                                     data-bs-toggle="modal" 
-                                                    data-bs-target="#modalAsignar<?= $tarea['id'] ?>">
+                                                    data-bs-target="#modalAsignar<?= $tarea['id'] ?>"
+                                                    title="Asignar técnico">
                                                 <i class="fas fa-user-plus me-1"></i> Asignar
                                             </button>
                                         <?php endif; ?>
@@ -250,25 +249,29 @@ include_once __DIR__ . '/../layouts/header.php';
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <div class="d-flex justify-content-center gap-1">
-                                            <button class="btn btn-sm btn-success" 
+                                        <div class="table-actions">
+                                            <button class="btn btn-sm btn-outline-success btn-icon" 
                                                     data-bs-toggle="modal" 
                                                     data-bs-target="#modalCompletar<?= $tarea['id'] ?>"
-                                                    title="Registrar Mantenimiento">
+                                                    title="Registrar Mantenimiento"
+                                                    aria-label="Registrar mantenimiento">
                                                 <i class="fas fa-check"></i>
                                             </button>
-                                            <button class="btn btn-sm btn-warning" 
+                                            <button class="btn btn-sm btn-outline-warning btn-icon" 
                                                     data-bs-toggle="modal" 
                                                     data-bs-target="#modalEditar<?= $tarea['id'] ?>"
-                                                    title="Editar">
+                                                    title="Editar"
+                                                    aria-label="Editar tarea">
                                                 <i class="fas fa-edit"></i>
                                             </button>
                                             <form action="/proyecto/mantenimiento/eliminar-tarea/<?= $tarea['id'] ?>" 
-                                                  method="POST" class="d-inline" 
-                                                  onsubmit="return confirm('¿Eliminar esta tarea?')">
+                                                method="POST" class="d-inline" 
+                                                onsubmit="return confirm('¿Eliminar esta tarea?')">
                                                 <input type="hidden" name="csrf_token" value="<?= SecurityHelper::generateCSRFToken() ?>">
                                                 <input type="hidden" name="id_equipo" value="<?= $equipo['id_equipo'] ?>">
-                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger btn-icon" 
+                                                        title="Eliminar"
+                                                        aria-label="Eliminar tarea">
                                                     <i class="fas fa-trash"></i>
                                                 </button>
                                             </form>
@@ -333,24 +336,26 @@ include_once __DIR__ . '/../layouts/header.php';
                                 <td><?= htmlspecialchars($h['usuario_nombre'] ?? 'Sistema') ?></td>
                                 <td><small><?= htmlspecialchars($h['observaciones'] ?? '') ?></small></td>
                                 <?php if ($puede_editar_horometro): ?>
-                                    <td>
-                                        <div class="d-flex justify-content-center gap-1">
-                                            <button class="btn btn-sm btn-outline-warning" 
-                                                    title="Editar lectura"
-                                                    data-bs-toggle="modal" 
-                                                    data-bs-target="#modalEditarHorometro<?= $h['id'] ?>">
-                                                <i class="fas fa-edit"></i>
+                                <td>
+                                    <div class="table-actions">
+                                        <button class="btn btn-sm btn-outline-warning btn-icon" 
+                                                title="Editar lectura"
+                                                aria-label="Editar lectura"
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#modalEditarHorometro<?= $h['id'] ?>">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        
+                                        <?php if ($puede_eliminar_horometro): ?>
+                                            <button class="btn btn-sm btn-outline-danger btn-icon" 
+                                                    title="Eliminar lectura"
+                                                    aria-label="Eliminar lectura"
+                                                    onclick="confirmarEliminarHorometro(<?= $h['id'] ?>, <?= $h['horas_actuales'] ?>, <?= $equipo['id_equipo'] ?>)">
+                                                <i class="fas fa-trash"></i>
                                             </button>
-                                            
-                                            <?php if ($puede_eliminar_horometro): ?>
-                                                <button class="btn btn-sm btn-outline-danger" 
-                                                        title="Eliminar lectura"
-                                                        onclick="confirmarEliminarHorometro(<?= $h['id'] ?>, <?= $h['horas_actuales'] ?>, <?= $equipo['id_equipo'] ?>)">
-                                                    <i class="fas fa-trash"></i>
-                                                </button>
-                                            <?php endif; ?>
-                                        </div>
-                                    </td>
+                                        <?php endif; ?>
+                                    </div>
+                                </td>
                                 <?php endif; ?>
                             </tr>
                         <?php endforeach; ?>
@@ -417,11 +422,12 @@ include_once __DIR__ . '/../layouts/header.php';
                                     <strong>S/ <?= number_format($m['costo'] ?? 0, 2) ?></strong>
                                 </td>
                                 <td>
-                                    <div class="d-flex justify-content-center">
+                                    <div class="table-actions">
                                         <a href="/proyecto/mantenimiento/detalle-mantenimiento/<?= $m['id'] ?>" 
-                                           class="btn btn-sm btn-outline-primary" 
-                                           title="Ver detalle completo">
-                                            <i class="fas fa-eye me-1"></i> Ver
+                                        class="btn btn-sm btn-outline-info btn-icon" 
+                                        title="Ver detalle"
+                                        aria-label="Ver detalle">
+                                            <i class="fas fa-eye"></i>
                                         </a>
                                     </div>
                                 </td>
@@ -436,9 +442,7 @@ include_once __DIR__ . '/../layouts/header.php';
 
 </div>
 
-<!-- ========================================== -->
-<!-- MODAL: REGISTRAR HORÓMETRO (CON FECHA) -->
-<!-- ========================================== -->
+<!-- MODAL: REGISTRAR HORÓMETRO -->
 <div class="modal fade" id="modalHorometro" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -465,7 +469,6 @@ include_once __DIR__ . '/../layouts/header.php';
                         <small class="text-muted">Debe ser mayor o igual al horómetro actual</small>
                     </div>
                     
-                    <!-- ✅ CAMPO DE FECHA -->
                     <div class="mb-3">
                         <label class="form-label fw-semibold">
                             <i class="fas fa-calendar-alt text-primary me-1"></i>
@@ -496,7 +499,7 @@ include_once __DIR__ . '/../layouts/header.php';
     </div>
 </div>
 
-<!-- Modal: Nueva Tarea -->
+<!-- Modal: Nueva Tarea (Cambio A aplicado) -->
 <div class="modal fade" id="modalNuevaTarea" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -550,15 +553,16 @@ include_once __DIR__ . '/../layouts/header.php';
                             </div>
                         </div>
                         
+                        <!-- Cambio A aplicado -->
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Responsable</label>
-                            <select class="form-select" name="responsable" id="selectResponsable">
+                            <select class="form-select select-responsable" name="responsable" data-tarea="nueva" id="selectResponsableNueva">
                                 <option value="TECNICO_INTERNO">Técnico Interno</option>
                                 <option value="PROVEEDOR_EXTERNO">Proveedor Externo</option>
                             </select>
                         </div>
-                        
-                        <div class="col-md-6" id="divTecnicoAsignado">
+
+                        <div class="col-md-6 div-tecnico" data-tarea="nueva" id="divTecnicoNueva">
                             <label class="form-label fw-semibold">
                                 <i class="fas fa-user-check text-success me-1"></i>
                                 Asignar Técnico
@@ -573,8 +577,8 @@ include_once __DIR__ . '/../layouts/header.php';
                                 <?php endforeach; ?>
                             </select>
                         </div>
-                        
-                        <div class="col-md-6" id="divProveedor" style="display: none;">
+
+                        <div class="col-md-6 div-proveedor" data-tarea="nueva" id="divProveedorNueva" style="display: none;">
                             <label class="form-label fw-semibold">Proveedor</label>
                             <select class="form-select" name="id_proveedor">
                                 <option value="">Seleccionar...</option>
@@ -701,7 +705,7 @@ include_once __DIR__ . '/../layouts/header.php';
     </div>
 </div>
 
-<!-- Modal Editar Tarea -->
+<!-- Modal Editar Tarea (Cambio B aplicado) -->
 <div class="modal fade" id="modalEditar<?= $tarea['id'] ?>" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -748,12 +752,60 @@ include_once __DIR__ . '/../layouts/header.php';
                                    value="<?= $tarea['frecuencia_dias'] ?? '' ?>" min="0">
                         </div>
                         
+                        <!-- Cambio B aplicado -->
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Responsable</label>
+                            <select class="form-select select-responsable" 
+                                    name="responsable" 
+                                    data-tarea="<?= $tarea['id'] ?>"
+                                    id="selectResponsable<?= $tarea['id'] ?>">
+                                <option value="TECNICO_INTERNO" <?= ($tarea['responsable'] ?? 'TECNICO_INTERNO') === 'TECNICO_INTERNO' ? 'selected' : '' ?>>Técnico Interno</option>
+                                <option value="PROVEEDOR_EXTERNO" <?= ($tarea['responsable'] ?? '') === 'PROVEEDOR_EXTERNO' ? 'selected' : '' ?>>Proveedor Externo</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6 div-tecnico" 
+                             data-tarea="<?= $tarea['id'] ?>" 
+                             id="divTecnico<?= $tarea['id'] ?>" 
+                             style="<?= ($tarea['responsable'] ?? 'TECNICO_INTERNO') === 'PROVEEDOR_EXTERNO' ? 'display:none;' : '' ?>">
+                            <label class="form-label fw-semibold">
+                                <i class="fas fa-user-check text-success me-1"></i>
+                                Asignar Técnico
+                            </label>
+                            <select class="form-select" name="tecnico_asignado_id">
+                                <option value="">-- Sin asignar --</option>
+                                <?php foreach ($tecnicos as $tecnico): ?>
+                                    <option value="<?= $tecnico['id'] ?>" 
+                                        <?= ($tarea['tecnico_asignado_id'] ?? '') == $tecnico['id'] ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars($tecnico['nombre']) ?> 
+                                        (<?= htmlspecialchars($tecnico['especialidad'] ?? 'General') ?>)
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6 div-proveedor" 
+                             data-tarea="<?= $tarea['id'] ?>" 
+                             id="divProveedor<?= $tarea['id'] ?>" 
+                             style="<?= ($tarea['responsable'] ?? '') === 'PROVEEDOR_EXTERNO' ? 'display:block;' : 'display:none;' ?>">
+                            <label class="form-label fw-semibold">Proveedor</label>
+                            <select class="form-select" name="id_proveedor">
+                                <option value="">Seleccionar...</option>
+                                <?php foreach ($proveedores as $prov): ?>
+                                    <option value="<?= $prov['id'] ?>"
+                                        <?= ($tarea['id_proveedor'] ?? '') == $prov['id'] ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars($prov['nombre']) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Costo Estimado</label>
                             <input type="number" step="0.01" class="form-control" name="costo_estimado" 
                                    value="<?= $tarea['costo_estimado'] ?? 0 ?>" min="0">
                         </div>
-                        
+
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Estado</label>
                             <select class="form-select" name="activo">
@@ -776,9 +828,7 @@ include_once __DIR__ . '/../layouts/header.php';
 
 <?php endforeach; ?>
 
-<!-- ========================================== -->
-<!-- MODALES EDITAR HORÓMETRO (CON FECHA) -->
-<!-- ========================================== -->
+<!-- MODALES EDITAR HORÓMETRO -->
 <?php if ($puede_editar_horometro): ?>
     <?php foreach ($historial_horometro as $h): ?>
     <div class="modal fade" id="modalEditarHorometro<?= $h['id'] ?>" tabindex="-1">
@@ -828,7 +878,6 @@ include_once __DIR__ . '/../layouts/header.php';
                             </div>
                         </div>
                         
-                        <!-- ✅ CAMPO DE FECHA EDITABLE -->
                         <div class="mb-3">
                             <label class="form-label fw-semibold">
                                 <i class="fas fa-calendar-alt text-primary me-1"></i>
@@ -862,11 +911,7 @@ include_once __DIR__ . '/../layouts/header.php';
     <?php endforeach; ?>
 <?php endif; ?>
 
-<!-- ========================================== -->
-<!-- ESTILOS - TEMA AZUL BRILLANTE UNIFICADO -->
-<!-- ========================================== -->
 <style>
-/* Tarjetas de estadísticas con azul brillante */
 .stat-card-modern {
     background: var(--bg-card) !important;
     border: 1px solid var(--border-color) !important;
@@ -909,25 +954,21 @@ include_once __DIR__ . '/../layouts/header.php';
     line-height: 1.2 !important;
 }
 
-/* Modo oscuro: azul brillante con glow */
 [data-theme="dark"] .stat-card-modern .stat-icon-modern {
     color: #60a5fa !important;
     background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(96, 165, 250, 0.1)) !important;
     box-shadow: 0 4px 15px rgba(59, 130, 246, 0.25) !important;
 }
 
-/* Cards */
 .card {
     border-radius: 16px;
     box-shadow: 0 2px 12px var(--shadow-color);
 }
 
-/* Badges con borde en modo oscuro */
 [data-theme="dark"] .badge {
     border: 1px solid transparent;
 }
 
-/* Modales en modo oscuro */
 [data-theme="dark"] .modal-content {
     background: #131320 !important;
     border: 1px solid #2a2a45 !important;
@@ -943,7 +984,6 @@ include_once __DIR__ . '/../layouts/header.php';
     border-top: 1px solid #2a2a45 !important;
 }
 
-/* Inputs de fecha en modo oscuro */
 [data-theme="dark"] input[type="datetime-local"] {
     background: #0f0f1a !important;
     border: 1px solid #2a2a45 !important;
@@ -956,7 +996,6 @@ include_once __DIR__ . '/../layouts/header.php';
     cursor: pointer;
 }
 
-/* Alert info dentro de modal en modo oscuro */
 [data-theme="dark"] .alert-info {
     background: #0c2340 !important;
     color: #93c5fd !important;
@@ -964,15 +1003,23 @@ include_once __DIR__ . '/../layouts/header.php';
 }
 </style>
 
+<!-- Cambio C aplicado -->
 <script>
-// Mostrar/ocultar proveedor según responsable
+// ✅ FIX: alternar proveedor/técnico funciona para TODOS los modales (nueva + editar)
 document.addEventListener('DOMContentLoaded', function() {
-    const selectResponsable = document.getElementById('selectResponsable');
-    const divProveedor = document.getElementById('divProveedor');
-    const divTecnico = document.getElementById('divTecnicoAsignado');
+    // Buscar todos los selects de responsable (nueva tarea + editar tarea)
+    const selectsResponsable = document.querySelectorAll('.select-responsable');
     
-    if (selectResponsable) {
-        selectResponsable.addEventListener('change', function() {
+    selectsResponsable.forEach(function(select) {
+        // Al cambiar el select, alternar los divs correspondientes
+        select.addEventListener('change', function() {
+            const tareaId = this.dataset.tarea; // "nueva" o el ID de la tarea
+            
+            const divProveedor = document.querySelector('.div-proveedor[data-tarea="' + tareaId + '"]');
+            const divTecnico   = document.querySelector('.div-tecnico[data-tarea="' + tareaId + '"]');
+            
+            if (!divProveedor || !divTecnico) return;
+            
             if (this.value === 'PROVEEDOR_EXTERNO') {
                 divProveedor.style.display = 'block';
                 divTecnico.style.display = 'none';
@@ -981,7 +1028,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 divTecnico.style.display = 'block';
             }
         });
-    }
+    });
 });
 
 // Confirmar eliminación de lectura de horómetro

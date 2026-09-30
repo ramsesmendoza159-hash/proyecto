@@ -1,6 +1,7 @@
 <?php
 // controller/SeguridadController.php
 // Panel del rol Seguridad
+// ✅ FIX: confirmado que pasa $total_pendientes y $pendientes a la vista
 
 require_once __DIR__ . '/../helpers/Controller.php';
 require_once __DIR__ . '/../model/FirmaModel.php';

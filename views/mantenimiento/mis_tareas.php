@@ -2,6 +2,7 @@
 // views/mantenimiento/mis_tareas.php
 // Listado de tareas asignadas al técnico
 // ✅ FIX: botones en outline-* según la regla
+// ✅ FIX NUEVO: contenedor .table-actions + btn-icon
 
 if (!isset($seccion)) $seccion = 'mis_tareas';
 if (!isset($titulo)) $titulo = 'Mis Mantenimientos';
@@ -23,8 +24,8 @@ include_once __DIR__ . '/../layouts/header.php';
                 <i class="fas fa-info-circle me-1"></i> Tareas de mantenimiento asignadas a ti
             </p>
         </div>
-        <a href="/proyecto/tecnico" class="btn btn-secondary">
-            <i class="fas fa-arrow-left me-1"></i> Volver
+        <a href="/proyecto/tecnico" class="btn btn-secondary btn-header-action">
+            <i class="fas fa-arrow-left"></i> Volver
         </a>
     </div>
 
@@ -125,7 +126,7 @@ include_once __DIR__ . '/../layouts/header.php';
                                 <th>Alerta</th>
                                 <th>Horas Rest.</th>
                                 <th>Días Rest.</th>
-                                <th class="text-center">Acciones</th>
+                                <th class="text-center" style="width:150px;">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -177,13 +178,17 @@ include_once __DIR__ . '/../layouts/header.php';
                                         <?php else: ?>-<?php endif; ?>
                                     </td>
                                     <td>
-                                        <div class="d-flex justify-content-center gap-1">
+                                        <div class="table-actions">
                                             <a href="/proyecto/mantenimiento/ejecutar/<?= (int)$tarea['id'] ?>" 
-                                               class="btn btn-sm btn-outline-success">
-                                                <i class="fas fa-play me-1"></i> Ejecutar
+                                               class="btn btn-sm btn-outline-success btn-icon"
+                                               title="Ejecutar"
+                                               aria-label="Ejecutar mantenimiento">
+                                                <i class="fas fa-play"></i>
                                             </a>
                                             <a href="/proyecto/mantenimiento/equipo/<?= (int)$tarea['id_equipo'] ?>" 
-                                               class="btn btn-sm btn-outline-info" title="Ver equipo">
+                                               class="btn btn-sm btn-outline-info btn-icon" 
+                                               title="Ver equipo"
+                                               aria-label="Ver equipo">
                                                 <i class="fas fa-eye"></i>
                                             </a>
                                         </div>

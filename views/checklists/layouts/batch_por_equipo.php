@@ -3,6 +3,7 @@
 // Layout para batches por congelador (Sección 7 de R001)
 // ✅ FIX: usa $seccion_data (NO $seccion)
 // ✅ FIX: valida $matriz
+// ✅ FIX NUEVO: valida que los 3 campos requeridos existan antes de mostrar el botón
 
 $seccion_data = $seccion_data ?? null;
 if (!$seccion_data) return;
@@ -34,6 +35,9 @@ $sec_id = (int)($seccion_data['id'] ?? 0);
 $campo_ini_id = (int)($campo_hora_ini['id'] ?? 0);
 $campo_fin_id = (int)($campo_hora_fin['id'] ?? 0);
 $campo_batch_id = (int)($campo_batch['id'] ?? 0);
+
+// ✅ FIX NUEVO: validar que los 3 campos existan
+$tiene_todos_los_campos = ($campo_ini_id > 0 && $campo_fin_id > 0 && $campo_batch_id > 0);
 ?>
 
 <div class="card border-0 mb-4">
@@ -42,13 +46,23 @@ $campo_batch_id = (int)($campo_batch['id'] ?? 0);
             <i class="fas fa-layer-group text-primary me-2"></i>
             <?= htmlspecialchars($seccion_data['nombre'] ?? '') ?>
         </h5>
-        <?php if ($puede_editar): ?>
-            <button type="button" class="btn btn-sm btn-outline-primary" onclick="agregarBatchGlobal(<?= $sec_id ?>, <?= $campo_ini_id ?>, <?= $campo_fin_id ?>, <?= $campo_batch_id ?>)">
+        <?php if ($puede_editar && $tiene_todos_los_campos): ?>
+            <button type="button" class="btn btn-sm btn-outline-primary" 
+                    onclick="agregarBatchGlobal(<?= $sec_id ?>, <?= $campo_ini_id ?>, <?= $campo_fin_id ?>, <?= $campo_batch_id ?>)">
                 <i class="fas fa-plus me-1"></i> Agregar batch
             </button>
         <?php endif; ?>
     </div>
     <div class="card-body p-0">
+
+        <?php if (!$tiene_todos_los_campos): ?>
+            <div class="alert alert-warning m-3 mb-0">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                Esta sección no tiene configurados los 3 campos requeridos:
+                <strong>Hora Inicio</strong>, <strong>Hora Fin</strong> y <strong>N° Batch</strong>.
+            </div>
+        <?php else: ?>
+
         <div class="table-responsive">
             <table class="table table-bordered align-middle mb-0" id="tabla-batch-<?= $sec_id ?>">
                 <thead class="table-light">
@@ -134,10 +148,12 @@ $campo_batch_id = (int)($campo_batch['id'] ?? 0);
                 </tbody>
             </table>
         </div>
+
+        <?php endif; ?>
     </div>
 </div>
 
-<?php if ($puede_editar): ?>
+<?php if ($puede_editar && $tiene_todos_los_campos): ?>
 <script>
 (function() {
     document.querySelectorAll('#tabla-batch-<?= $sec_id ?> .input-batch').forEach(input => {
@@ -176,7 +192,9 @@ $campo_batch_id = (int)($campo_batch['id'] ?? 0);
     });
 })();
 
-let batchCounter<?= $sec_id ?> = 100;
+// ✅ FIX: usar timestamp como base para evitar colisiones
+let batchCounter<?= $sec_id ?> = Math.floor(Date.now() / 1000) % 100000;
+
 function agregarBatchGlobal(secId, campoIniId, campoFinId, campoBatchId) {
     if (typeof window.checklistCtx === 'undefined') {
         alert('Error: contexto del checklist no inicializado');
