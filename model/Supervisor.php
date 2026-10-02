@@ -1,14 +1,15 @@
 <?php
 // model/Supervisor.php
 // Modelo de supervisores
-// ✅ FIX 1: eliminar() valida órdenes Y devoluciones aprobadas
-// ✅ FIX 2: actualizar() acepta 'password' o 'password_hash' (consistencia)
+// ✅ FIX 1: eliminar() valida órdenes Y devoluciones aprobadas Y supervisiones
+// ✅ FIX 2: actualizar() acepta 'password' o 'password_hash'
 // ✅ FIX 3: cambiarEstado() valida contra whitelist
 // ✅ FIX 4: obtenerEstadisticas() incluye total_ordenes
 // ✅ FIX 5: agregado buscar()
 // ✅ FIX 6: agregado cambiarPassword() como alias de actualizarPassword()
-// ✅ FIX 7: eliminado verificarCredenciales() (huérfano, login va por usuarios)
-// ✅ FIX 8: catch (Throwable) en vez de Exception
+// ✅ FIX 7: catch (Throwable) en vez de Exception
+// ✅ FIX 8: trim() en nombres y validaciones de longitud
+// ✅ FIX 9: validar que el ID exista antes del UPDATE
 
 require_once __DIR__ . '/../config/database.php';
 
@@ -64,9 +65,12 @@ class Supervisor {
 
     public function obtenerPorId($id) {
         try {
+            $id = (int)$id;
+            if ($id <= 0) return null;
+
             $sql = "SELECT * FROM supervisores WHERE id = ?";
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([(int)$id]);
+            $stmt->execute([$id]);
             return $stmt->fetch(PDO::FETCH_ASSOC);
 
         } catch (PDOException $e) {
@@ -117,33 +121,55 @@ class Supervisor {
     // CREAR
     // ==========================================
 
+    /**
+     * ✅ FIX: valida trim() y longitud, acepta 'password' o 'password_hash'
+     */
     public function crear($datos) {
         try {
-            // Validar datos
-            if (empty($datos['nombre']) || empty($datos['email']) || empty($datos['password'])) {
-                error_log("Supervisor::crear - Datos incompletos");
+            // Validar nombre
+            $nombre = trim($datos['nombre'] ?? '');
+            if (empty($nombre)) {
+                error_log("Supervisor::crear - Nombre vacío");
+                return false;
+            }
+            if (mb_strlen($nombre) < 3 || mb_strlen($nombre) > 100) {
+                error_log("Supervisor::crear - Nombre fuera de rango (3-100)");
+                return false;
+            }
+
+            $email = trim($datos['email'] ?? '');
+            if (empty($email)) {
+                error_log("Supervisor::crear - Email vacío");
                 return false;
             }
 
             // Verificar email duplicado
-            if ($this->emailExiste($datos['email'])) {
+            if ($this->emailExiste($email)) {
                 error_log("Supervisor::crear - Email ya registrado");
                 return false;
             }
 
-            // Hashear contraseña
-            $passwordHash = password_hash($datos['password'], PASSWORD_DEFAULT);
+            // Acepta password_hash directo o password en texto plano
+            $passwordHash = '';
+            if (!empty($datos['password_hash'])) {
+                $passwordHash = $datos['password_hash'];
+            } elseif (!empty($datos['password'])) {
+                $passwordHash = password_hash($datos['password'], PASSWORD_DEFAULT);
+            } else {
+                error_log("Supervisor::crear - Sin contraseña");
+                return false;
+            }
 
             $sql = "INSERT INTO supervisores (nombre, email, password_hash, area, telefono, estado) 
                     VALUES (?, ?, ?, ?, ?, ?)";
 
             $stmt = $this->db->prepare($sql);
             $result = $stmt->execute([
-                $datos['nombre'],
-                $datos['email'],
+                $nombre,
+                $email,
                 $passwordHash,
-                $datos['area'] ?? '',
-                $datos['telefono'] ?? '',
+                trim($datos['area'] ?? ''),
+                trim($datos['telefono'] ?? ''),
                 $datos['estado'] ?? 'activo'
             ]);
 
@@ -165,14 +191,37 @@ class Supervisor {
     // ==========================================
 
     /**
-     * ✅ FIX 2: acepta 'password' (hashea) o 'password_hash' (ya hasheado).
+     * ✅ FIX 2: acepta 'password' (hashea) o 'password_hash' (ya hasheado)
+     * ✅ FIX 9: valida que el ID exista
      */
     public function actualizar($id, $datos) {
         try {
-            // Verificar email duplicado (excepto este)
-            if (!empty($datos['email']) && $this->emailExiste($datos['email'], $id)) {
-                error_log("Supervisor::actualizar - Email ya registrado por otro supervisor");
+            $id = (int)$id;
+            if ($id <= 0) {
+                error_log("Supervisor::actualizar - ID inválido");
                 return false;
+            }
+
+            $supervisor = $this->obtenerPorId($id);
+            if (!$supervisor) {
+                error_log("Supervisor::actualizar - Supervisor no encontrado: $id");
+                return false;
+            }
+
+            // Validar nombre
+            $nombre = trim($datos['nombre'] ?? $supervisor['nombre']);
+            if (empty($nombre) || mb_strlen($nombre) < 3 || mb_strlen($nombre) > 100) {
+                error_log("Supervisor::actualizar - Nombre inválido");
+                return false;
+            }
+
+            // Validar email
+            $email = trim($datos['email'] ?? $supervisor['email']);
+            if ($email !== $supervisor['email']) {
+                if ($this->emailExiste($email, $id)) {
+                    error_log("Supervisor::actualizar - Email ya registrado");
+                    return false;
+                }
             }
 
             $sql = "UPDATE supervisores SET 
@@ -184,15 +233,15 @@ class Supervisor {
                         fecha_actualizacion = NOW()";
 
             $params = [
-                ':nombre' => $datos['nombre'],
-                ':email' => $datos['email'],
-                ':area' => $datos['area'] ?? '',
-                ':telefono' => $datos['telefono'] ?? '',
-                ':estado' => $datos['estado'] ?? 'activo',
-                ':id' => (int)$id
+                ':nombre' => $nombre,
+                ':email' => $email,
+                ':area' => trim($datos['area'] ?? $supervisor['area'] ?? ''),
+                ':telefono' => trim($datos['telefono'] ?? $supervisor['telefono'] ?? ''),
+                ':estado' => $datos['estado'] ?? $supervisor['estado'] ?? 'activo',
+                ':id' => $id
             ];
 
-            // ✅ FIX 2: acepta password_hash directo o password en texto plano
+            // Acepta password_hash directo o password en texto plano
             if (!empty($datos['password_hash'])) {
                 $sql .= ", password_hash = :password_hash";
                 $params[':password_hash'] = $datos['password_hash'];
@@ -221,7 +270,6 @@ class Supervisor {
      */
     public function cambiarEstado($id, $estado) {
         try {
-            // ✅ FIX 3: validar estado
             if (!in_array($estado, ['activo', 'inactivo'], true)) {
                 error_log("Supervisor::cambiarEstado - Estado inválido: $estado");
                 return false;
@@ -243,10 +291,12 @@ class Supervisor {
 
     /**
      * Actualiza la contraseña hasheando internamente.
-     * Mantiene el nombre por compatibilidad con el controlador.
      */
     public function actualizarPassword($id, $password) {
         try {
+            if (empty($password) || strlen($password) < 6) {
+                return false;
+            }
             $hash = password_hash($password, PASSWORD_DEFAULT);
             $sql = "UPDATE supervisores SET password_hash = ?, fecha_actualizacion = NOW() WHERE id = ?";
             $stmt = $this->db->prepare($sql);
@@ -259,7 +309,7 @@ class Supervisor {
     }
 
     /**
-     * ✅ FIX 6: alias semántico más claro.
+     * Alias semántico más claro.
      */
     public function cambiarPassword($id, $password_plano) {
         return $this->actualizarPassword($id, $password_plano);
@@ -270,13 +320,13 @@ class Supervisor {
     // ==========================================
 
     /**
-     * ✅ FIX 1: valida órdenes Y devoluciones aprobadas antes de eliminar.
+     * ✅ FIX 1: valida órdenes, devoluciones aprobadas y supervisiones antes de eliminar.
      */
     public function eliminar($id) {
         try {
             $id = (int)$id;
 
-            // ✅ FIX 1: validar órdenes asignadas
+            // Validar órdenes asignadas
             $sql = "SELECT COUNT(*) as total FROM ordenes_mantenimiento WHERE id_supervisor = ?";
             $stmt = $this->db->prepare($sql);
             $stmt->execute([$id]);
@@ -287,14 +337,25 @@ class Supervisor {
                 return false;
             }
 
-            // ✅ FIX 1: validar devoluciones aprobadas
+            // Validar devoluciones aprobadas
             $sqlDev = "SELECT COUNT(*) as total FROM devoluciones_ordenes WHERE aprobado_por = ?";
             $stmtDev = $this->db->prepare($sqlDev);
             $stmtDev->execute([$id]);
             $resultDev = $stmtDev->fetch(PDO::FETCH_ASSOC);
 
             if (($resultDev['total'] ?? 0) > 0) {
-                error_log("Supervisor::eliminar - Supervisor ID $id aprobó " . $resultDev['total'] . " devoluciones");
+                error_log("Supervisor::eliminar - Supervisor ID $id aprobó devoluciones");
+                return false;
+            }
+
+            // ✅ NUEVO: validar supervisiones
+            $sqlSup = "SELECT COUNT(*) as total FROM supervisiones WHERE supervisor_id = ?";
+            $stmtSup = $this->db->prepare($sqlSup);
+            $stmtSup->execute([$id]);
+            $resultSup = $stmtSup->fetch(PDO::FETCH_ASSOC);
+
+            if (($resultSup['total'] ?? 0) > 0) {
+                error_log("Supervisor::eliminar - Supervisor ID $id tiene supervisiones registradas");
                 return false;
             }
 
@@ -312,9 +373,6 @@ class Supervisor {
     // ESTADÍSTICAS
     // ==========================================
 
-    /**
-     * ✅ FIX 4: incluye total_ordenes.
-     */
     public function obtenerEstadisticas() {
         try {
             $sql = "SELECT 
@@ -327,7 +385,7 @@ class Supervisor {
             $stmt->execute();
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            // ✅ FIX 4: contar órdenes asignadas a supervisores
+            // Contar órdenes asignadas a supervisores
             $sqlOrdenes = "SELECT COUNT(DISTINCT id) as total_ordenes 
                            FROM ordenes_mantenimiento 
                            WHERE id_supervisor IS NOT NULL";
@@ -375,9 +433,6 @@ class Supervisor {
     // BÚSQUEDA
     // ==========================================
 
-    /**
-     * ✅ FIX 5: agregado buscar() para autocompletar.
-     */
     public function buscar($termino) {
         try {
             $sql = "SELECT * FROM supervisores 

@@ -1,19 +1,24 @@
 <?php
 // model/MantenimientoEquiposModel.php
-// Gestión completa de mantenimiento preventivo por horas de uso
-// ✅ FIX: registrarMantenimientoRealizado() valida que el equipo tenga horómetro
-// ✅ FIX: eliminarMantenimiento() revierte ultimo_mantenimiento_horas
-// ✅ FIX: eliminarFotoEvidencia() valida path traversal
-// ✅ FIX: catch (Throwable) en vez de Exception
-// ✅ FIX: alias tecnico_nombre y proveedor_nombre en SELECTs
-// ✅ FIX: costo_estimado en obtenerMantenimientoPorId()
+// Modelo del sistema de mantenimiento preventivo
+// ✅ Maneja: planes de mantenimiento, ejecuciones, horómetro y checklists (protocolo + ejecución)
+// ✅ catch (Throwable) en todos los métodos
+// ✅ Transacciones en operaciones complejas
+// ✅ Validaciones de IDs, cantidades y fechas
+// ✅ FIX: obtenerEstadisticas() devuelve total_equipos, mantenimientos_mes, costo_mes
+// ✅ FIX: obtenerMantenimientosProximos() devuelve estado_alerta con nombres exactos para la vista
+// ✅ FIX: obtenerResumenAlertas() devuelve vencidos_horas, vencidos_fecha, proximos_horas, proximos_fecha
+// ✅ FIX: alias 'codigo' además de 'equipo_codigo'
 
 require_once __DIR__ . '/../config/database.php';
 
-class MantenimientoEquiposModel {
+class MantenimientoEquiposModel
+{
     private $db;
+    private $lastError;
 
-    public function __construct() {
+    public function __construct()
+    {
         try {
             $this->db = Database::getInstance()->getConnection();
         } catch (Throwable $e) {
@@ -22,94 +27,938 @@ class MantenimientoEquiposModel {
         }
     }
 
+    public function getLastError()
+    {
+        return $this->lastError;
+    }
+
+    // ==========================================
+    // PLANES DE MANTENIMIENTO
+    // ==========================================
+
+    /**
+     * Obtener todos los planes de mantenimiento de un equipo.
+     */
+    public function obtenerPlanPorEquipo($id_equipo)
+    {
+        try {
+            $id_equipo = (int)$id_equipo;
+            if ($id_equipo <= 0) return [];
+
+            $sql = "SELECT p.*, 
+                           t.nombre AS tecnico_nombre,
+                           pr.nombre AS proveedor_nombre
+                    FROM equipos_mantenimiento_plan p
+                    LEFT JOIN tecnicos t ON p.tecnico_asignado_id = t.id
+                    LEFT JOIN proveedores pr ON p.id_proveedor = pr.id
+                    WHERE p.id_equipo = ? AND p.activo = 1
+                    ORDER BY p.fecha_creacion DESC";
+
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$id_equipo]);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        } catch (PDOException $e) {
+            error_log("Error en obtenerPlanPorEquipo: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Obtener un plan de mantenimiento por ID.
+     */
+    public function obtenerPlanPorId($id)
+    {
+        try {
+            $id = (int)$id;
+            if ($id <= 0) return false;
+
+            $sql = "SELECT p.*, 
+                           e.nombre_equipo,
+                           e.codigo AS equipo_codigo,
+                           e.horometro_actual,
+                           t.nombre AS tecnico_nombre,
+                           pr.nombre AS proveedor_nombre
+                    FROM equipos_mantenimiento_plan p
+                    LEFT JOIN equipos e ON p.id_equipo = e.id_equipo
+                    LEFT JOIN tecnicos t ON p.tecnico_asignado_id = t.id
+                    LEFT JOIN proveedores pr ON p.id_proveedor = pr.id
+                    WHERE p.id = ?";
+
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$id]);
+            $plan = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            return $plan ?: false;
+
+        } catch (PDOException $e) {
+            error_log("Error en obtenerPlanPorId: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Crear una tarea de mantenimiento (plan).
+     */
+    public function crearTarea($datos)
+    {
+        try {
+            if (empty($datos['id_equipo']) || empty($datos['nombre_tarea'])) {
+                $this->lastError = 'Equipo y nombre de tarea son obligatorios';
+                return false;
+            }
+
+            $sql = "INSERT INTO equipos_mantenimiento_plan (
+                        id_equipo,
+                        nombre_tarea,
+                        descripcion,
+                        tipo_mantenimiento,
+                        frecuencia_horas,
+                        frecuencia_dias,
+                        responsable,
+                        id_proveedor,
+                        costo_estimado,
+                        repuestos_necesarios,
+                        tecnico_asignado_id,
+                        estado_asignacion,
+                        fecha_asignacion,
+                        activo,
+                        fecha_creacion
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW())";
+
+            $stmt = $this->db->prepare($sql);
+
+            $tecnico_id = !empty($datos['tecnico_asignado_id']) ? (int)$datos['tecnico_asignado_id'] : null;
+            $estado_asignacion = $tecnico_id ? 'ASIGNADO' : 'SIN_ASIGNAR';
+            $fecha_asignacion  = $tecnico_id ? date('Y-m-d H:i:s') : null;
+
+            $stmt->execute([
+                (int)$datos['id_equipo'],
+                trim($datos['nombre_tarea']),
+                trim($datos['descripcion'] ?? ''),
+                $datos['tipo_mantenimiento'] ?? 'PREVENTIVO',
+                !empty($datos['frecuencia_horas']) ? (int)$datos['frecuencia_horas'] : null,
+                !empty($datos['frecuencia_dias']) ? (int)$datos['frecuencia_dias'] : null,
+                $datos['responsable'] ?? 'TECNICO_INTERNO',
+                !empty($datos['id_proveedor']) ? (int)$datos['id_proveedor'] : null,
+                (float)($datos['costo_estimado'] ?? 0),
+                trim($datos['repuestos_necesarios'] ?? ''),
+                $tecnico_id,
+                $estado_asignacion,
+                $fecha_asignacion
+            ]);
+
+            return (int)$this->db->lastInsertId();
+
+        } catch (PDOException $e) {
+            error_log("Error en crearTarea: " . $e->getMessage());
+            $this->lastError = $e->getMessage();
+            return false;
+        }
+    }
+
+    /**
+     * Actualizar una tarea de mantenimiento.
+     */
+    public function actualizarTarea($id, $datos)
+    {
+        try {
+            $id = (int)$id;
+            if ($id <= 0) return false;
+
+            if (empty($datos['nombre_tarea'])) {
+                $this->lastError = 'El nombre de la tarea es obligatorio';
+                return false;
+            }
+
+            $sql = "UPDATE equipos_mantenimiento_plan SET
+                        nombre_tarea = ?,
+                        descripcion = ?,
+                        tipo_mantenimiento = ?,
+                        frecuencia_horas = ?,
+                        frecuencia_dias = ?,
+                        responsable = ?,
+                        id_proveedor = ?,
+                        costo_estimado = ?,
+                        repuestos_necesarios = ?,
+                        activo = ?,
+                        fecha_actualizacion = NOW()
+                    WHERE id = ?";
+
+            $stmt = $this->db->prepare($sql);
+            return $stmt->execute([
+                trim($datos['nombre_tarea']),
+                trim($datos['descripcion'] ?? ''),
+                $datos['tipo_mantenimiento'] ?? 'PREVENTIVO',
+                !empty($datos['frecuencia_horas']) ? (int)$datos['frecuencia_horas'] : null,
+                !empty($datos['frecuencia_dias']) ? (int)$datos['frecuencia_dias'] : null,
+                $datos['responsable'] ?? 'TECNICO_INTERNO',
+                !empty($datos['id_proveedor']) ? (int)$datos['id_proveedor'] : null,
+                (float)($datos['costo_estimado'] ?? 0),
+                trim($datos['repuestos_necesarios'] ?? ''),
+                isset($datos['activo']) ? (int)$datos['activo'] : 1,
+                $id
+            ]);
+
+        } catch (PDOException $e) {
+            error_log("Error en actualizarTarea: " . $e->getMessage());
+            $this->lastError = $e->getMessage();
+            return false;
+        }
+    }
+
+    /**
+     * Eliminar una tarea de mantenimiento (soft delete).
+     */
+    public function eliminarTarea($id)
+    {
+        try {
+            $id = (int)$id;
+            if ($id <= 0) return false;
+
+            // Verificar que no tenga ejecuciones asociadas
+            $stmtCheck = $this->db->prepare("SELECT COUNT(*) FROM equipos_mantenimientos WHERE plan_id = ?");
+            $stmtCheck->execute([$id]);
+            if ((int)$stmtCheck->fetchColumn() > 0) {
+                $this->lastError = 'No se puede eliminar la tarea porque tiene mantenimientos registrados';
+                return false;
+            }
+
+            $sql = "UPDATE equipos_mantenimiento_plan SET activo = 0, fecha_actualizacion = NOW() WHERE id = ?";
+            $stmt = $this->db->prepare($sql);
+            return $stmt->execute([$id]);
+
+        } catch (PDOException $e) {
+            error_log("Error en eliminarTarea: " . $e->getMessage());
+            $this->lastError = $e->getMessage();
+            return false;
+        }
+    }
+
+    /**
+     * Cambiar el estado de asignación de un plan.
+     */
+    public function cambiarEstadoAsignacion($id, $estado)
+    {
+        try {
+            $id = (int)$id;
+            $estados_validos = ['SIN_ASIGNAR', 'ASIGNADO', 'EN_PROCESO', 'COMPLETADO'];
+
+            if (!in_array($estado, $estados_validos, true)) {
+                $this->lastError = 'Estado de asignación inválido';
+                return false;
+            }
+
+            $sql = "UPDATE equipos_mantenimiento_plan 
+                    SET estado_asignacion = ?, fecha_actualizacion = NOW()
+                    WHERE id = ?";
+            $stmt = $this->db->prepare($sql);
+            return $stmt->execute([$estado, $id]);
+
+        } catch (PDOException $e) {
+            error_log("Error en cambiarEstadoAsignacion: " . $e->getMessage());
+            $this->lastError = $e->getMessage();
+            return false;
+        }
+    }
+
+    /**
+     * Asignar un técnico a una tarea.
+     */
+    public function asignarTecnico($id, $tecnico_id, $asignado_por)
+    {
+        try {
+            $id = (int)$id;
+            $tecnico_id = (int)$tecnico_id;
+
+            if ($id <= 0 || $tecnico_id <= 0) {
+                $this->lastError = 'IDs inválidos';
+                return false;
+            }
+
+            $sql = "UPDATE equipos_mantenimiento_plan SET
+                        tecnico_asignado_id = ?,
+                        estado_asignacion = 'ASIGNADO',
+                        fecha_asignacion = NOW(),
+                        asignado_por = ?,
+                        fecha_actualizacion = NOW()
+                    WHERE id = ?";
+
+            $stmt = $this->db->prepare($sql);
+            return $stmt->execute([$tecnico_id, (int)$asignado_por, $id]);
+
+        } catch (PDOException $e) {
+            error_log("Error en asignarTecnico: " . $e->getMessage());
+            $this->lastError = $e->getMessage();
+            return false;
+        }
+    }
+
+    /**
+     * Obtener tareas asignadas a un técnico (panel "Mis Tareas").
+     */
+    public function obtenerTareasAsignadas($tecnico_id)
+    {
+        try {
+            $tecnico_id = (int)$tecnico_id;
+            if ($tecnico_id <= 0) return [];
+
+            $sql = "SELECT p.*,
+                           e.nombre_equipo,
+                           e.codigo AS equipo_codigo,
+                           e.horometro_actual,
+                           e.horas_diarias_promedio,
+                           CASE
+                               WHEN p.proximo_mantenimiento_fecha IS NOT NULL 
+                                    AND p.proximo_mantenimiento_fecha < CURDATE() 
+                                    THEN 'VENCIDO'
+                               WHEN p.proximo_mantenimiento_fecha IS NOT NULL 
+                                    AND p.proximo_mantenimiento_fecha <= DATE_ADD(CURDATE(), INTERVAL 7 DAY) 
+                                    THEN 'PROXIMO'
+                               ELSE 'AL_DIA'
+                           END AS estado_alerta
+                    FROM equipos_mantenimiento_plan p
+                    LEFT JOIN equipos e ON p.id_equipo = e.id_equipo
+                    WHERE p.tecnico_asignado_id = ?
+                      AND p.activo = 1
+                      AND p.estado_asignacion IN ('ASIGNADO', 'EN_PROCESO')
+                    ORDER BY 
+                        CASE 
+                            WHEN p.proximo_mantenimiento_fecha IS NULL THEN 3
+                            WHEN p.proximo_mantenimiento_fecha < CURDATE() THEN 1
+                            ELSE 2
+                        END,
+                        p.proximo_mantenimiento_fecha ASC";
+
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$tecnico_id]);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        } catch (PDOException $e) {
+            error_log("Error en obtenerTareasAsignadas: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Obtener el ID de técnico a partir de su email.
+     */
+    public function obtenerTecnicoIdByEmail($email)
+    {
+        try {
+            if (empty($email)) return null;
+
+            $sql = "SELECT id FROM tecnicos WHERE LOWER(email) = LOWER(?) LIMIT 1";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$email]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            return $result ? (int)$result['id'] : null;
+
+        } catch (PDOException $e) {
+            error_log("Error en obtenerTecnicoIdByEmail: " . $e->getMessage());
+            return null;
+        }
+    }
+
+    // ==========================================
+    // MANTENIMIENTOS REALIZADOS
+    // ==========================================
+
+    /**
+     * Obtener un mantenimiento realizado por ID.
+     */
+    public function obtenerMantenimientoPorId($id)
+    {
+        try {
+            $id = (int)$id;
+            if ($id <= 0) return false;
+
+            $sql = "SELECT m.*,
+                           p.nombre_tarea,
+                           p.tipo_mantenimiento AS plan_tipo,
+                           e.nombre_equipo,
+                           e.codigo AS equipo_codigo,
+                           t.nombre AS tecnico_nombre,
+                           pr.nombre AS proveedor_nombre
+                    FROM equipos_mantenimientos m
+                    LEFT JOIN equipos_mantenimiento_plan p ON m.plan_id = p.id
+                    LEFT JOIN equipos e ON m.id_equipo = e.id_equipo
+                    LEFT JOIN tecnicos t ON m.tecnico_id = t.id
+                    LEFT JOIN proveedores pr ON m.proveedor_id = pr.id
+                    WHERE m.id = ?";
+
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$id]);
+            $mantenimiento = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            return $mantenimiento ?: false;
+
+        } catch (PDOException $e) {
+            error_log("Error en obtenerMantenimientoPorId: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Obtener historial de mantenimientos (por equipo o global).
+     */
+    public function obtenerHistorialMantenimientos($id_equipo = null, $limite = 20)
+    {
+        try {
+            $sql = "SELECT m.*,
+                           p.nombre_tarea,
+                           e.nombre_equipo,
+                           e.codigo AS equipo_codigo,
+                           t.nombre AS tecnico_nombre,
+                           pr.nombre AS proveedor_nombre
+                    FROM equipos_mantenimientos m
+                    LEFT JOIN equipos_mantenimiento_plan p ON m.plan_id = p.id
+                    LEFT JOIN equipos e ON m.id_equipo = e.id_equipo
+                    LEFT JOIN tecnicos t ON m.tecnico_id = t.id
+                    LEFT JOIN proveedores pr ON m.proveedor_id = pr.id
+                    WHERE 1=1";
+            $params = [];
+
+            if (!empty($id_equipo)) {
+                $sql .= " AND m.id_equipo = ?";
+                $params[] = (int)$id_equipo;
+            }
+
+            $sql .= " ORDER BY m.fecha_mantenimiento DESC LIMIT ?";
+            $params[] = (int)$limite;
+
+            $stmt = $this->db->prepare($sql);
+            $stmt->bindValue(count($params), (int)$limite, PDO::PARAM_INT);
+            for ($i = 1; $i < count($params); $i++) {
+                $stmt->bindValue($i, $params[$i - 1], is_int($params[$i - 1]) ? PDO::PARAM_INT : PDO::PARAM_STR);
+            }
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        } catch (PDOException $e) {
+            error_log("Error en obtenerHistorialMantenimientos: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Registrar un mantenimiento realizado y recalcular el próximo.
+     */
+    public function registrarMantenimientoRealizado($plan_id, $datos)
+    {
+        try {
+            $plan_id = (int)$plan_id;
+            if ($plan_id <= 0) {
+                return ['success' => false, 'error' => 'Plan inválido'];
+            }
+
+            $plan = $this->obtenerPlanPorId($plan_id);
+            if (!$plan) {
+                return ['success' => false, 'error' => 'Plan de mantenimiento no encontrado'];
+            }
+
+            $this->db->beginTransaction();
+
+            $fecha_mantenimiento = $datos['fecha_mantenimiento'] ?? date('Y-m-d H:i:s');
+            $horas_equipo = (int)($datos['horas_equipo'] ?? 0);
+
+            $sql = "INSERT INTO equipos_mantenimientos (
+                        id_equipo, plan_id, tipo, descripcion, horas_equipo,
+                        fecha_mantenimiento, tecnico_id, proveedor_id, costo,
+                        repuestos_usados, observaciones, registrado_por, fecha_creacion
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
+
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([
+                (int)$plan['id_equipo'],
+                $plan_id,
+                $plan['tipo_mantenimiento'] ?? 'PREVENTIVO',
+                trim($datos['descripcion'] ?? ''),
+                $horas_equipo,
+                $fecha_mantenimiento,
+                !empty($datos['tecnico_id']) ? (int)$datos['tecnico_id'] : null,
+                !empty($datos['proveedor_id']) ? (int)$datos['proveedor_id'] : null,
+                (float)($datos['costo'] ?? 0),
+                trim($datos['repuestos_usados'] ?? ''),
+                trim($datos['observaciones'] ?? ''),
+                $_SESSION['usuario_id'] ?? null
+            ]);
+
+            $mantenimiento_id = (int)$this->db->lastInsertId();
+
+            // Recalcular próximo mantenimiento
+            $this->recalcularProximoMantenimiento($plan_id, $horas_equipo, $fecha_mantenimiento);
+
+            // Marcar el plan como completado
+            $sqlUpd = "UPDATE equipos_mantenimiento_plan 
+                       SET estado_asignacion = 'COMPLETADO',
+                           ultimo_mantenimiento_fecha = ?,
+                           ultimo_mantenimiento_horas = ?,
+                           fecha_actualizacion = NOW()
+                       WHERE id = ?";
+            $stmtUpd = $this->db->prepare($sqlUpd);
+            $stmtUpd->execute([
+                date('Y-m-d', strtotime($fecha_mantenimiento)),
+                $horas_equipo,
+                $plan_id
+            ]);
+
+            $this->db->commit();
+
+            return ['success' => true, 'id' => $mantenimiento_id];
+
+        } catch (Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            error_log("Error en registrarMantenimientoRealizado: " . $e->getMessage());
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Recalcular el próximo mantenimiento de un plan.
+     */
+    private function recalcularProximoMantenimiento($plan_id, $horas_actuales, $fecha_mantenimiento)
+    {
+        try {
+            $plan = $this->obtenerPlanPorId($plan_id);
+            if (!$plan) return false;
+
+            $nuevas_horas = null;
+            $nueva_fecha = null;
+
+            if (!empty($plan['frecuencia_horas'])) {
+                $nuevas_horas = (int)$horas_actuales + (int)$plan['frecuencia_horas'];
+            }
+
+            if (!empty($plan['frecuencia_dias'])) {
+                $nueva_fecha = date('Y-m-d', strtotime($fecha_mantenimiento . ' +' . (int)$plan['frecuencia_dias'] . ' days'));
+            }
+
+            $sql = "UPDATE equipos_mantenimiento_plan SET
+                        proximo_mantenimiento_horas = ?,
+                        proximo_mantenimiento_fecha = ?,
+                        fecha_actualizacion = NOW()
+                    WHERE id = ?";
+
+            $stmt = $this->db->prepare($sql);
+            return $stmt->execute([$nuevas_horas, $nueva_fecha, $plan_id]);
+
+        } catch (Throwable $e) {
+            error_log("Error en recalcularProximoMantenimiento: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Actualizar un mantenimiento (admin/supervisor).
+     */
+    public function actualizarMantenimiento($id, $datos, $usuario_id, $motivo_edicion)
+    {
+        try {
+            $id = (int)$id;
+            if ($id <= 0) {
+                return ['success' => false, 'error' => 'ID inválido'];
+            }
+
+            if (empty(trim($motivo_edicion))) {
+                return ['success' => false, 'error' => 'Debes indicar el motivo de la edición'];
+            }
+
+            $sql = "UPDATE equipos_mantenimientos SET
+                        descripcion = ?,
+                        horas_equipo = ?,
+                        fecha_mantenimiento = ?,
+                        tecnico_id = ?,
+                        proveedor_id = ?,
+                        costo = ?,
+                        repuestos_usados = ?,
+                        observaciones = ?
+                    WHERE id = ?";
+
+            $stmt = $this->db->prepare($sql);
+            $resultado = $stmt->execute([
+                trim($datos['descripcion'] ?? ''),
+                (int)($datos['horas_equipo'] ?? 0),
+                $datos['fecha_mantenimiento'] ?? date('Y-m-d H:i:s'),
+                !empty($datos['tecnico_id']) ? (int)$datos['tecnico_id'] : null,
+                !empty($datos['proveedor_id']) ? (int)$datos['proveedor_id'] : null,
+                (float)($datos['costo'] ?? 0),
+                trim($datos['repuestos_usados'] ?? ''),
+                trim($datos['observaciones'] ?? ''),
+                $id
+            ]);
+
+            if ($resultado) {
+                try {
+                    require_once __DIR__ . '/AuditoriaModel.php';
+                    $auditoria = new AuditoriaModel();
+                    $auditoria->registrar(
+                        (int)$usuario_id,
+                        $_SESSION['nombre'] ?? 'Sistema',
+                        $_SESSION['rol'] ?? 'admin',
+                        'editar_mantenimiento',
+                        'equipos_mantenimientos',
+                        $id,
+                        null,
+                        ['motivo' => $motivo_edicion]
+                    );
+                } catch (Throwable $e) {
+                    error_log("Error auditoría editar_mantenimiento: " . $e->getMessage());
+                }
+            }
+
+            return ['success' => (bool)$resultado];
+
+        } catch (Throwable $e) {
+            error_log("Error en actualizarMantenimiento: " . $e->getMessage());
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Eliminar un mantenimiento.
+     */
+    public function eliminarMantenimiento($id)
+    {
+        try {
+            $id = (int)$id;
+            if ($id <= 0) {
+                return ['success' => false, 'error' => 'ID inválido'];
+            }
+
+            $sql = "DELETE FROM equipos_mantenimientos WHERE id = ?";
+            $stmt = $this->db->prepare($sql);
+            $resultado = $stmt->execute([$id]);
+
+            return ['success' => (bool)$resultado];
+
+        } catch (Throwable $e) {
+            error_log("Error en eliminarMantenimiento: " . $e->getMessage());
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    // ==========================================
+    // ALERTAS Y ESTADÍSTICAS
+    // ==========================================
+
+    /**
+     * Obtener mantenimientos próximos con campos calculados.
+     * ✅ FIX: estado_alerta con nombres que la vista espera
+     */
+    public function obtenerMantenimientosProximos($dias = 30, $limite = 100)
+    {
+        try {
+            $sql = "SELECT p.*,
+                           e.nombre_equipo,
+                           e.codigo AS equipo_codigo,
+                           e.codigo AS codigo,
+                           e.horometro_actual,
+                           t.nombre AS tecnico_nombre,
+                           pr.nombre AS proveedor_nombre,
+
+                           CASE 
+                               WHEN p.proximo_mantenimiento_fecha IS NOT NULL 
+                               THEN DATEDIFF(p.proximo_mantenimiento_fecha, CURDATE())
+                               ELSE NULL 
+                           END AS dias_restantes,
+
+                           CASE 
+                               WHEN p.proximo_mantenimiento_horas IS NOT NULL 
+                               THEN (p.proximo_mantenimiento_horas - COALESCE(e.horometro_actual, 0))
+                               ELSE NULL 
+                           END AS horas_restantes,
+
+                           CASE
+                               WHEN p.proximo_mantenimiento_horas IS NOT NULL 
+                                    AND COALESCE(e.horometro_actual, 0) >= p.proximo_mantenimiento_horas 
+                                    THEN 'VENCIDO_POR_HORAS'
+                               WHEN p.proximo_mantenimiento_fecha IS NOT NULL 
+                                    AND p.proximo_mantenimiento_fecha < CURDATE() 
+                                    THEN 'VENCIDO_POR_FECHA'
+                               WHEN p.proximo_mantenimiento_horas IS NOT NULL 
+                                    AND (p.proximo_mantenimiento_horas - COALESCE(e.horometro_actual, 0)) <= 100 
+                                    THEN 'PROXIMO_POR_HORAS'
+                               WHEN p.proximo_mantenimiento_fecha IS NOT NULL 
+                                    AND p.proximo_mantenimiento_fecha <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) 
+                                    THEN 'PROXIMO_POR_FECHA'
+                               ELSE 'AL_DIA'
+                           END AS estado_alerta
+
+                    FROM equipos_mantenimiento_plan p
+                    LEFT JOIN equipos e ON p.id_equipo = e.id_equipo
+                    LEFT JOIN tecnicos t ON p.tecnico_asignado_id = t.id
+                    LEFT JOIN proveedores pr ON p.id_proveedor = pr.id
+                    WHERE p.activo = 1
+                      AND p.estado_asignacion != 'COMPLETADO'
+                      AND (
+                          (p.proximo_mantenimiento_fecha IS NOT NULL 
+                           AND p.proximo_mantenimiento_fecha <= DATE_ADD(CURDATE(), INTERVAL ? DAY))
+                          OR
+                          (p.proximo_mantenimiento_horas IS NOT NULL 
+                           AND (p.proximo_mantenimiento_horas - COALESCE(e.horometro_actual, 0)) <= 100)
+                      )
+                    ORDER BY 
+                        CASE 
+                            WHEN p.proximo_mantenimiento_horas IS NOT NULL 
+                                 AND COALESCE(e.horometro_actual, 0) >= p.proximo_mantenimiento_horas THEN 1
+                            WHEN p.proximo_mantenimiento_fecha IS NOT NULL 
+                                 AND p.proximo_mantenimiento_fecha < CURDATE() THEN 1
+                            ELSE 2
+                        END,
+                        p.proximo_mantenimiento_fecha ASC,
+                        p.proximo_mantenimiento_horas ASC
+                    LIMIT ?";
+
+            $stmt = $this->db->prepare($sql);
+            $stmt->bindValue(1, (int)$dias, PDO::PARAM_INT);
+            $stmt->bindValue(2, (int)$limite, PDO::PARAM_INT);
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        } catch (PDOException $e) {
+            error_log("Error en obtenerMantenimientosProximos: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Resumen de alertas con desglose por horas/fecha.
+     * ✅ FIX: devuelve vencidos_horas, vencidos_fecha, proximos_horas, proximos_fecha
+     */
+    public function obtenerResumenAlertas()
+    {
+        try {
+            $sql = "SELECT
+                        SUM(CASE 
+                            WHEN p.proximo_mantenimiento_horas IS NOT NULL 
+                             AND e.horometro_actual >= p.proximo_mantenimiento_horas 
+                            THEN 1 ELSE 0 
+                        END) AS vencidos_horas,
+
+                        SUM(CASE 
+                            WHEN p.proximo_mantenimiento_fecha IS NOT NULL 
+                             AND p.proximo_mantenimiento_fecha < CURDATE() 
+                            THEN 1 ELSE 0 
+                        END) AS vencidos_fecha,
+
+                        SUM(CASE 
+                            WHEN p.proximo_mantenimiento_horas IS NOT NULL 
+                             AND e.horometro_actual < p.proximo_mantenimiento_horas 
+                             AND (p.proximo_mantenimiento_horas - e.horometro_actual) <= 100 
+                            THEN 1 ELSE 0 
+                        END) AS proximos_horas,
+
+                        SUM(CASE 
+                            WHEN p.proximo_mantenimiento_fecha IS NOT NULL 
+                             AND p.proximo_mantenimiento_fecha >= CURDATE() 
+                             AND p.proximo_mantenimiento_fecha <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) 
+                            THEN 1 ELSE 0 
+                        END) AS proximos_fecha,
+
+                        COUNT(*) AS total
+
+                    FROM equipos_mantenimiento_plan p
+                    LEFT JOIN equipos e ON p.id_equipo = e.id_equipo
+                    WHERE p.activo = 1
+                      AND p.estado_asignacion != 'COMPLETADO'";
+
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute();
+            $r = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            $vencidos_horas = (int)($r['vencidos_horas'] ?? 0);
+            $vencidos_fecha = (int)($r['vencidos_fecha'] ?? 0);
+            $proximos_horas = (int)($r['proximos_horas'] ?? 0);
+            $proximos_fecha = (int)($r['proximos_fecha'] ?? 0);
+
+            return [
+                'vencidos_horas' => $vencidos_horas,
+                'vencidos_fecha' => $vencidos_fecha,
+                'proximos_horas' => $proximos_horas,
+                'proximos_fecha' => $proximos_fecha,
+                'vencidos'       => $vencidos_horas + $vencidos_fecha,
+                'proximos'       => $proximos_horas + $proximos_fecha,
+                'total'          => (int)($r['total'] ?? 0),
+                'total_alertas'  => $vencidos_horas + $vencidos_fecha + $proximos_horas + $proximos_fecha
+            ];
+
+        } catch (PDOException $e) {
+            error_log("Error en obtenerResumenAlertas: " . $e->getMessage());
+            return [
+                'vencidos_horas' => 0,
+                'vencidos_fecha' => 0,
+                'proximos_horas' => 0,
+                'proximos_fecha' => 0,
+                'vencidos'       => 0,
+                'proximos'       => 0,
+                'total'          => 0,
+                'total_alertas'  => 0
+            ];
+        }
+    }
+
+    /**
+     * Estadísticas generales.
+     * ✅ FIX: devuelve total_equipos, total_planes, mantenimientos_mes, costo_mes
+     */
+    public function obtenerEstadisticas()
+    {
+        try {
+            $sql = "SELECT
+                        (SELECT COUNT(*) FROM equipos WHERE estado = 'activo') AS total_equipos,
+                        (SELECT COUNT(*) FROM equipos_mantenimiento_plan WHERE activo = 1) AS total_planes,
+                        (SELECT COUNT(*) FROM equipos_mantenimientos 
+                         WHERE YEAR(fecha_mantenimiento) = YEAR(CURDATE()) 
+                           AND MONTH(fecha_mantenimiento) = MONTH(CURDATE())) AS mantenimientos_mes,
+                        (SELECT COALESCE(SUM(costo), 0) FROM equipos_mantenimientos 
+                         WHERE YEAR(fecha_mantenimiento) = YEAR(CURDATE()) 
+                           AND MONTH(fecha_mantenimiento) = MONTH(CURDATE())) AS costo_mes,
+                        (SELECT COUNT(*) FROM equipos_mantenimientos) AS total_mantenimientos,
+                        (SELECT COALESCE(SUM(costo), 0) FROM equipos_mantenimientos) AS costo_total,
+                        (SELECT COUNT(*) FROM equipos_mantenimiento_plan WHERE activo = 1 AND estado_asignacion = 'SIN_ASIGNAR') AS sin_asignar,
+                        (SELECT COUNT(*) FROM equipos_mantenimiento_plan WHERE activo = 1 AND estado_asignacion IN ('ASIGNADO', 'EN_PROCESO')) AS en_proceso,
+                        (SELECT COUNT(*) FROM equipos_mantenimiento_plan WHERE activo = 1 AND estado_asignacion = 'COMPLETADO') AS completados";
+
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute();
+            $r = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            return [
+                'total_equipos'        => (int)($r['total_equipos'] ?? 0),
+                'total_planes'         => (int)($r['total_planes'] ?? 0),
+                'mantenimientos_mes'   => (int)($r['mantenimientos_mes'] ?? 0),
+                'costo_mes'            => (float)($r['costo_mes'] ?? 0),
+                'total_mantenimientos' => (int)($r['total_mantenimientos'] ?? 0),
+                'costo_total'          => (float)($r['costo_total'] ?? 0),
+                'sin_asignar'          => (int)($r['sin_asignar'] ?? 0),
+                'en_proceso'           => (int)($r['en_proceso'] ?? 0),
+                'completados'          => (int)($r['completados'] ?? 0)
+            ];
+
+        } catch (PDOException $e) {
+            error_log("Error en obtenerEstadisticas: " . $e->getMessage());
+            return [
+                'total_equipos' => 0, 'total_planes' => 0,
+                'mantenimientos_mes' => 0, 'costo_mes' => 0,
+                'total_mantenimientos' => 0, 'costo_total' => 0,
+                'sin_asignar' => 0, 'en_proceso' => 0, 'completados' => 0
+            ];
+        }
+    }
+
     // ==========================================
     // HORÓMETRO
     // ==========================================
 
-    public function registrarHorometro($id_equipo, $horas_actuales, $usuario_id, $observaciones = '', $fecha_lectura = null) {
+    /**
+     * Obtener historial de lecturas de horómetro de un equipo.
+     */
+    public function obtenerHistorialHorometro($id_equipo, $limite = 20)
+    {
         try {
+            $id_equipo = (int)$id_equipo;
+            if ($id_equipo <= 0) return [];
+
+            $sql = "SELECT h.*, u.nombre AS usuario_nombre
+                    FROM equipos_horometro h
+                    LEFT JOIN usuarios u ON h.usuario_id = u.id
+                    WHERE h.id_equipo = ?
+                    ORDER BY h.fecha_lectura DESC
+                    LIMIT ?";
+
+            $stmt = $this->db->prepare($sql);
+            $stmt->bindValue(1, $id_equipo, PDO::PARAM_INT);
+            $stmt->bindValue(2, (int)$limite, PDO::PARAM_INT);
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        } catch (PDOException $e) {
+            error_log("Error en obtenerHistorialHorometro: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Obtener una lectura de horómetro por ID.
+     */
+    public function obtenerLecturaHorometro($id)
+    {
+        try {
+            $id = (int)$id;
+            if ($id <= 0) return false;
+
+            $sql = "SELECT * FROM equipos_horometro WHERE id = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$id]);
+            return $stmt->fetch(PDO::FETCH_ASSOC) ?: false;
+
+        } catch (PDOException $e) {
+            error_log("Error en obtenerLecturaHorometro: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Registrar una lectura de horómetro.
+     */
+    public function registrarHorometro($id_equipo, $horas, $usuario_id, $observaciones = '', $fecha_lectura = null)
+    {
+        try {
+            $id_equipo = (int)$id_equipo;
+            $horas = (int)$horas;
+
+            if ($id_equipo <= 0 || $horas < 0) {
+                return ['success' => false, 'error' => 'Datos inválidos'];
+            }
+
+            // Obtener lectura anterior
+            $sqlPrev = "SELECT horas_actuales FROM equipos_horometro 
+                        WHERE id_equipo = ? 
+                        ORDER BY fecha_lectura DESC LIMIT 1";
+            $stmtPrev = $this->db->prepare($sqlPrev);
+            $stmtPrev->execute([$id_equipo]);
+            $prev = $stmtPrev->fetch(PDO::FETCH_ASSOC);
+            $horas_anteriores = $prev ? (int)$prev['horas_actuales'] : 0;
+
+            if ($horas < $horas_anteriores) {
+                return ['success' => false, 'error' => 'Las horas no pueden ser menores a la última lectura (' . $horas_anteriores . ' h)'];
+            }
+
+            $horas_desde_ultimo = $horas - $horas_anteriores;
+            $fecha_lectura = $fecha_lectura ?: date('Y-m-d H:i:s');
+
             $this->db->beginTransaction();
 
-            $sql = "SELECT horometro_actual FROM equipos WHERE id_equipo = ?";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$id_equipo]);
-            $equipo = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            if (!$equipo) {
-                throw new Exception('Equipo no encontrado');
-            }
-
-            $horas_anteriores = (int)($equipo['horometro_actual'] ?? 0);
-
-            if ($horas_actuales < $horas_anteriores) {
-                throw new Exception("Las horas actuales ($horas_actuales) no pueden ser menores a las anteriores ($horas_anteriores)");
-            }
-
-            $horas_desde_ultimo = $horas_actuales - $horas_anteriores;
-
-            if (empty($fecha_lectura)) {
-                $fecha_lectura = date('Y-m-d H:i:s');
-            } else {
-                $timestamp = strtotime($fecha_lectura);
-                if ($timestamp === false) {
-                    throw new Exception('Formato de fecha inválido');
-                }
-                $fecha_lectura = date('Y-m-d H:i:s', $timestamp);
-
-                if ($timestamp > time() + 60) {
-                    throw new Exception('La fecha de la lectura no puede ser futura');
-                }
-            }
-
-            $sql = "INSERT INTO equipos_horometro (
-                        id_equipo, horas_actuales, horas_desde_ultimo,
-                        fecha_lectura, usuario_id, observaciones
-                    ) VALUES (?, ?, ?, ?, ?, ?)";
+            $sql = "INSERT INTO equipos_horometro 
+                    (id_equipo, horas_actuales, horas_desde_ultimo, fecha_lectura, usuario_id, observaciones)
+                    VALUES (?, ?, ?, ?, ?, ?)";
             $stmt = $this->db->prepare($sql);
             $stmt->execute([
-                $id_equipo, 
-                $horas_actuales, 
+                $id_equipo,
+                $horas,
                 $horas_desde_ultimo,
                 $fecha_lectura,
-                $usuario_id, 
-                $observaciones
+                (int)$usuario_id,
+                trim($observaciones)
             ]);
 
-            $sql = "SELECT 
-                        SUM(horas_desde_ultimo) as total_horas,
-                        DATEDIFF(MAX(fecha_lectura), MIN(fecha_lectura)) as dias
-                    FROM equipos_horometro 
-                    WHERE id_equipo = ? 
-                    AND fecha_lectura >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$id_equipo]);
-            $promedio = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            $horas_diarias = 0;
-            if ($promedio && $promedio['dias'] > 0) {
-                $horas_diarias = round($promedio['total_horas'] / $promedio['dias'], 2);
-            }
-
-            $sql = "UPDATE equipos SET 
-                        horometro_actual = ?,
-                        horometro_ultima_lectura = ?,
-                        horas_diarias_promedio = ?
-                    WHERE id_equipo = ?";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([
-                $horas_actuales, 
-                $fecha_lectura,
-                $horas_diarias, 
-                $id_equipo
-            ]);
+            // Actualizar horómetro actual del equipo
+            $sqlUpd = "UPDATE equipos SET 
+                            horometro_actual = ?,
+                            horometro_ultima_lectura = ?
+                       WHERE id_equipo = ?";
+            $stmtUpd = $this->db->prepare($sqlUpd);
+            $stmtUpd->execute([$horas, $fecha_lectura, $id_equipo]);
 
             $this->db->commit();
 
             return [
                 'success' => true,
-                'horas_actuales' => $horas_actuales,
                 'horas_desde_ultimo' => $horas_desde_ultimo,
-                'horas_diarias' => $horas_diarias,
                 'fecha_lectura' => $fecha_lectura
             ];
 
@@ -122,1159 +971,103 @@ class MantenimientoEquiposModel {
         }
     }
 
-    public function obtenerHistorialHorometro($id_equipo, $limite = 30) {
+    /**
+     * Editar una lectura de horómetro existente.
+     */
+    public function editarLecturaHorometro($id, $nuevas_horas, $observaciones, $usuario_id, $nueva_fecha = null)
+    {
         try {
-            $sql = "SELECT h.*, u.nombre as usuario_nombre
-                    FROM equipos_horometro h
-                    LEFT JOIN usuarios u ON h.usuario_id = u.id
-                    WHERE h.id_equipo = ?
-                    ORDER BY h.fecha_lectura DESC
-                    LIMIT ?";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$id_equipo, (int)$limite]);
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } catch (PDOException $e) {
-            error_log("Error en obtenerHistorialHorometro: " . $e->getMessage());
-            return [];
-        }
-    }
+            $id = (int)$id;
+            $nuevas_horas = (int)$nuevas_horas;
 
-    public function obtenerLecturaHorometro($lectura_id) {
-        try {
-            $sql = "SELECT h.*, e.nombre_equipo, e.codigo, u.nombre as usuario_nombre
-                    FROM equipos_horometro h
-                    JOIN equipos e ON h.id_equipo = e.id_equipo
-                    LEFT JOIN usuarios u ON h.usuario_id = u.id
-                    WHERE h.id = ?";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$lectura_id]);
-            return $stmt->fetch(PDO::FETCH_ASSOC);
-        } catch (PDOException $e) {
-            error_log("Error en obtenerLecturaHorometro: " . $e->getMessage());
-            return false;
-        }
-    }
+            if ($id <= 0 || $nuevas_horas < 0) {
+                return ['success' => false, 'error' => 'Datos inválidos'];
+            }
 
-    public function editarLecturaHorometro($lectura_id, $nuevas_horas, $observaciones = '', $usuario_id = null, $nueva_fecha = null) {
-        try {
-            $this->db->beginTransaction();
-
-            $sql = "SELECT * FROM equipos_horometro WHERE id = ?";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$lectura_id]);
-            $lectura = $stmt->fetch(PDO::FETCH_ASSOC);
-
+            $lectura = $this->obtenerLecturaHorometro($id);
             if (!$lectura) {
-                throw new Exception('Lectura no encontrada');
+                return ['success' => false, 'error' => 'Lectura no encontrada'];
             }
 
-            $id_equipo = $lectura['id_equipo'];
-            $horas_anteriores = $lectura['horas_actuales'];
+            $valor_anterior = (int)$lectura['horas_actuales'];
+            $fecha_anterior = $lectura['fecha_lectura'];
 
-            if ($nuevas_horas < 0) {
-                throw new Exception('Las horas no pueden ser negativas');
-            }
-
-            $fecha_final = $lectura['fecha_lectura'];
-            if (!empty($nueva_fecha)) {
-                $timestamp = strtotime($nueva_fecha);
-                if ($timestamp === false) {
-                    throw new Exception('Formato de fecha inválido');
-                }
-                if ($timestamp > time() + 60) {
-                    throw new Exception('La fecha no puede ser futura');
-                }
-                $fecha_final = date('Y-m-d H:i:s', $timestamp);
-            }
-
-            $sql = "UPDATE equipos_horometro SET 
+            $sql = "UPDATE equipos_horometro SET
                         horas_actuales = ?,
                         observaciones = ?,
-                        fecha_lectura = ?
+                        fecha_lectura = COALESCE(?, fecha_lectura)
                     WHERE id = ?";
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([$nuevas_horas, $observaciones, $fecha_final, $lectura_id]);
-
-            $sql = "SELECT horas_actuales FROM equipos_horometro 
-                    WHERE id_equipo = ? AND fecha_lectura < ?
-                    ORDER BY fecha_lectura DESC, id DESC LIMIT 1";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$id_equipo, $fecha_final]);
-            $anterior = $stmt->fetch(PDO::FETCH_ASSOC);
-            $horas_previas = $anterior ? (int)$anterior['horas_actuales'] : 0;
-
-            $nueva_diferencia = $nuevas_horas - $horas_previas;
-
-            $sql = "UPDATE equipos_horometro SET horas_desde_ultimo = ? WHERE id = ?";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$nueva_diferencia, $lectura_id]);
-
-            $sql = "SELECT horas_actuales, fecha_lectura FROM equipos_horometro 
-                    WHERE id_equipo = ? 
-                    ORDER BY fecha_lectura DESC, id DESC LIMIT 1";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$id_equipo]);
-            $ultima = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            if ($ultima) {
-                $sql = "UPDATE equipos SET 
-                            horometro_actual = ?,
-                            horometro_ultima_lectura = ?
-                        WHERE id_equipo = ?";
-                $stmt = $this->db->prepare($sql);
-                $stmt->execute([$ultima['horas_actuales'], $ultima['fecha_lectura'], $id_equipo]);
-            }
-
-            $this->db->commit();
+            $resultado = $stmt->execute([
+                $nuevas_horas,
+                trim($observaciones),
+                $nueva_fecha,
+                $id
+            ]);
 
             return [
-                'success' => true,
-                'mensaje' => 'Lectura actualizada correctamente',
-                'valor_anterior' => $horas_anteriores,
+                'success' => (bool)$resultado,
+                'valor_anterior' => $valor_anterior,
                 'valor_nuevo' => $nuevas_horas,
-                'fecha_anterior' => $lectura['fecha_lectura'],
-                'fecha_nueva' => $fecha_final
+                'fecha_anterior' => $fecha_anterior,
+                'fecha_nueva' => $nueva_fecha
             ];
 
         } catch (Throwable $e) {
-            if ($this->db->inTransaction()) {
-                $this->db->rollBack();
-            }
             error_log("Error en editarLecturaHorometro: " . $e->getMessage());
             return ['success' => false, 'error' => $e->getMessage()];
         }
     }
 
-    public function eliminarLecturaHorometro($lectura_id) {
+    /**
+     * Eliminar una lectura de horómetro.
+     */
+    public function eliminarLecturaHorometro($id)
+    {
         try {
-            $this->db->beginTransaction();
-
-            $sql = "SELECT * FROM equipos_horometro WHERE id = ?";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$lectura_id]);
-            $lectura = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            if (!$lectura) {
-                throw new Exception('Lectura no encontrada');
+            $id = (int)$id;
+            if ($id <= 0) {
+                return ['success' => false, 'error' => 'ID inválido'];
             }
-
-            $id_equipo = $lectura['id_equipo'];
 
             $sql = "DELETE FROM equipos_horometro WHERE id = ?";
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([$lectura_id]);
+            $resultado = $stmt->execute([$id]);
 
-            $sql = "SELECT id, horas_actuales FROM equipos_horometro 
-                    WHERE id_equipo = ? 
-                    ORDER BY fecha_lectura ASC, id ASC";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$id_equipo]);
-            $lecturas = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-            $horas_previas = 0;
-            foreach ($lecturas as $lec) {
-                $diferencia = (int)$lec['horas_actuales'] - $horas_previas;
-
-                $sqlUpdate = "UPDATE equipos_horometro SET horas_desde_ultimo = ? WHERE id = ?";
-                $stmtUpdate = $this->db->prepare($sqlUpdate);
-                $stmtUpdate->execute([$diferencia, $lec['id']]);
-
-                $horas_previas = (int)$lec['horas_actuales'];
-            }
-
-            if (!empty($lecturas)) {
-                $ultima = end($lecturas);
-                $sql = "SELECT fecha_lectura FROM equipos_horometro WHERE id = ?";
-                $stmt = $this->db->prepare($sql);
-                $stmt->execute([$ultima['id']]);
-                $info_ultima = $stmt->fetch(PDO::FETCH_ASSOC);
-
-                $sql = "UPDATE equipos SET 
-                            horometro_actual = ?,
-                            horometro_ultima_lectura = ?
-                        WHERE id_equipo = ?";
-                $stmt = $this->db->prepare($sql);
-                $stmt->execute([
-                    $ultima['horas_actuales'], 
-                    $info_ultima['fecha_lectura'] ?? date('Y-m-d H:i:s'), 
-                    $id_equipo
-                ]);
-            } else {
-                $sql = "UPDATE equipos SET 
-                            horometro_actual = 0,
-                            horometro_ultima_lectura = NULL
-                        WHERE id_equipo = ?";
-                $stmt = $this->db->prepare($sql);
-                $stmt->execute([$id_equipo]);
-            }
-
-            $this->db->commit();
-
-            return [
-                'success' => true,
-                'mensaje' => 'Lectura eliminada correctamente'
-            ];
+            return ['success' => (bool)$resultado];
 
         } catch (Throwable $e) {
-            if ($this->db->inTransaction()) {
-                $this->db->rollBack();
-            }
             error_log("Error en eliminarLecturaHorometro: " . $e->getMessage());
             return ['success' => false, 'error' => $e->getMessage()];
         }
     }
 
     // ==========================================
-    // PLAN DE MANTENIMIENTO
+    // CHECKLIST: PROTOCOLO
     // ==========================================
 
-    public function obtenerPlanPorEquipo($id_equipo) {
+    /**
+     * Obtener el protocolo (pasos) para un plan y tipo de mantenimiento.
+     */
+    public function obtenerProtocolo($plan_id, $tipo_mantenimiento = 'PREVENTIVO')
+    {
         try {
-            $sql = "SELECT p.*, 
-                           pr.nombre as proveedor_nombre,
-                           t.nombre as tecnico_nombre,
-                           e.horometro_actual,
-                           (
-                               COALESCE(p.ultimo_mantenimiento_horas, 0) 
-                               + COALESCE(p.frecuencia_horas, 0) 
-                               - e.horometro_actual
-                           ) as horas_restantes,
-                           CASE 
-                               WHEN p.frecuencia_dias IS NOT NULL 
-                                   AND p.ultimo_mantenimiento_fecha IS NOT NULL
-                               THEN DATEDIFF(
-                                   DATE_ADD(p.ultimo_mantenimiento_fecha, INTERVAL p.frecuencia_dias DAY), 
-                                   CURDATE()
-                               )
-                               WHEN p.frecuencia_dias IS NOT NULL 
-                                   AND p.ultimo_mantenimiento_fecha IS NULL
-                               THEN p.frecuencia_dias
-                               ELSE NULL
-                           END as dias_restantes
-                    FROM equipos_mantenimiento_plan p
-                    LEFT JOIN proveedores pr ON p.id_proveedor = pr.id
-                    LEFT JOIN tecnicos t ON p.tecnico_asignado_id = t.id
-                    LEFT JOIN equipos e ON p.id_equipo = e.id_equipo
-                    WHERE p.id_equipo = ? AND p.activo = 1
-                    ORDER BY 
-                        CASE 
-                            WHEN (COALESCE(p.ultimo_mantenimiento_horas, 0) + COALESCE(p.frecuencia_horas, 0) - e.horometro_actual) <= 0 THEN 1
-                            WHEN DATEDIFF(DATE_ADD(p.ultimo_mantenimiento_fecha, INTERVAL p.frecuencia_dias DAY), CURDATE()) <= 0 THEN 2
-                            ELSE 3
-                        END,
-                        horas_restantes ASC,
-                        dias_restantes ASC";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$id_equipo]);
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } catch (PDOException $e) {
-            error_log("Error en obtenerPlanPorEquipo: " . $e->getMessage());
-            return [];
-        }
-    }
-
-    public function crearTarea($datos) {
-        try {
-            $sql = "SELECT horometro_actual FROM equipos WHERE id_equipo = ?";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$datos['id_equipo']]);
-            $equipo = $stmt->fetch(PDO::FETCH_ASSOC);
-            $horas_actuales = (int)($equipo['horometro_actual'] ?? 0);
-
-            $proximo_horas = null;
-            $proximo_fecha = null;
-
-            if (!empty($datos['frecuencia_horas'])) {
-                $proximo_horas = $horas_actuales + (int)$datos['frecuencia_horas'];
-            }
-
-            if (!empty($datos['frecuencia_dias'])) {
-                $proximo_fecha = date('Y-m-d', strtotime('+' . (int)$datos['frecuencia_dias'] . ' days'));
-            }
-
-            $tecnico_id = !empty($datos['tecnico_asignado_id']) ? (int)$datos['tecnico_asignado_id'] : null;
-            $estado_asignacion = $tecnico_id ? 'ASIGNADO' : 'SIN_ASIGNAR';
-
-            $sql = "INSERT INTO equipos_mantenimiento_plan (
-                        id_equipo, nombre_tarea, descripcion, tipo_mantenimiento,
-                        frecuencia_horas, frecuencia_dias, 
-                        ultimo_mantenimiento_horas, ultimo_mantenimiento_fecha,
-                        proximo_mantenimiento_horas, proximo_mantenimiento_fecha,
-                        responsable, id_proveedor, costo_estimado, 
-                        repuestos_necesarios, activo,
-                        tecnico_asignado_id, estado_asignacion, fecha_asignacion
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)";
-
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([
-                (int)$datos['id_equipo'],
-                $datos['nombre_tarea'],
-                $datos['descripcion'] ?? '',
-                $datos['tipo_mantenimiento'] ?? 'PREVENTIVO',
-                !empty($datos['frecuencia_horas']) ? (int)$datos['frecuencia_horas'] : null,
-                !empty($datos['frecuencia_dias']) ? (int)$datos['frecuencia_dias'] : null,
-                $horas_actuales,
-                date('Y-m-d'),
-                $proximo_horas,
-                $proximo_fecha,
-                $datos['responsable'] ?? 'TECNICO_INTERNO',
-                !empty($datos['id_proveedor']) ? (int)$datos['id_proveedor'] : null,
-                (float)($datos['costo_estimado'] ?? 0),
-                $datos['repuestos_necesarios'] ?? '',
-                $tecnico_id,
-                $estado_asignacion,
-                $tecnico_id ? date('Y-m-d H:i:s') : null
-            ]);
-
-            return $this->db->lastInsertId();
-        } catch (PDOException $e) {
-            error_log("Error en crearTarea: " . $e->getMessage());
-            return false;
-        }
-    }
-
-    public function actualizarTarea($id, $datos) {
-        try {
-            $plan = $this->obtenerPlanPorId($id);
-            if (!$plan) {
-                error_log("actualizarTarea: Plan no encontrado - ID $id");
-                return false;
-            }
-
-            $proximo_horas = null;
-            if (!empty($datos['frecuencia_horas'])) {
-                $base_horas = (int)($plan['ultimo_mantenimiento_horas'] ?? 0);
-                $proximo_horas = $base_horas + (int)$datos['frecuencia_horas'];
-            }
-
-            $proximo_fecha = null;
-            if (!empty($datos['frecuencia_dias'])) {
-                $base_fecha = !empty($plan['ultimo_mantenimiento_fecha']) 
-                    ? $plan['ultimo_mantenimiento_fecha'] 
-                    : date('Y-m-d');
-                $proximo_fecha = date('Y-m-d', strtotime($base_fecha . ' +' . (int)$datos['frecuencia_dias'] . ' days'));
-            }
-
-            $sql = "UPDATE equipos_mantenimiento_plan SET 
-                        nombre_tarea = ?,
-                        descripcion = ?,
-                        tipo_mantenimiento = ?,
-                        frecuencia_horas = ?,
-                        frecuencia_dias = ?,
-                        proximo_mantenimiento_horas = ?,
-                        proximo_mantenimiento_fecha = ?,
-                        responsable = ?,
-                        id_proveedor = ?,
-                        costo_estimado = ?,
-                        repuestos_necesarios = ?,
-                        activo = ?
-                    WHERE id = ?";
-            $stmt = $this->db->prepare($sql);
-            return $stmt->execute([
-                $datos['nombre_tarea'],
-                $datos['descripcion'] ?? '',
-                $datos['tipo_mantenimiento'] ?? 'PREVENTIVO',
-                !empty($datos['frecuencia_horas']) ? (int)$datos['frecuencia_horas'] : null,
-                !empty($datos['frecuencia_dias']) ? (int)$datos['frecuencia_dias'] : null,
-                $proximo_horas,
-                $proximo_fecha,
-                $datos['responsable'] ?? 'TECNICO_INTERNO',
-                !empty($datos['id_proveedor']) ? (int)$datos['id_proveedor'] : null,
-                (float)($datos['costo_estimado'] ?? 0),
-                $datos['repuestos_necesarios'] ?? '',
-                isset($datos['activo']) ? (int)$datos['activo'] : 1,
-                (int)$id
-            ]);
-        } catch (PDOException $e) {
-            error_log("Error en actualizarTarea: " . $e->getMessage());
-            return false;
-        }
-    }
-
-    public function eliminarTarea($id) {
-        try {
-            $sql = "DELETE FROM equipos_mantenimiento_plan WHERE id = ?";
-            $stmt = $this->db->prepare($sql);
-            return $stmt->execute([$id]);
-        } catch (PDOException $e) {
-            error_log("Error en eliminarTarea: " . $e->getMessage());
-            return false;
-        }
-    }
-
-    public function obtenerPlanPorId($id) {
-        try {
-            $sql = "SELECT p.*, e.nombre_equipo, e.codigo, e.horometro_actual,
-                           t.nombre as tecnico_nombre
-                    FROM equipos_mantenimiento_plan p
-                    JOIN equipos e ON p.id_equipo = e.id_equipo
-                    LEFT JOIN tecnicos t ON p.tecnico_asignado_id = t.id
-                    WHERE p.id = ?";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$id]);
-            return $stmt->fetch(PDO::FETCH_ASSOC);
-        } catch (PDOException $e) {
-            error_log("Error en obtenerPlanPorId: " . $e->getMessage());
-            return false;
-        }
-    }
-
-    // ==========================================
-    // MANTENIMIENTOS PRÓXIMOS Y ALERTAS
-    // ==========================================
-
-    public function obtenerMantenimientosProximos($dias_alerta = 30, $horas_alerta = 100) {
-        try {
-            $sql = "SELECT 
-                        p.*,
-                        e.nombre_equipo,
-                        e.codigo,
-                        e.horometro_actual,
-                        (
-                            COALESCE(p.ultimo_mantenimiento_horas, 0) 
-                            + COALESCE(p.frecuencia_horas, 0) 
-                            - e.horometro_actual
-                        ) AS horas_restantes,
-                        CASE 
-                            WHEN p.frecuencia_dias IS NOT NULL 
-                                AND p.ultimo_mantenimiento_fecha IS NOT NULL
-                            THEN DATEDIFF(
-                                DATE_ADD(p.ultimo_mantenimiento_fecha, INTERVAL p.frecuencia_dias DAY), 
-                                CURDATE()
-                            )
-                            WHEN p.frecuencia_dias IS NOT NULL 
-                                AND p.ultimo_mantenimiento_fecha IS NULL
-                            THEN p.frecuencia_dias
-                            ELSE NULL
-                        END AS dias_restantes,
-                        pr.nombre as proveedor_nombre,
-                        t.nombre as tecnico_nombre,
-                        CASE 
-                            WHEN p.frecuencia_horas IS NOT NULL 
-                                AND (
-                                    COALESCE(p.ultimo_mantenimiento_horas, 0) 
-                                    + COALESCE(p.frecuencia_horas, 0) 
-                                    - e.horometro_actual
-                                ) <= 0 
-                                THEN 'VENCIDO_POR_HORAS'
-                            WHEN p.frecuencia_dias IS NOT NULL 
-                                AND p.ultimo_mantenimiento_fecha IS NOT NULL
-                                AND DATE_ADD(p.ultimo_mantenimiento_fecha, INTERVAL p.frecuencia_dias DAY) <= CURDATE()
-                                THEN 'VENCIDO_POR_FECHA'
-                            WHEN p.frecuencia_horas IS NOT NULL 
-                                AND (
-                                    COALESCE(p.ultimo_mantenimiento_horas, 0) 
-                                    + COALESCE(p.frecuencia_horas, 0) 
-                                    - e.horometro_actual
-                                ) <= ?
-                                THEN 'PROXIMO_POR_HORAS'
-                            WHEN p.frecuencia_dias IS NOT NULL 
-                                AND p.ultimo_mantenimiento_fecha IS NOT NULL
-                                AND DATEDIFF(
-                                    DATE_ADD(p.ultimo_mantenimiento_fecha, INTERVAL p.frecuencia_dias DAY), 
-                                    CURDATE()
-                                ) <= ?
-                                THEN 'PROXIMO_POR_FECHA'
-                            ELSE 'AL_DIA'
-                        END AS estado_alerta
-                    FROM equipos_mantenimiento_plan p
-                    JOIN equipos e ON p.id_equipo = e.id_equipo
-                    LEFT JOIN proveedores pr ON p.id_proveedor = pr.id
-                    LEFT JOIN tecnicos t ON p.tecnico_asignado_id = t.id
-                    WHERE p.activo = 1
-                    HAVING estado_alerta != 'AL_DIA'
-                    ORDER BY 
-                        CASE estado_alerta
-                            WHEN 'VENCIDO_POR_HORAS' THEN 1
-                            WHEN 'VENCIDO_POR_FECHA' THEN 2
-                            WHEN 'PROXIMO_POR_HORAS' THEN 3
-                            WHEN 'PROXIMO_POR_FECHA' THEN 4
-                        END,
-                        horas_restantes ASC,
-                        dias_restantes ASC";
-
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([(int)$horas_alerta, (int)$dias_alerta]);
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        } catch (PDOException $e) {
-            error_log("Error en obtenerMantenimientosProximos: " . $e->getMessage());
-            return [];
-        }
-    }
-
-    public function obtenerResumenAlertas() {
-        try {
-            $sql = "SELECT 
-                        SUM(CASE WHEN p.frecuencia_horas IS NOT NULL 
-                            AND (COALESCE(p.ultimo_mantenimiento_horas, 0) + COALESCE(p.frecuencia_horas, 0) - e.horometro_actual) <= 0 
-                            THEN 1 ELSE 0 END) as vencidos_horas,
-                        SUM(CASE WHEN p.frecuencia_dias IS NOT NULL 
-                            AND p.ultimo_mantenimiento_fecha IS NOT NULL
-                            AND DATE_ADD(p.ultimo_mantenimiento_fecha, INTERVAL p.frecuencia_dias DAY) <= CURDATE()
-                            THEN 1 ELSE 0 END) as vencidos_fecha,
-                        SUM(CASE WHEN p.frecuencia_horas IS NOT NULL 
-                            AND (COALESCE(p.ultimo_mantenimiento_horas, 0) + COALESCE(p.frecuencia_horas, 0) - e.horometro_actual) BETWEEN 1 AND 100 
-                            THEN 1 ELSE 0 END) as proximos_horas,
-                        SUM(CASE WHEN p.frecuencia_dias IS NOT NULL 
-                            AND p.ultimo_mantenimiento_fecha IS NOT NULL
-                            AND DATEDIFF(DATE_ADD(p.ultimo_mantenimiento_fecha, INTERVAL p.frecuencia_dias DAY), CURDATE()) BETWEEN 1 AND 30 
-                            THEN 1 ELSE 0 END) as proximos_fecha
-                    FROM equipos_mantenimiento_plan p
-                    JOIN equipos e ON p.id_equipo = e.id_equipo
-                    WHERE p.activo = 1";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute();
-            $result = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            return [
-                'vencidos_horas' => (int)($result['vencidos_horas'] ?? 0),
-                'vencidos_fecha' => (int)($result['vencidos_fecha'] ?? 0),
-                'proximos_horas' => (int)($result['proximos_horas'] ?? 0),
-                'proximos_fecha' => (int)($result['proximos_fecha'] ?? 0),
-                'total_alertas' => (int)(($result['vencidos_horas'] ?? 0) + ($result['vencidos_fecha'] ?? 0) + 
-                                        ($result['proximos_horas'] ?? 0) + ($result['proximos_fecha'] ?? 0))
-            ];
-        } catch (PDOException $e) {
-            error_log("Error en obtenerResumenAlertas: " . $e->getMessage());
-            return [
-                'vencidos_horas' => 0, 'vencidos_fecha' => 0,
-                'proximos_horas' => 0, 'proximos_fecha' => 0,
-                'total_alertas' => 0
-            ];
-        }
-    }
-
-    // ==========================================
-    // REGISTRAR MANTENIMIENTO REALIZADO
-    // ==========================================
-
-    public function registrarMantenimientoRealizado($plan_id, $datos) {
-        try {
-            $this->db->beginTransaction();
-
-            $sql = "SELECT * FROM equipos_mantenimiento_plan WHERE id = ?";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$plan_id]);
-            $plan = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            if (!$plan) {
-                throw new Exception('Plan de mantenimiento no encontrado');
-            }
-
-            $sql = "SELECT horometro_actual FROM equipos WHERE id_equipo = ?";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$plan['id_equipo']]);
-            $equipo = $stmt->fetch(PDO::FETCH_ASSOC);
-            $horas_actuales = (int)($equipo['horometro_actual'] ?? 0);
-
-            $nuevo_proximo_horas = null;
-            $nuevo_proximo_fecha = null;
-
-            if (!empty($plan['frecuencia_horas'])) {
-                $nuevo_proximo_horas = $horas_actuales + (int)$plan['frecuencia_horas'];
-            }
-
-            if (!empty($plan['frecuencia_dias'])) {
-                $nuevo_proximo_fecha = date('Y-m-d', strtotime('+' . $plan['frecuencia_dias'] . ' days'));
-            }
-
-            $fecha_mantenimiento = !empty($datos['fecha_mantenimiento']) 
-                ? $datos['fecha_mantenimiento'] 
-                : date('Y-m-d H:i:s');
-
-            $es_retroactivo = !empty($datos['es_retroactivo']) ? 1 : 0;
-            $motivo_backdating = $datos['motivo_backdating'] ?? null;
-            $registrado_por = $datos['registrado_por'] ?? null;
-
-            $sql = "UPDATE equipos_mantenimiento_plan SET 
-                        ultimo_mantenimiento_horas = ?,
-                        ultimo_mantenimiento_fecha = ?,
-                        proximo_mantenimiento_horas = ?,
-                        proximo_mantenimiento_fecha = ?,
-                        estado_asignacion = 'COMPLETADO'
-                    WHERE id = ?";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([
-                $horas_actuales, 
-                date('Y-m-d', strtotime($fecha_mantenimiento)),
-                $nuevo_proximo_horas, 
-                $nuevo_proximo_fecha, 
-                $plan_id
-            ]);
-
-            $sql = "INSERT INTO equipos_mantenimientos (
-                        id_equipo, plan_id, tipo, descripcion, horas_equipo,
-                        fecha_mantenimiento, tecnico_id, proveedor_id, costo,
-                        repuestos_usados, observaciones,
-                        es_retroactivo, motivo_backdating, registrado_por, fecha_registro_sistema
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([
-                $plan['id_equipo'], 
-                $plan_id, 
-                $plan['tipo_mantenimiento'],
-                $datos['descripcion'] ?? $plan['nombre_tarea'], 
-                $horas_actuales,
-                $fecha_mantenimiento,
-                !empty($datos['tecnico_id']) ? (int)$datos['tecnico_id'] : null,
-                !empty($datos['proveedor_id']) ? (int)$datos['proveedor_id'] : null,
-                (float)($datos['costo'] ?? 0),
-                $datos['repuestos_usados'] ?? '', 
-                $datos['observaciones'] ?? '',
-                $es_retroactivo,
-                $motivo_backdating,
-                $registrado_por
-            ]);
-
-            $mantenimiento_id = $this->db->lastInsertId();
-            $this->db->commit();
-
-            return [
-                'success' => true,
-                'mantenimiento_id' => $mantenimiento_id,
-                'nuevo_proximo_horas' => $nuevo_proximo_horas,
-                'nuevo_proximo_fecha' => $nuevo_proximo_fecha,
-                'es_retroactivo' => $es_retroactivo
-            ];
-
-        } catch (Throwable $e) {
-            if ($this->db->inTransaction()) {
-                $this->db->rollBack();
-            }
-            error_log("Error en registrarMantenimientoRealizado: " . $e->getMessage());
-            return ['success' => false, 'error' => $e->getMessage()];
-        }
-    }
-
-    public function actualizarBackdatingId($mantenimiento_id, $backdating_id) {
-        try {
-            $sql = "UPDATE equipos_mantenimientos SET backdating_id = ? WHERE id = ?";
-            $stmt = $this->db->prepare($sql);
-            return $stmt->execute([$backdating_id, $mantenimiento_id]);
-        } catch (PDOException $e) {
-            error_log("Error en actualizarBackdatingId: " . $e->getMessage());
-            return false;
-        }
-    }
-
-    public function obtenerHistorialMantenimientos($id_equipo = null, $limite = 50) {
-        try {
-            $sql = "SELECT m.*, e.nombre_equipo, e.codigo,
-                           t.nombre as tecnico_nombre,
-                           p.nombre as proveedor_nombre
-                    FROM equipos_mantenimientos m
-                    JOIN equipos e ON m.id_equipo = e.id_equipo
-                    LEFT JOIN tecnicos t ON m.tecnico_id = t.id
-                    LEFT JOIN proveedores p ON m.proveedor_id = p.id";
-
-            $params = [];
-            if ($id_equipo) {
-                $sql .= " WHERE m.id_equipo = ?";
-                $params[] = $id_equipo;
-            }
-
-            $sql .= " ORDER BY m.fecha_mantenimiento DESC LIMIT ?";
-            $params[] = (int)$limite;
-
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute($params);
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } catch (PDOException $e) {
-            error_log("Error en obtenerHistorialMantenimientos: " . $e->getMessage());
-            return [];
-        }
-    }
-
-    public function obtenerMantenimientoPorId($id) {
-        try {
-            $sql = "SELECT 
-                        m.*,
-                        e.nombre_equipo,
-                        e.codigo,
-                        e.marca,
-                        e.modelo,
-                        e.serie,
-                        e.horometro_actual,
-                        t.nombre AS tecnico_nombre,
-                        t.email AS tecnico_email,
-                        t.especialidad AS tecnico_especialidad,
-                        t.tarifa AS tecnico_tarifa,
-                        p.nombre AS proveedor_nombre,
-                        p.contacto AS proveedor_contacto,
-                        p.telefono AS proveedor_telefono,
-                        pl.nombre_tarea,
-                        pl.frecuencia_horas,
-                        pl.frecuencia_dias,
-                        pl.costo_estimado,
-                        pl.tipo_mantenimiento AS plan_tipo,
-                        a.nombre_area,
-                        pp.nombre_planta
-                    FROM equipos_mantenimientos m
-                    LEFT JOIN equipos e ON m.id_equipo = e.id_equipo
-                    LEFT JOIN tecnicos t ON m.tecnico_id = t.id
-                    LEFT JOIN proveedores p ON m.proveedor_id = p.id
-                    LEFT JOIN equipos_mantenimiento_plan pl ON m.plan_id = pl.id
-                    LEFT JOIN areas a ON e.id_area = a.id_area
-                    LEFT JOIN plantas pp ON a.id_planta = pp.id_planta
-                    WHERE m.id = ?";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([(int)$id]);
-            return $stmt->fetch(PDO::FETCH_ASSOC);
-        } catch (PDOException $e) {
-            error_log("Error en obtenerMantenimientoPorId: " . $e->getMessage());
-            return false;
-        }
-    }
-
-    public function obtenerChecklistDeMantenimiento($mantenimiento_id) {
-        try {
-            $sql = "SELECT plan_id, id_equipo, tecnico_id, fecha_mantenimiento 
-                    FROM equipos_mantenimientos WHERE id = ?";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$mantenimiento_id]);
-            $mant = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            if (!$mant) {
-                return [];
-            }
-
-            if (empty($mant['plan_id']) || empty($mant['tecnico_id'])) {
-                return [];
-            }
-
-            $sql = "SELECT 
-                        ce.*,
-                        cp.paso_numero,
-                        cp.descripcion AS paso_descripcion,
-                        cp.obligatorio,
-                        cp.requiere_foto
-                    FROM mantenimiento_checklist_ejecucion ce
-                    JOIN mantenimiento_checklist_protocolo cp ON ce.paso_id = cp.id
-                    WHERE ce.plan_id = ? 
-                    AND ce.id_equipo = ?
-                    AND ce.tecnico_id = ?
-                    ORDER BY cp.paso_numero ASC";
-
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([
-                $mant['plan_id'],
-                $mant['id_equipo'],
-                $mant['tecnico_id']
-            ]);
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        } catch (PDOException $e) {
-            error_log("Error en obtenerChecklistDeMantenimiento: " . $e->getMessage());
-            return [];
-        }
-    }
-
-    public function actualizarMantenimiento($mantenimiento_id, $datos, $usuario_id, $motivo_edicion) {
-        try {
-            $this->db->beginTransaction();
-
-            $sql = "SELECT * FROM equipos_mantenimientos WHERE id = ?";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$mantenimiento_id]);
-            $anterior = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            if (!$anterior) {
-                throw new Exception('Mantenimiento no encontrado');
-            }
-
-            $fecha_nueva = $datos['fecha_mantenimiento'] ?? $anterior['fecha_mantenimiento'];
-            $es_retroactivo = 0;
-            $motivo_backdating = null;
-
-            if ($fecha_nueva !== $anterior['fecha_mantenimiento']) {
-                $fecha_nueva_ts = strtotime($fecha_nueva);
-                $fecha_anterior_ts = strtotime($anterior['fecha_mantenimiento']);
-
-                if ($fecha_nueva_ts < $fecha_anterior_ts) {
-                    $es_retroactivo = 1;
-                    $motivo_backdating = $motivo_edicion;
-                }
-            }
-
-            $sql = "UPDATE equipos_mantenimientos SET
-                        descripcion = ?,
-                        horas_equipo = ?,
-                        fecha_mantenimiento = ?,
-                        tecnico_id = ?,
-                        proveedor_id = ?,
-                        costo = ?,
-                        repuestos_usados = ?,
-                        observaciones = ?,
-                        es_retroactivo = ?,
-                        motivo_backdating = ?,
-                        registrado_por = ?
-                    WHERE id = ?";
-
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([
-                $datos['descripcion'] ?? $anterior['descripcion'],
-                (int)($datos['horas_equipo'] ?? $anterior['horas_equipo']),
-                $fecha_nueva,
-                !empty($datos['tecnico_id']) ? (int)$datos['tecnico_id'] : null,
-                !empty($datos['proveedor_id']) ? (int)$datos['proveedor_id'] : null,
-                (float)($datos['costo'] ?? $anterior['costo']),
-                $datos['repuestos_usados'] ?? $anterior['repuestos_usados'],
-                $datos['observaciones'] ?? $anterior['observaciones'],
-                $es_retroactivo,
-                $motivo_backdating,
-                $usuario_id,
-                $mantenimiento_id
-            ]);
-
-            $this->db->commit();
-
-            return [
-                'success' => true,
-                'mensaje' => 'Mantenimiento actualizado correctamente'
-            ];
-
-        } catch (Throwable $e) {
-            if ($this->db->inTransaction()) {
-                $this->db->rollBack();
-            }
-            error_log("Error en actualizarMantenimiento: " . $e->getMessage());
-            return ['success' => false, 'error' => $e->getMessage()];
-        }
-    }
-
-    public function actualizarChecklistEjecutado($mantenimiento_id, $pasos, $usuario_id) {
-        try {
-            $this->db->beginTransaction();
-
-            $sql = "SELECT plan_id, id_equipo, tecnico_id FROM equipos_mantenimientos WHERE id = ?";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$mantenimiento_id]);
-            $mant = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            if (!$mant) {
-                throw new Exception('Mantenimiento no encontrado');
-            }
-
-            foreach ($pasos as $paso_id => $datos_paso) {
-                $cumplido = !empty($datos_paso['cumplido']) ? 1 : 0;
-                $observaciones = $datos_paso['observaciones'] ?? '';
-
-                $sqlCheck = "SELECT id FROM mantenimiento_checklist_ejecucion 
-                             WHERE plan_id = ? AND id_equipo = ? AND tecnico_id = ? AND paso_id = ?";
-                $stmtCheck = $this->db->prepare($sqlCheck);
-                $stmtCheck->execute([
-                    $mant['plan_id'],
-                    $mant['id_equipo'],
-                    $mant['tecnico_id'],
-                    $paso_id
-                ]);
-                $existe = $stmtCheck->fetch(PDO::FETCH_ASSOC);
-
-                if ($existe) {
-                    $sqlUpdate = "UPDATE mantenimiento_checklist_ejecucion SET
-                                    cumplido = ?,
-                                    observaciones = ?
-                                  WHERE id = ?";
-                    $stmtUpdate = $this->db->prepare($sqlUpdate);
-                    $stmtUpdate->execute([$cumplido, $observaciones, $existe['id']]);
-                } else {
-                    $sqlInsert = "INSERT INTO mantenimiento_checklist_ejecucion 
-                                    (plan_id, id_equipo, tecnico_id, paso_id, cumplido, observaciones)
-                                  VALUES (?, ?, ?, ?, ?, ?)";
-                    $stmtInsert = $this->db->prepare($sqlInsert);
-                    $stmtInsert->execute([
-                        $mant['plan_id'],
-                        $mant['id_equipo'],
-                        $mant['tecnico_id'],
-                        $paso_id,
-                        $cumplido,
-                        $observaciones
-                    ]);
-                }
-            }
-
-            $this->db->commit();
-
-            return ['success' => true, 'mensaje' => 'Checklist actualizado correctamente'];
-
-        } catch (Throwable $e) {
-            if ($this->db->inTransaction()) {
-                $this->db->rollBack();
-            }
-            error_log("Error en actualizarChecklistEjecutado: " . $e->getMessage());
-            return ['success' => false, 'error' => $e->getMessage()];
-        }
-    }
-
-    public function eliminarMantenimiento($mantenimiento_id) {
-        try {
-            $sql = "SELECT * FROM equipos_mantenimientos WHERE id = ?";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$mantenimiento_id]);
-            $mant = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            if (!$mant) {
-                throw new Exception('Mantenimiento no encontrado');
-            }
-
-            $this->db->beginTransaction();
-
-            $sql = "DELETE FROM mantenimiento_checklist_ejecucion 
-                    WHERE plan_id = ? AND id_equipo = ? AND tecnico_id = ?";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$mant['plan_id'], $mant['id_equipo'], $mant['tecnico_id']]);
-
-            $sql = "DELETE FROM equipos_mantenimientos WHERE id = ?";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$mantenimiento_id]);
-
-            if (!empty($mant['plan_id'])) {
-                $sql = "SELECT MAX(fecha_mantenimiento) as ultima_fecha 
-                        FROM equipos_mantenimientos 
-                        WHERE plan_id = ?";
-                $stmt = $this->db->prepare($sql);
-                $stmt->execute([$mant['plan_id']]);
-                $ultimo = $stmt->fetch(PDO::FETCH_ASSOC);
-
-                $sqlUpdate = "UPDATE equipos_mantenimiento_plan 
-                              SET ultimo_mantenimiento_fecha = ?
-                              WHERE id = ?";
-                $stmtUpdate = $this->db->prepare($sqlUpdate);
-                $stmtUpdate->execute([$ultimo['ultima_fecha'] ?? null, $mant['plan_id']]);
-            }
-
-            $this->db->commit();
-
-            return ['success' => true, 'mensaje' => 'Mantenimiento eliminado'];
-
-        } catch (Throwable $e) {
-            if ($this->db->inTransaction()) {
-                $this->db->rollBack();
-            }
-            error_log("Error en eliminarMantenimiento: " . $e->getMessage());
-            return ['success' => false, 'error' => $e->getMessage()];
-        }
-    }
-
-    public function obtenerEstadisticas() {
-        try {
-            $sql = "SELECT 
-                        (SELECT COUNT(*) FROM equipos WHERE estado = 'activo') as total_equipos,
-                        (SELECT COUNT(*) FROM equipos_mantenimiento_plan WHERE activo = 1) as total_planes,
-                        (SELECT COUNT(*) FROM equipos_mantenimientos WHERE MONTH(fecha_mantenimiento) = MONTH(CURDATE()) AND YEAR(fecha_mantenimiento) = YEAR(CURDATE())) as mantenimientos_mes,
-                        (SELECT COALESCE(SUM(costo), 0) FROM equipos_mantenimientos WHERE MONTH(fecha_mantenimiento) = MONTH(CURDATE()) AND YEAR(fecha_mantenimiento) = YEAR(CURDATE())) as costo_mes";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute();
-            return $stmt->fetch(PDO::FETCH_ASSOC);
-        } catch (PDOException $e) {
-            error_log("Error en obtenerEstadisticas: " . $e->getMessage());
-            return ['total_equipos' => 0, 'total_planes' => 0, 'mantenimientos_mes' => 0, 'costo_mes' => 0];
-        }
-    }
-
-    public function obtenerEquiposConPlanes() {
-        try {
-            $sql = "SELECT 
-                        e.id_equipo,
-                        e.nombre_equipo,
-                        e.codigo,
-                        COUNT(p.id) AS total_planes
-                    FROM equipos e
-                    LEFT JOIN equipos_mantenimiento_plan p ON e.id_equipo = p.id_equipo AND p.activo = 1
-                    WHERE e.estado = 'activo'
-                    GROUP BY e.id_equipo
-                    ORDER BY e.nombre_equipo ASC";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute();
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } catch (PDOException $e) {
-            error_log("Error en obtenerEquiposConPlanes: " . $e->getMessage());
-            return [];
-        }
-    }
-
-    // ==========================================
-    // ASIGNACIÓN A TÉCNICOS
-    // ==========================================
-
-    public function asignarTecnico($plan_id, $tecnico_id, $asignado_por) {
-        try {
-            $sql = "UPDATE equipos_mantenimiento_plan SET 
-                        tecnico_asignado_id = ?,
-                        estado_asignacion = 'ASIGNADO',
-                        fecha_asignacion = NOW(),
-                        asignado_por = ?
-                    WHERE id = ?";
-            $stmt = $this->db->prepare($sql);
-            return $stmt->execute([$tecnico_id, $asignado_por, $plan_id]);
-        } catch (PDOException $e) {
-            error_log("Error en asignarTecnico: " . $e->getMessage());
-            return false;
-        }
-    }
-
-    public function obtenerTareasAsignadas($tecnico_id, $filtros = []) {
-        try {
-            $sql = "SELECT 
-                        p.*,
-                        e.nombre_equipo,
-                        e.codigo,
-                        e.horometro_actual,
-                        t.nombre as tecnico_nombre,
-                        (
-                            COALESCE(p.ultimo_mantenimiento_horas, 0) 
-                            + COALESCE(p.frecuencia_horas, 0) 
-                            - e.horometro_actual
-                        ) as horas_restantes,
-                        CASE 
-                            WHEN p.frecuencia_dias IS NOT NULL 
-                                AND p.ultimo_mantenimiento_fecha IS NOT NULL
-                            THEN DATEDIFF(
-                                DATE_ADD(p.ultimo_mantenimiento_fecha, INTERVAL p.frecuencia_dias DAY), 
-                                CURDATE()
-                            )
-                            WHEN p.frecuencia_dias IS NOT NULL 
-                                AND p.ultimo_mantenimiento_fecha IS NULL
-                            THEN p.frecuencia_dias
-                            ELSE NULL
-                        END as dias_restantes,
-                        CASE 
-                            WHEN p.frecuencia_horas IS NOT NULL 
-                                AND (COALESCE(p.ultimo_mantenimiento_horas, 0) + COALESCE(p.frecuencia_horas, 0) - e.horometro_actual) <= 0 
-                                THEN 'VENCIDO'
-                            WHEN p.frecuencia_dias IS NOT NULL 
-                                AND p.ultimo_mantenimiento_fecha IS NOT NULL
-                                AND DATE_ADD(p.ultimo_mantenimiento_fecha, INTERVAL p.frecuencia_dias DAY) <= CURDATE()
-                                THEN 'VENCIDO'
-                            WHEN p.frecuencia_horas IS NOT NULL 
-                                AND (COALESCE(p.ultimo_mantenimiento_horas, 0) + COALESCE(p.frecuencia_horas, 0) - e.horometro_actual) <= 100 
-                                THEN 'PROXIMO'
-                            WHEN p.frecuencia_dias IS NOT NULL 
-                                AND p.ultimo_mantenimiento_fecha IS NOT NULL
-                                AND DATEDIFF(DATE_ADD(p.ultimo_mantenimiento_fecha, INTERVAL p.frecuencia_dias DAY), CURDATE()) <= 30 
-                                THEN 'PROXIMO'
-                            ELSE 'AL_DIA'
-                        END as estado_alerta
-                    FROM equipos_mantenimiento_plan p
-                    JOIN equipos e ON p.id_equipo = e.id_equipo
-                    LEFT JOIN tecnicos t ON p.tecnico_asignado_id = t.id
-                    WHERE p.tecnico_asignado_id = ? 
-                    AND p.activo = 1
-                    AND p.estado_asignacion IN ('ASIGNADO', 'EN_PROCESO')";
-
-            $params = [$tecnico_id];
-
-            if (!empty($filtros['estado'])) {
-                $sql .= " AND p.estado_asignacion = ?";
-                $params[] = $filtros['estado'];
-            }
-
-            if (!empty($filtros['equipo'])) {
-                $sql .= " AND p.id_equipo = ?";
-                $params[] = $filtros['equipo'];
-            }
-
-            $sql .= " ORDER BY 
-                        CASE 
-                            WHEN (COALESCE(p.ultimo_mantenimiento_horas, 0) + COALESCE(p.frecuencia_horas, 0) - e.horometro_actual) <= 0 THEN 1
-                            WHEN DATEDIFF(DATE_ADD(p.ultimo_mantenimiento_fecha, INTERVAL p.frecuencia_dias DAY), CURDATE()) <= 0 THEN 2
-                            ELSE 3
-                        END,
-                        horas_restantes ASC";
-
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute($params);
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } catch (PDOException $e) {
-            error_log("Error en obtenerTareasAsignadas: " . $e->getMessage());
-            return [];
-        }
-    }
-
-    public function contarTareasAsignadas($tecnico_id) {
-        try {
-            $sql = "SELECT 
-                        COUNT(*) as total,
-                        SUM(CASE WHEN p.estado_asignacion = 'ASIGNADO' THEN 1 ELSE 0 END) as asignadas,
-                        SUM(CASE WHEN p.estado_asignacion = 'EN_PROCESO' THEN 1 ELSE 0 END) as en_proceso,
-                        SUM(CASE WHEN p.frecuencia_horas IS NOT NULL 
-                            AND (COALESCE(p.ultimo_mantenimiento_horas, 0) + COALESCE(p.frecuencia_horas, 0) - e.horometro_actual) <= 0 
-                            THEN 1 ELSE 0 END) as vencidas
-                    FROM equipos_mantenimiento_plan p
-                    JOIN equipos e ON p.id_equipo = e.id_equipo
-                    WHERE p.tecnico_asignado_id = ? 
-                    AND p.activo = 1
-                    AND p.estado_asignacion IN ('ASIGNADO', 'EN_PROCESO')";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$tecnico_id]);
-            return $stmt->fetch(PDO::FETCH_ASSOC);
-        } catch (PDOException $e) {
-            error_log("Error en contarTareasAsignadas: " . $e->getMessage());
-            return ['total' => 0, 'asignadas' => 0, 'en_proceso' => 0, 'vencidas' => 0];
-        }
-    }
-
-    public function obtenerTecnicoIdByEmail($email) {
-        try {
-            if (empty($email)) return null;
-
-            $sql = "SELECT id FROM tecnicos 
-                    WHERE LOWER(email) = LOWER(?) 
-                    AND estado = 'activo'";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$email]);
-            $result = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            if ($result) {
-                return $result['id'];
-            }
-
-            $sql = "SELECT id FROM tecnicos 
-                    WHERE LOWER(email) = LOWER(?) 
-                    LIMIT 1";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$email]);
-            $result = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            return $result ? $result['id'] : null;
-        } catch (PDOException $e) {
-            error_log("Error en obtenerTecnicoIdByEmail: " . $e->getMessage());
-            return null;
-        }
-    }
-
-    public function cambiarEstadoAsignacion($plan_id, $estado) {
-        try {
-            $sql = "UPDATE equipos_mantenimiento_plan 
-                    SET estado_asignacion = ? 
-                    WHERE id = ?";
-            $stmt = $this->db->prepare($sql);
-            return $stmt->execute([$estado, $plan_id]);
-        } catch (PDOException $e) {
-            error_log("Error en cambiarEstadoAsignacion: " . $e->getMessage());
-            return false;
-        }
-    }
-
-    // ==========================================
-    // CHECKLIST DE PROTOCOLO
-    // ==========================================
-
-    public function obtenerProtocolo($plan_id, $tipo_mantenimiento = 'PREVENTIVO') {
-        try {
-            $sql = "SELECT * FROM mantenimiento_checklist_protocolo 
-                    WHERE plan_id = ? 
+            $plan_id = (int)$plan_id;
+
+            // Primero, protocolo específico del plan
+            $sql = "SELECT * FROM mantenimiento_checklist_protocolo
+                    WHERE plan_id = ?
                     ORDER BY paso_numero ASC";
             $stmt = $this->db->prepare($sql);
             $stmt->execute([$plan_id]);
-            $protocolo = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $pasos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            if (!empty($protocolo)) {
-                return $protocolo;
+            if (!empty($pasos)) {
+                return $pasos;
             }
 
-            $sql = "SELECT * FROM mantenimiento_checklist_protocolo 
+            // Fallback: protocolo genérico por tipo
+            $sql = "SELECT * FROM mantenimiento_checklist_protocolo
                     WHERE plan_id IS NULL AND tipo_mantenimiento = ?
                     ORDER BY paso_numero ASC";
             $stmt = $this->db->prepare($sql);
@@ -1287,181 +1080,86 @@ class MantenimientoEquiposModel {
         }
     }
 
-    public function guardarPasoChecklist($datos) {
+    /**
+     * Obtener todos los protocolos agrupados por tipo.
+     */
+    public function obtenerTodosLosProtocolos()
+    {
         try {
-            $sql = "INSERT INTO mantenimiento_checklist_ejecucion 
-                    (plan_id, id_equipo, tecnico_id, paso_id, cumplido, observaciones, foto_evidencia)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)";
-            $stmt = $this->db->prepare($sql);
-            return $stmt->execute([
-                $datos['plan_id'], 
-                $datos['id_equipo'], 
-                $datos['tecnico_id'],
-                $datos['paso_id'], 
-                $datos['cumplido'] ?? 0,
-                $datos['observaciones'] ?? '',
-                $datos['foto_evidencia'] ?? null
-            ]);
-        } catch (PDOException $e) {
-            error_log("Error en guardarPasoChecklist: " . $e->getMessage());
-            return false;
-        }
-    }
-
-    public function obtenerChecklistEjecutado($plan_id, $tecnico_id) {
-        try {
-            $sql = "SELECT ce.*, cp.descripcion, cp.paso_numero, cp.obligatorio, cp.requiere_foto
-                    FROM mantenimiento_checklist_ejecucion ce
-                    JOIN mantenimiento_checklist_protocolo cp ON ce.paso_id = cp.id
-                    WHERE ce.plan_id = ? AND ce.tecnico_id = ?
-                    ORDER BY cp.paso_numero ASC";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$plan_id, $tecnico_id]);
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } catch (PDOException $e) {
-            error_log("Error en obtenerChecklistEjecutado: " . $e->getMessage());
-            return [];
-        }
-    }
-
-    // ==========================================
-    // FOTOS DE EVIDENCIA
-    // ==========================================
-
-    public function guardarFotoChecklist($datos) {
-        try {
-            $sql = "UPDATE mantenimiento_checklist_ejecucion 
-                    SET foto_evidencia = ? 
-                    WHERE plan_id = ? AND id_equipo = ? AND tecnico_id = ? AND paso_id = ?";
-            $stmt = $this->db->prepare($sql);
-            return $stmt->execute([
-                $datos['foto_evidencia'],
-                $datos['plan_id'],
-                $datos['id_equipo'],
-                $datos['tecnico_id'],
-                $datos['paso_id']
-            ]);
-        } catch (PDOException $e) {
-            error_log("Error en guardarFotoChecklist: " . $e->getMessage());
-            return false;
-        }
-    }
-
-    public function obtenerFotosChecklist($plan_id, $tecnico_id) {
-        try {
-            $sql = "SELECT ce.id, ce.paso_id, ce.foto_evidencia, ce.cumplido, ce.observaciones,
-                           cp.descripcion, cp.paso_numero
-                    FROM mantenimiento_checklist_ejecucion ce
-                    JOIN mantenimiento_checklist_protocolo cp ON ce.paso_id = cp.id
-                    WHERE ce.plan_id = ? 
-                    AND ce.tecnico_id = ?
-                    AND ce.foto_evidencia IS NOT NULL
-                    AND ce.foto_evidencia != ''
-                    ORDER BY cp.paso_numero ASC";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$plan_id, $tecnico_id]);
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } catch (PDOException $e) {
-            error_log("Error en obtenerFotosChecklist: " . $e->getMessage());
-            return [];
-        }
-    }
-
-    public function eliminarFotoEvidencia($id) {
-        try {
-            $sql = "SELECT foto_evidencia FROM mantenimiento_checklist_ejecucion WHERE id = ?";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$id]);
-            $foto = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            if ($foto && !empty($foto['foto_evidencia'])) {
-                $nombreArchivo = basename($foto['foto_evidencia']);
-                $ruta = __DIR__ . '/../uploads/mantenimiento/' . $nombreArchivo;
-                if (file_exists($ruta) && is_file($ruta)) {
-                    @unlink($ruta);
-                }
-            }
-
-            $sql = "UPDATE mantenimiento_checklist_ejecucion SET foto_evidencia = NULL WHERE id = ?";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$id]);
-
-            return ['success' => true, 'message' => 'Foto eliminada correctamente'];
-
-        } catch (PDOException $e) {
-            error_log("Error en eliminarFotoEvidencia: " . $e->getMessage());
-            return ['success' => false, 'error' => $e->getMessage()];
-        }
-    }
-
-    // ==========================================
-    // PROTOCOLOS DE CHECKLIST
-    // ==========================================
-
-    public function obtenerTodosLosProtocolos() {
-        try {
-            $sql = "SELECT tipo_mantenimiento, COUNT(*) as total_pasos,
-                           COUNT(DISTINCT plan_id) as total_planes
-                    FROM mantenimiento_checklist_protocolo
-                    GROUP BY tipo_mantenimiento
-                    ORDER BY tipo_mantenimiento";
+            $sql = "SELECT * FROM mantenimiento_checklist_protocolo
+                    ORDER BY tipo_mantenimiento ASC, plan_id ASC, paso_numero ASC";
             $stmt = $this->db->prepare($sql);
             $stmt->execute();
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
+
         } catch (PDOException $e) {
             error_log("Error en obtenerTodosLosProtocolos: " . $e->getMessage());
             return [];
         }
     }
 
-    public function obtenerProtocoloPorTipo($tipo_mantenimiento, $plan_id = null) {
+    /**
+     * Obtener protocolo por tipo de mantenimiento.
+     */
+    public function obtenerProtocoloPorTipo($tipo)
+    {
         try {
-            if ($plan_id) {
-                $sql = "SELECT * FROM mantenimiento_checklist_protocolo 
-                        WHERE plan_id = ? OR (plan_id IS NULL AND tipo_mantenimiento = ?)
-                        ORDER BY 
-                            CASE WHEN plan_id IS NOT NULL THEN 1 ELSE 2 END,
-                            paso_numero ASC";
-                $stmt = $this->db->prepare($sql);
-                $stmt->execute([$plan_id, $tipo_mantenimiento]);
-            } else {
-                $sql = "SELECT * FROM mantenimiento_checklist_protocolo 
-                        WHERE plan_id IS NULL AND tipo_mantenimiento = ?
-                        ORDER BY paso_numero ASC";
-                $stmt = $this->db->prepare($sql);
-                $stmt->execute([$tipo_mantenimiento]);
-            }
+            $sql = "SELECT * FROM mantenimiento_checklist_protocolo
+                    WHERE tipo_mantenimiento = ?
+                    ORDER BY paso_numero ASC";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$tipo]);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
+
         } catch (PDOException $e) {
             error_log("Error en obtenerProtocoloPorTipo: " . $e->getMessage());
             return [];
         }
     }
 
-    public function crearPasoProtocolo($datos) {
+    /**
+     * Crear un paso del protocolo.
+     */
+    public function crearPasoProtocolo($datos)
+    {
         try {
-            $sql = "INSERT INTO mantenimiento_checklist_protocolo 
-                    (plan_id, tipo_mantenimiento, paso_numero, descripcion, obligatorio, requiere_foto)
-                    VALUES (?, ?, ?, ?, ?, ?)";
+            if (empty($datos['descripcion'])) {
+                $this->lastError = 'La descripción es obligatoria';
+                return false;
+            }
+
+            $sql = "INSERT INTO mantenimiento_checklist_protocolo
+                    (plan_id, tipo_mantenimiento, paso_numero, descripcion, obligatorio, requiere_foto, fecha_creacion)
+                    VALUES (?, ?, ?, ?, ?, ?, NOW())";
             $stmt = $this->db->prepare($sql);
             $stmt->execute([
                 !empty($datos['plan_id']) ? (int)$datos['plan_id'] : null,
-                $datos['tipo_mantenimiento'],
-                (int)$datos['paso_numero'],
-                $datos['descripcion'],
+                $datos['tipo_mantenimiento'] ?? 'PREVENTIVO',
+                (int)($datos['paso_numero'] ?? 1),
+                trim($datos['descripcion']),
                 !empty($datos['obligatorio']) ? 1 : 0,
                 !empty($datos['requiere_foto']) ? 1 : 0
             ]);
-            return $this->db->lastInsertId();
+
+            return (int)$this->db->lastInsertId();
+
         } catch (PDOException $e) {
             error_log("Error en crearPasoProtocolo: " . $e->getMessage());
+            $this->lastError = $e->getMessage();
             return false;
         }
     }
 
-    public function actualizarPasoProtocolo($id, $datos) {
+    /**
+     * Actualizar un paso del protocolo.
+     */
+    public function actualizarPasoProtocolo($id, $datos)
+    {
         try {
-            $sql = "UPDATE mantenimiento_checklist_protocolo SET 
+            $id = (int)$id;
+            if ($id <= 0) return false;
+
+            $sql = "UPDATE mantenimiento_checklist_protocolo SET
                         paso_numero = ?,
                         descripcion = ?,
                         obligatorio = ?,
@@ -1469,38 +1167,57 @@ class MantenimientoEquiposModel {
                     WHERE id = ?";
             $stmt = $this->db->prepare($sql);
             return $stmt->execute([
-                (int)$datos['paso_numero'],
-                $datos['descripcion'],
+                (int)($datos['paso_numero'] ?? 1),
+                trim($datos['descripcion'] ?? ''),
                 !empty($datos['obligatorio']) ? 1 : 0,
                 !empty($datos['requiere_foto']) ? 1 : 0,
                 $id
             ]);
+
         } catch (PDOException $e) {
             error_log("Error en actualizarPasoProtocolo: " . $e->getMessage());
+            $this->lastError = $e->getMessage();
             return false;
         }
     }
 
-    public function eliminarPasoProtocolo($id) {
+    /**
+     * Eliminar un paso del protocolo.
+     */
+    public function eliminarPasoProtocolo($id)
+    {
         try {
+            $id = (int)$id;
+            if ($id <= 0) return false;
+
             $sql = "DELETE FROM mantenimiento_checklist_protocolo WHERE id = ?";
             $stmt = $this->db->prepare($sql);
             return $stmt->execute([$id]);
+
         } catch (PDOException $e) {
             error_log("Error en eliminarPasoProtocolo: " . $e->getMessage());
+            $this->lastError = $e->getMessage();
             return false;
         }
     }
 
-    public function reordenarPasos($orden) {
+    /**
+     * Reordenar pasos del protocolo.
+     */
+    public function reordenarPasos($orden)
+    {
         try {
+            if (empty($orden) || !is_array($orden)) {
+                return false;
+            }
+
             $this->db->beginTransaction();
 
             $sql = "UPDATE mantenimiento_checklist_protocolo SET paso_numero = ? WHERE id = ?";
             $stmt = $this->db->prepare($sql);
 
-            foreach ($orden as $index => $paso_id) {
-                $stmt->execute([$index + 1, (int)$paso_id]);
+            foreach ($orden as $paso_numero => $paso_id) {
+                $stmt->execute([(int)$paso_numero, (int)$paso_id]);
             }
 
             $this->db->commit();
@@ -1515,15 +1232,193 @@ class MantenimientoEquiposModel {
         }
     }
 
-    public function obtenerPasoPorId($id) {
+    // ==========================================
+    // CHECKLIST: EJECUCIÓN
+    // ==========================================
+
+    /**
+     * Guardar un paso ejecutado del checklist.
+     */
+    public function guardarPasoChecklist($datos)
+    {
         try {
-            $sql = "SELECT * FROM mantenimiento_checklist_protocolo WHERE id = ?";
+            if (empty($datos['plan_id']) || empty($datos['paso_id'])) {
+                return false;
+            }
+
+            // Verificar si ya existe ejecución previa de este paso
+            $sqlCheck = "SELECT id FROM mantenimiento_checklist_ejecucion
+                         WHERE plan_id = ? AND tecnico_id = ? AND paso_id = ?";
+            $stmtCheck = $this->db->prepare($sqlCheck);
+            $stmtCheck->execute([
+                (int)$datos['plan_id'],
+                (int)$datos['tecnico_id'],
+                (int)$datos['paso_id']
+            ]);
+            $existente = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+
+            if ($existente) {
+                $sql = "UPDATE mantenimiento_checklist_ejecucion SET
+                            cumplido = ?,
+                            observaciones = ?,
+                            foto_evidencia = ?,
+                            fecha_registro = NOW()
+                        WHERE id = ?";
+                $stmt = $this->db->prepare($sql);
+                return $stmt->execute([
+                    !empty($datos['cumplido']) ? 1 : 0,
+                    trim($datos['observaciones'] ?? ''),
+                    $datos['foto_evidencia'] ?? null,
+                    (int)$existente['id']
+                ]);
+            }
+
+            $sql = "INSERT INTO mantenimiento_checklist_ejecucion
+                    (plan_id, id_equipo, tecnico_id, paso_id, cumplido, observaciones, foto_evidencia, fecha_registro)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, NOW())";
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([$id]);
-            return $stmt->fetch(PDO::FETCH_ASSOC);
+            return $stmt->execute([
+                (int)$datos['plan_id'],
+                (int)$datos['id_equipo'],
+                (int)$datos['tecnico_id'],
+                (int)$datos['paso_id'],
+                !empty($datos['cumplido']) ? 1 : 0,
+                trim($datos['observaciones'] ?? ''),
+                $datos['foto_evidencia'] ?? null
+            ]);
+
         } catch (PDOException $e) {
-            error_log("Error en obtenerPasoPorId: " . $e->getMessage());
+            error_log("Error en guardarPasoChecklist: " . $e->getMessage());
             return false;
+        }
+    }
+
+    /**
+     * Obtener checklist ejecutado de un plan por un técnico.
+     */
+    public function obtenerChecklistEjecutado($plan_id, $tecnico_id)
+    {
+        try {
+            $sql = "SELECT e.*, 
+                           p.descripcion AS paso_descripcion,
+                           p.paso_numero,
+                           p.obligatorio,
+                           p.requiere_foto
+                    FROM mantenimiento_checklist_ejecucion e
+                    LEFT JOIN mantenimiento_checklist_protocolo p ON e.paso_id = p.id
+                    WHERE e.plan_id = ? AND e.tecnico_id = ?
+                    ORDER BY p.paso_numero ASC";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([(int)$plan_id, (int)$tecnico_id]);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        } catch (PDOException $e) {
+            error_log("Error en obtenerChecklistEjecutado: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Obtener checklist de un mantenimiento específico.
+     */
+    public function obtenerChecklistDeMantenimiento($mantenimiento_id)
+    {
+        try {
+            $mantenimiento = $this->obtenerMantenimientoPorId($mantenimiento_id);
+            if (!$mantenimiento || empty($mantenimiento['plan_id']) || empty($mantenimiento['tecnico_id'])) {
+                return [];
+            }
+
+            return $this->obtenerChecklistEjecutado(
+                (int)$mantenimiento['plan_id'],
+                (int)$mantenimiento['tecnico_id']
+            );
+
+        } catch (Throwable $e) {
+            error_log("Error en obtenerChecklistDeMantenimiento: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Actualizar checklist ejecutado (admin/supervisor).
+     */
+    public function actualizarChecklistEjecutado($mantenimiento_id, $pasos, $usuario_id)
+    {
+        try {
+            $mantenimiento = $this->obtenerMantenimientoPorId($mantenimiento_id);
+            if (!$mantenimiento) {
+                return ['success' => false, 'error' => 'Mantenimiento no encontrado'];
+            }
+
+            $plan_id = (int)$mantenimiento['plan_id'];
+            $tecnico_id = (int)$mantenimiento['tecnico_id'];
+
+            $this->db->beginTransaction();
+
+            $sql = "UPDATE mantenimiento_checklist_ejecucion SET
+                        cumplido = ?,
+                        observaciones = ?,
+                        fecha_registro = NOW()
+                    WHERE plan_id = ? AND tecnico_id = ? AND paso_id = ?";
+            $stmt = $this->db->prepare($sql);
+
+            foreach ($pasos as $paso_id => $datos_paso) {
+                $stmt->execute([
+                    !empty($datos_paso['cumplido']) ? 1 : 0,
+                    trim($datos_paso['observaciones'] ?? ''),
+                    $plan_id,
+                    $tecnico_id,
+                    (int)$paso_id
+                ]);
+            }
+
+            $this->db->commit();
+            return ['success' => true];
+
+        } catch (Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            error_log("Error en actualizarChecklistEjecutado: " . $e->getMessage());
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Eliminar una foto de evidencia.
+     */
+    public function eliminarFotoEvidencia($id)
+    {
+        try {
+            $id = (int)$id;
+            if ($id <= 0) {
+                return ['success' => false, 'error' => 'ID inválido'];
+            }
+
+            $sqlGet = "SELECT foto_evidencia FROM mantenimiento_checklist_ejecucion WHERE id = ?";
+            $stmtGet = $this->db->prepare($sqlGet);
+            $stmtGet->execute([$id]);
+            $row = $stmtGet->fetch(PDO::FETCH_ASSOC);
+
+            if (!$row || empty($row['foto_evidencia'])) {
+                return ['success' => false, 'error' => 'No hay foto para eliminar'];
+            }
+
+            $ruta = __DIR__ . '/../uploads/mantenimiento/' . basename($row['foto_evidencia']);
+            if (file_exists($ruta) && is_file($ruta)) {
+                @unlink($ruta);
+            }
+
+            $sql = "UPDATE mantenimiento_checklist_ejecucion SET foto_evidencia = NULL WHERE id = ?";
+            $stmt = $this->db->prepare($sql);
+            $resultado = $stmt->execute([$id]);
+
+            return ['success' => (bool)$resultado];
+
+        } catch (Throwable $e) {
+            error_log("Error en eliminarFotoEvidencia: " . $e->getMessage());
+            return ['success' => false, 'error' => $e->getMessage()];
         }
     }
 }

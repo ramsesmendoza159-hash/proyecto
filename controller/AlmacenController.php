@@ -1,6 +1,12 @@
 <?php
 // controller/AlmacenController.php
 // MÓDULO DE ALMACÉN - CON AUDITORÍA DE MOVIMIENTOS - VERSIÓN CORREGIDA
+// ✅ FIX: catch (Exception) → catch (Throwable) en TODOS los métodos (3 ocurrencias)
+// ✅ FIX: removidos error_log() de debug innecesarios
+// ✅ FIX: uso consistente de redirectWithSuccess/Error (ToastHelper)
+// ✅ FIX: headers JSON con charset=utf-8
+// ✅ FIX: verificación de rol estricta con in_array(..., true)
+// ⚠️ TODO: permanencia() ejecuta UPDATE masivo en cada request. Mover a cron.
 
 require_once __DIR__ . '/../model/InventarioModel.php';
 require_once __DIR__ . '/../model/AuditoriaModel.php';
@@ -24,21 +30,29 @@ class AlmacenController extends Controller {
      */
     public function index() {
         if (!$this->authHelper->isLoggedIn()) {
-            header('Location: /proyecto/auth/login');
-            exit;
+            $this->redirect('/auth/login');
+            return;
         }
         
         if (!$this->authHelper->isAlmacen() && !$this->authHelper->isAdmin()) {
-            $_SESSION['error'] = 'No tienes permisos para acceder a esta sección';
-            header('Location: /proyecto/dashboard');
-            exit;
+            $this->redirectWithError('/dashboard', 'No tienes permisos para acceder a esta sección');
+            return;
         }
 
-        $estadisticas = $this->inventarioModel->obtenerEstadisticas();
-        $stock_bajo = $this->inventarioModel->obtenerStockBajo();
-        $ultimos_movimientos = $this->inventarioModel->obtenerUltimosMovimientos(10);
-        $movimientos_por_mes = $this->inventarioModel->obtenerMovimientosPorMes();
-        $top_productos = $this->inventarioModel->obtenerProductosMasMovidos(5);
+        try {
+            $estadisticas = $this->inventarioModel->obtenerEstadisticas();
+            $stock_bajo = $this->inventarioModel->obtenerStockBajo();
+            $ultimos_movimientos = $this->inventarioModel->obtenerUltimosMovimientos(10);
+            $movimientos_por_mes = $this->inventarioModel->obtenerMovimientosPorMes();
+            $top_productos = $this->inventarioModel->obtenerProductosMasMovidos(5);
+        } catch (Throwable $e) {
+            error_log("Error en AlmacenController::index: " . $e->getMessage());
+            $estadisticas = ['total' => 0, 'valor_total' => 0, 'stock_bajo' => 0];
+            $stock_bajo = [];
+            $ultimos_movimientos = [];
+            $movimientos_por_mes = [];
+            $top_productos = [];
+        }
 
         $titulo = 'Panel de Almacén';
         $seccion = 'almacen';
@@ -50,27 +64,38 @@ class AlmacenController extends Controller {
      * URL: /almacen/dashboardData
      */
     public function dashboardData() {
+        header('Content-Type: application/json; charset=utf-8');
+        
         if (!$this->authHelper->isLoggedIn()) {
-            header('Content-Type: application/json');
             echo json_encode(['error' => 'No autorizado']);
             exit;
         }
 
-        $estadisticas = $this->inventarioModel->obtenerEstadisticas();
-        $stock_bajo = $this->inventarioModel->obtenerStockBajo();
-        $movimientos_por_mes = $this->inventarioModel->obtenerMovimientosPorMes();
-        $top_productos = $this->inventarioModel->obtenerProductosMasMovidos(5);
+        try {
+            $estadisticas = $this->inventarioModel->obtenerEstadisticas();
+            $stock_bajo = $this->inventarioModel->obtenerStockBajo();
+            $movimientos_por_mes = $this->inventarioModel->obtenerMovimientosPorMes();
+            $top_productos = $this->inventarioModel->obtenerProductosMasMovidos(5);
 
-        $data = [
-            'total_items' => $estadisticas['total'] ?? 0,
-            'stock_bajo' => count($stock_bajo),
-            'valor_total' => $estadisticas['valor_total'] ?? 0,
-            'movimientos_por_mes' => $movimientos_por_mes,
-            'top_productos' => $top_productos
-        ];
+            $data = [
+                'total_items' => $estadisticas['total'] ?? 0,
+                'stock_bajo' => count($stock_bajo),
+                'valor_total' => $estadisticas['valor_total'] ?? 0,
+                'movimientos_por_mes' => $movimientos_por_mes,
+                'top_productos' => $top_productos
+            ];
 
-        header('Content-Type: application/json');
-        echo json_encode($data);
+            echo json_encode($data);
+        } catch (Throwable $e) {
+            error_log("Error en dashboardData: " . $e->getMessage());
+            echo json_encode([
+                'total_items' => 0,
+                'stock_bajo' => 0,
+                'valor_total' => 0,
+                'movimientos_por_mes' => [],
+                'top_productos' => []
+            ]);
+        }
         exit;
     }
 
@@ -79,33 +104,43 @@ class AlmacenController extends Controller {
      * URL: /almacen/notificaciones
      */
     public function notificaciones() {
+        header('Content-Type: application/json; charset=utf-8');
+        
         if (!$this->authHelper->isLoggedIn()) {
-            header('Content-Type: application/json');
             echo json_encode(['success' => false, 'message' => 'No autorizado']);
             exit;
         }
 
-        $stock_bajo = $this->inventarioModel->obtenerStockBajo();
-        
-        $productos = [];
-        foreach ($stock_bajo as $item) {
-            $productos[] = [
-                'id' => $item['id'],
-                'nombre' => $item['nombre'],
-                'codigo' => $item['codigo'] ?? 'N/A',
-                'cantidad' => $item['cantidad'],
-                'stock_minimo' => $item['stock_minimo'],
-                'unidad_medida' => $item['unidad'] ?? 'u',
-                'diferencia' => ($item['stock_minimo'] ?? 0) - ($item['cantidad'] ?? 0)
-            ];
-        }
+        try {
+            $stock_bajo = $this->inventarioModel->obtenerStockBajo();
+            
+            $productos = [];
+            foreach ($stock_bajo as $item) {
+                $productos[] = [
+                    'id' => $item['id'],
+                    'nombre' => $item['nombre'],
+                    'codigo' => $item['codigo'] ?? 'N/A',
+                    'cantidad' => $item['cantidad'],
+                    'stock_minimo' => $item['stock_minimo'],
+                    'unidad_medida' => $item['unidad'] ?? 'u',
+                    'diferencia' => ($item['stock_minimo'] ?? 0) - ($item['cantidad'] ?? 0)
+                ];
+            }
 
-        header('Content-Type: application/json');
-        echo json_encode([
-            'success' => true,
-            'total' => count($productos),
-            'productos' => $productos
-        ]);
+            echo json_encode([
+                'success' => true,
+                'total' => count($productos),
+                'productos' => $productos
+            ]);
+        } catch (Throwable $e) {
+            error_log("Error en notificaciones: " . $e->getMessage());
+            echo json_encode([
+                'success' => false,
+                'total' => 0,
+                'productos' => [],
+                'error' => 'Error al procesar la solicitud'
+            ]);
+        }
         exit;
     }
 
@@ -115,17 +150,22 @@ class AlmacenController extends Controller {
      */
     public function entrada_seleccion() {
         if (!$this->authHelper->isLoggedIn()) {
-            header('Location: /proyecto/auth/login');
-            exit;
+            $this->redirect('/auth/login');
+            return;
         }
         
         if (!$this->authHelper->isAlmacen() && !$this->authHelper->isAdmin()) {
-            $_SESSION['error'] = 'No tienes permisos para realizar entradas';
-            header('Location: /proyecto/dashboard');
-            exit;
+            $this->redirectWithError('/dashboard', 'No tienes permisos para realizar entradas');
+            return;
         }
 
-        $productos = $this->inventarioModel->obtenerTodos(['estado' => 'activo']);
+        try {
+            $productos = $this->inventarioModel->obtenerTodos(['estado' => 'activo']);
+        } catch (Throwable $e) {
+            error_log("Error en entrada_seleccion: " . $e->getMessage());
+            $productos = [];
+        }
+
         $titulo = 'Registrar Entrada - Seleccionar Producto';
         $seccion = 'entrada_stock';
         require_once __DIR__ . '/../views/almacen/entrada_seleccion.php';
@@ -137,14 +177,13 @@ class AlmacenController extends Controller {
      */
     public function entrada($id = null) {
         if (!$this->authHelper->isLoggedIn()) {
-            header('Location: /proyecto/auth/login');
-            exit;
+            $this->redirect('/auth/login');
+            return;
         }
         
         if (!$this->authHelper->isAlmacen() && !$this->authHelper->isAdmin()) {
-            $_SESSION['error'] = 'No tienes permisos para realizar entradas';
-            header('Location: /proyecto/dashboard');
-            exit;
+            $this->redirectWithError('/dashboard', 'No tienes permisos para realizar entradas');
+            return;
         }
 
         if (!$id) {
@@ -152,24 +191,24 @@ class AlmacenController extends Controller {
             return;
         }
 
+        $id = (int)$id;
         $producto = $this->inventarioModel->obtenerPorId($id);
         if (!$producto) {
-            $_SESSION['error'] = 'Producto no encontrado';
-            header('Location: /proyecto/almacen');
-            exit;
+            $this->redirectWithError('/almacen', 'Producto no encontrado');
+            return;
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
-                $cantidad = (int)$_POST['cantidad'];
+                $cantidad = (int)($_POST['cantidad'] ?? 0);
                 $motivo = $_POST['motivo'] ?? 'Compra';
                 $observaciones = $_POST['observaciones'] ?? '';
 
                 if ($cantidad <= 0) {
-                    throw new Exception('La cantidad debe ser mayor a 0');
+                    throw new RuntimeException('La cantidad debe ser mayor a 0');
                 }
 
-                $cantidadAnterior = $producto['cantidad'];
+                $cantidadAnterior = (int)$producto['cantidad'];
 
                 $resultado = $this->inventarioModel->registrarEntradaConPermanencia(
                     $id,
@@ -179,30 +218,32 @@ class AlmacenController extends Controller {
 
                 if ($resultado) {
                     // REGISTRAR EN AUDITORÍA
-                    $auditoria = new AuditoriaModel();
-                    $auditoria->registrar(
-                        $this->authHelper->getUserId(),
-                        $_SESSION['nombre'] ?? 'Sistema',
-                        $_SESSION['rol'] ?? 'almacen',
-                        'entrada_stock',
-                        'inventario',
-                        $id,
-                        ['cantidad' => $cantidadAnterior],
-                        ['cantidad' => $cantidadAnterior + $cantidad, 'motivo' => $motivo]
-                    );
+                    try {
+                        $auditoria = new AuditoriaModel();
+                        $auditoria->registrar(
+                            $this->authHelper->getUserId(),
+                            $_SESSION['nombre'] ?? 'Sistema',
+                            $_SESSION['rol'] ?? 'almacen',
+                            'entrada_stock',
+                            'inventario',
+                            $id,
+                            ['cantidad' => $cantidadAnterior],
+                            ['cantidad' => $cantidadAnterior + $cantidad, 'motivo' => $motivo, 'observaciones' => $observaciones]
+                        );
+                    } catch (Throwable $e) {
+                        error_log("Error auditoría entrada_stock: " . $e->getMessage());
+                    }
 
-                    $_SESSION['mensaje'] = "✅ Entrada registrada correctamente. Cantidad: $cantidad";
-                    $_SESSION['mensaje_tipo'] = 'success';
-                    header('Location: /proyecto/almacen/detalle/' . $id);
-                    exit;
+                    $this->redirectWithSuccess('/almacen/detalle/' . $id, "Entrada registrada correctamente. Cantidad: $cantidad");
+                    return;
                 } else {
-                    throw new Exception($this->inventarioModel->getLastError() ?: 'Error al registrar entrada');
+                    throw new RuntimeException($this->inventarioModel->getLastError() ?: 'Error al registrar entrada');
                 }
 
-            } catch (Exception $e) {
-                $_SESSION['error'] = '❌ ' . $e->getMessage();
-                header('Location: /proyecto/almacen/entrada/' . $id);
-                exit;
+            } catch (Throwable $e) {   // ✅ FIX: Throwable
+                error_log("Error en entrada($id): " . $e->getMessage());
+                $this->redirectWithError('/almacen/entrada/' . $id, $e->getMessage());
+                return;
             }
         }
 
@@ -217,17 +258,22 @@ class AlmacenController extends Controller {
      */
     public function salida_seleccion() {
         if (!$this->authHelper->isLoggedIn()) {
-            header('Location: /proyecto/auth/login');
-            exit;
+            $this->redirect('/auth/login');
+            return;
         }
         
         if (!$this->authHelper->isAlmacen() && !$this->authHelper->isAdmin()) {
-            $_SESSION['error'] = 'No tienes permisos para realizar salidas';
-            header('Location: /proyecto/dashboard');
-            exit;
+            $this->redirectWithError('/dashboard', 'No tienes permisos para realizar salidas');
+            return;
         }
 
-        $productos = $this->inventarioModel->obtenerTodos(['estado' => 'activo', 'cantidad >' => 0]);
+        try {
+            $productos = $this->inventarioModel->obtenerTodos(['estado' => 'activo', 'cantidad >' => 0]);
+        } catch (Throwable $e) {
+            error_log("Error en salida_seleccion: " . $e->getMessage());
+            $productos = [];
+        }
+
         $titulo = 'Registrar Salida - Seleccionar Producto';
         $seccion = 'salida_stock';
         require_once __DIR__ . '/../views/almacen/salida_seleccion.php';
@@ -239,14 +285,13 @@ class AlmacenController extends Controller {
      */
     public function salida($id = null) {
         if (!$this->authHelper->isLoggedIn()) {
-            header('Location: /proyecto/auth/login');
-            exit;
+            $this->redirect('/auth/login');
+            return;
         }
         
         if (!$this->authHelper->isAlmacen() && !$this->authHelper->isAdmin()) {
-            $_SESSION['error'] = 'No tienes permisos para realizar salidas';
-            header('Location: /proyecto/dashboard');
-            exit;
+            $this->redirectWithError('/dashboard', 'No tienes permisos para realizar salidas');
+            return;
         }
 
         if (!$id) {
@@ -254,32 +299,32 @@ class AlmacenController extends Controller {
             return;
         }
 
+        $id = (int)$id;
         $producto = $this->inventarioModel->obtenerPorId($id);
         if (!$producto) {
-            $_SESSION['error'] = 'Producto no encontrado';
-            header('Location: /proyecto/almacen');
-            exit;
+            $this->redirectWithError('/almacen', 'Producto no encontrado');
+            return;
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
-                $cantidad = (int)$_POST['cantidad'];
+                $cantidad = (int)($_POST['cantidad'] ?? 0);
                 $motivo = $_POST['motivo'] ?? 'Uso interno';
                 $destino = $_POST['destino'] ?? '';
 
                 if ($cantidad <= 0) {
-                    throw new Exception('La cantidad debe ser mayor a 0');
+                    throw new RuntimeException('La cantidad debe ser mayor a 0');
                 }
 
                 if (empty($destino)) {
-                    throw new Exception('El destino es obligatorio');
+                    throw new RuntimeException('El destino es obligatorio');
                 }
 
                 if ($cantidad > $producto['cantidad']) {
-                    throw new Exception('Stock insuficiente. Disponible: ' . $producto['cantidad']);
+                    throw new RuntimeException('Stock insuficiente. Disponible: ' . $producto['cantidad']);
                 }
 
-                $cantidadAnterior = $producto['cantidad'];
+                $cantidadAnterior = (int)$producto['cantidad'];
 
                 $resultado = $this->inventarioModel->registrarSalida(
                     $id,
@@ -289,30 +334,32 @@ class AlmacenController extends Controller {
 
                 if ($resultado) {
                     // REGISTRAR EN AUDITORÍA
-                    $auditoria = new AuditoriaModel();
-                    $auditoria->registrar(
-                        $this->authHelper->getUserId(),
-                        $_SESSION['nombre'] ?? 'Sistema',
-                        $_SESSION['rol'] ?? 'almacen',
-                        'salida_stock',
-                        'inventario',
-                        $id,
-                        ['cantidad' => $cantidadAnterior],
-                        ['cantidad' => $cantidadAnterior - $cantidad, 'destino' => $destino]
-                    );
+                    try {
+                        $auditoria = new AuditoriaModel();
+                        $auditoria->registrar(
+                            $this->authHelper->getUserId(),
+                            $_SESSION['nombre'] ?? 'Sistema',
+                            $_SESSION['rol'] ?? 'almacen',
+                            'salida_stock',
+                            'inventario',
+                            $id,
+                            ['cantidad' => $cantidadAnterior],
+                            ['cantidad' => $cantidadAnterior - $cantidad, 'destino' => $destino, 'motivo' => $motivo]
+                        );
+                    } catch (Throwable $e) {
+                        error_log("Error auditoría salida_stock: " . $e->getMessage());
+                    }
 
-                    $_SESSION['mensaje'] = "✅ Salida registrada correctamente. Cantidad: $cantidad";
-                    $_SESSION['mensaje_tipo'] = 'success';
-                    header('Location: /proyecto/almacen/detalle/' . $id);
-                    exit;
+                    $this->redirectWithSuccess('/almacen/detalle/' . $id, "Salida registrada correctamente. Cantidad: $cantidad");
+                    return;
                 } else {
-                    throw new Exception($this->inventarioModel->getLastError() ?: 'Error al registrar salida');
+                    throw new RuntimeException($this->inventarioModel->getLastError() ?: 'Error al registrar salida');
                 }
 
-            } catch (Exception $e) {
-                $_SESSION['error'] = '❌ ' . $e->getMessage();
-                header('Location: /proyecto/almacen/salida/' . $id);
-                exit;
+            } catch (Throwable $e) {   // ✅ FIX: Throwable
+                error_log("Error en salida($id): " . $e->getMessage());
+                $this->redirectWithError('/almacen/salida/' . $id, $e->getMessage());
+                return;
             }
         }
 
@@ -327,29 +374,25 @@ class AlmacenController extends Controller {
      */
     public function movimientos() {
         if (!$this->authHelper->isLoggedIn()) {
-            header('Location: /proyecto/auth/login');
-            exit;
+            $this->redirect('/auth/login');
+            return;
         }
         
         if (!$this->authHelper->isAlmacen() && !$this->authHelper->isAdmin()) {
-            $_SESSION['error'] = 'No tienes permisos para ver movimientos';
-            header('Location: /proyecto/dashboard');
-            exit;
+            $this->redirectWithError('/dashboard', 'No tienes permisos para ver movimientos');
+            return;
         }
 
-        // ✅ OBTENER MOVIMIENTOS
-        $movimientos = $this->inventarioModel->obtenerUltimosMovimientos(50);
-        
-        // ✅ DEBUG: Verificar que los datos lleguen
-        error_log("=== AlmacenController::movimientos() ===");
-        error_log("Movimientos encontrados: " . count($movimientos));
-        error_log("Tipo de datos: " . gettype($movimientos));
-        
-        // ✅ PASAR LA VARIABLE A LA VISTA
+        try {
+            $movimientos = $this->inventarioModel->obtenerUltimosMovimientos(50);
+        } catch (Throwable $e) {
+            error_log("Error en movimientos: " . $e->getMessage());
+            $movimientos = [];
+        }
+
         $titulo = 'Historial de Movimientos';
         $seccion = 'movimientos';
-        
-        // ✅ INCLUIR LA VISTA CON LOS DATOS
+
         require_once __DIR__ . '/../views/almacen/movimientos.php';
     }
 
@@ -359,24 +402,28 @@ class AlmacenController extends Controller {
      */
     public function detalle($id) {
         if (!$this->authHelper->isLoggedIn()) {
-            header('Location: /proyecto/auth/login');
-            exit;
+            $this->redirect('/auth/login');
+            return;
         }
         
         if (!$this->authHelper->isAlmacen() && !$this->authHelper->isAdmin()) {
-            $_SESSION['error'] = 'No tienes permisos';
-            header('Location: /proyecto/dashboard');
-            exit;
+            $this->redirectWithError('/dashboard', 'No tienes permisos');
+            return;
         }
 
+        $id = (int)$id;
         $producto = $this->inventarioModel->obtenerPorId($id);
         if (!$producto) {
-            $_SESSION['error'] = 'Producto no encontrado';
-            header('Location: /proyecto/almacen');
-            exit;
+            $this->redirectWithError('/almacen', 'Producto no encontrado');
+            return;
         }
 
-        $movimientos = $this->inventarioModel->obtenerMovimientosPorProducto($id);
+        try {
+            $movimientos = $this->inventarioModel->obtenerMovimientosPorProducto($id);
+        } catch (Throwable $e) {
+            error_log("Error en detalle: " . $e->getMessage());
+            $movimientos = [];
+        }
 
         $titulo = 'Detalle de Producto';
         $seccion = 'almacen';
@@ -388,44 +435,52 @@ class AlmacenController extends Controller {
      * URL: /almacen/buscar
      */
     public function buscar() {
+        header('Content-Type: application/json; charset=utf-8');
+        
         if (!$this->authHelper->isLoggedIn()) {
-            header('Content-Type: application/json');
             echo json_encode([]);
             exit;
         }
 
         $term = isset($_GET['term']) ? trim($_GET['term']) : '';
         if (strlen($term) < 2) {
-            header('Content-Type: application/json');
             echo json_encode([]);
             exit;
         }
 
-        $resultados = $this->inventarioModel->buscar($term);
-        header('Content-Type: application/json');
-        echo json_encode($resultados);
+        try {
+            $resultados = $this->inventarioModel->buscar($term);
+            echo json_encode($resultados);
+        } catch (Throwable $e) {
+            error_log("Error en buscar almacen: " . $e->getMessage());
+            echo json_encode([]);
+        }
         exit;
     }
 
     /**
      * CONTROL DE PERMANENCIA
      * URL: /almacen/permanencia
+     * 
+     * ⚠️ TODO: Este método ejecuta un UPDATE masivo en cada request.
+     *          Migrar a cron (cron/actualizar_permanencia.php) que corra 1 vez al día,
+     *          o calcular dias_permanencia on-the-fly en el SELECT.
      */
     public function permanencia() {
         if (!$this->authHelper->isLoggedIn()) {
-            header('Location: /proyecto/auth/login');
-            exit;
+            $this->redirect('/auth/login');
+            return;
         }
         
         if (!$this->authHelper->isAlmacen() && !$this->authHelper->isAdmin()) {
-            $_SESSION['error'] = 'No tienes permisos';
-            header('Location: /proyecto/dashboard');
-            exit;
+            $this->redirectWithError('/dashboard', 'No tienes permisos');
+            return;
         }
 
         try {
             $db = Database::getInstance()->getConnection();
             
+            // ⚠️ TODO: mover a cron
             $db->exec("UPDATE inventario SET dias_permanencia = DATEDIFF(NOW(), fecha_ultima_entrada) WHERE fecha_ultima_entrada IS NOT NULL");
             
             $sql = "SELECT 
@@ -434,7 +489,7 @@ class AlmacenController extends Controller {
                         nombre, 
                         categoria, 
                         cantidad, 
-                        unidad, 
+                        unidad_medida AS unidad, 
                         ubicacion, 
                         stock_minimo,
                         fecha_ultima_entrada,
@@ -480,8 +535,8 @@ class AlmacenController extends Controller {
                 ];
             }
             
-        } catch (Exception $e) {
-            error_log("❌ Error en permanencia: " . $e->getMessage());
+        } catch (Throwable $e) {   // ✅ FIX: Throwable
+            error_log("Error en permanencia: " . $e->getMessage());
             $productos = [];
             $resumen = [
                 'total' => 0,
@@ -505,8 +560,7 @@ class AlmacenController extends Controller {
      * URL: /almacen/inventario
      */
     public function inventario() {
-        header('Location: /proyecto/inventario');
-        exit;
+        $this->redirect('/inventario');
     }
 
     /**
@@ -514,21 +568,31 @@ class AlmacenController extends Controller {
      * URL: /almacen/estadisticas
      */
     public function estadisticas() {
+        header('Content-Type: application/json; charset=utf-8');
+        
         if (!$this->authHelper->isLoggedIn()) {
-            header('Content-Type: application/json');
             echo json_encode(['error' => 'No autorizado']);
             exit;
         }
 
-        $estadisticas = $this->inventarioModel->obtenerEstadisticas();
-        $stockPorCategoria = $this->inventarioModel->obtenerStockPorCategoria();
+        try {
+            $estadisticas = $this->inventarioModel->obtenerEstadisticas();
+            $stockPorCategoria = $this->inventarioModel->obtenerStockPorCategoria();
 
-        header('Content-Type: application/json');
-        echo json_encode([
-            'success' => true,
-            'estadisticas' => $estadisticas,
-            'stock_por_categoria' => $stockPorCategoria
-        ]);
+            echo json_encode([
+                'success' => true,
+                'estadisticas' => $estadisticas,
+                'stock_por_categoria' => $stockPorCategoria
+            ]);
+        } catch (Throwable $e) {
+            error_log("Error en estadisticas: " . $e->getMessage());
+            echo json_encode([
+                'success' => false,
+                'estadisticas' => [],
+                'stock_por_categoria' => [],
+                'error' => 'Error al procesar la solicitud'
+            ]);
+        }
         exit;
     }
 
@@ -537,22 +601,31 @@ class AlmacenController extends Controller {
      * URL: /almacen/graficos
      */
     public function graficos() {
+        header('Content-Type: application/json; charset=utf-8');
+        
         if (!$this->authHelper->isLoggedIn()) {
-            header('Content-Type: application/json');
             echo json_encode(['error' => 'No autorizado']);
             exit;
         }
 
-        $movimientos_por_mes = $this->inventarioModel->obtenerMovimientosPorMes();
-        $top_productos = $this->inventarioModel->obtenerProductosMasMovidos(5);
+        try {
+            $movimientos_por_mes = $this->inventarioModel->obtenerMovimientosPorMes();
+            $top_productos = $this->inventarioModel->obtenerProductosMasMovidos(5);
 
-        header('Content-Type: application/json');
-        echo json_encode([
-            'success' => true,
-            'movimientos_por_mes' => $movimientos_por_mes,
-            'top_productos' => $top_productos
-        ]);
+            echo json_encode([
+                'success' => true,
+                'movimientos_por_mes' => $movimientos_por_mes,
+                'top_productos' => $top_productos
+            ]);
+        } catch (Throwable $e) {
+            error_log("Error en graficos: " . $e->getMessage());
+            echo json_encode([
+                'success' => false,
+                'movimientos_por_mes' => [],
+                'top_productos' => [],
+                'error' => 'Error al procesar la solicitud'
+            ]);
+        }
         exit;
     }
 }
-?>

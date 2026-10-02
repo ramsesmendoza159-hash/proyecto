@@ -2,6 +2,11 @@
 // controller/SupervisoresController.php
 // Gestión de supervisores - CON AUDITORÍA Y TRANSACCIONES
 // ✅ FIX: Transacción al crear/actualizar/eliminar para consistencia entre 'supervisores' y 'usuarios'
+// ✅ FIX: catch (Throwable) en TODOS los catch
+// ✅ FIX: rollBack() protegido con inTransaction()
+// ✅ FIX: password_hash calculado UNA sola vez (evita doble hash con salt distinto)
+// ✅ FIX: uso de ToastHelper vía redirectWithSuccess/Error (más consistente)
+// ✅ FIX: index() normaliza estado con LOWER() para contar correctamente
 
 require_once __DIR__ . '/../helpers/Controller.php';
 require_once __DIR__ . '/../model/Supervisor.php';
@@ -57,7 +62,8 @@ class SupervisoresController extends Controller {
                 $stmt->execute();
                 $result = $stmt->fetch(PDO::FETCH_ASSOC);
                 $estadisticas['areas'] = (int)($result['areas'] ?? 0);
-            } catch (Exception $e) {
+            } catch (Throwable $e) {   // ✅ FIX: Throwable
+                error_log("Error al contar áreas de supervisores: " . $e->getMessage());
                 $estadisticas['areas'] = 0;
             }
         }
@@ -84,11 +90,12 @@ class SupervisoresController extends Controller {
     public function guardar() {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->redirect('/supervisores');
+            return;
         }
         
         if (!SecurityHelper::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
-            $_SESSION['error'] = 'Token de seguridad inválido';
-            $this->redirect('/supervisores/crear');
+            $this->redirectWithError('/supervisores/crear', 'Token de seguridad inválido');
+            return;
         }
         
         $errores = [];
@@ -129,17 +136,21 @@ class SupervisoresController extends Controller {
             $_SESSION['errores'] = $errores;
             $_SESSION['old'] = $_POST;
             $this->redirect('/supervisores/crear');
+            return;
         }
         
         try {
             // ✅ Iniciar transacción
             $this->db->beginTransaction();
             
-            // 1. Insertar en tabla supervisores
+            // ✅ FIX: calcular el hash UNA sola vez
+            $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+            
+            // 1. Insertar en tabla supervisores (pasamos hash ya calculado)
             $datosSupervisor = [
                 'nombre' => $nombre,
                 'email' => $email,
-                'password' => $password,
+                'password_hash' => $passwordHash,   // ✅ FIX: evita doble hash con salt distinto
                 'area' => ValidationHelper::sanitize($_POST['area'] ?? ''),
                 'telefono' => ValidationHelper::sanitize($_POST['telefono'] ?? ''),
                 'estado' => $_POST['estado'] ?? 'activo'
@@ -148,24 +159,22 @@ class SupervisoresController extends Controller {
             $supervisorId = $this->model->crear($datosSupervisor);
             
             if (!$supervisorId) {
-                throw new Exception('Error al crear el supervisor en la tabla supervisores');
+                throw new RuntimeException('Error al crear el supervisor en la tabla supervisores');
             }
             
             // 2. Insertar en tabla usuarios con rol 'supervisor'
-            $passwordHash = password_hash($password, PASSWORD_DEFAULT);
-            
             $sql = "INSERT INTO usuarios (nombre, email, password_hash, rol, estado, fecha_creacion) 
                     VALUES (?, ?, ?, 'supervisor', ?, NOW())";
             $stmt = $this->db->prepare($sql);
             $result = $stmt->execute([
                 $nombre,
                 $email,
-                $passwordHash,
+                $passwordHash,   // ✅ FIX: mismo hash que en supervisores
                 $_POST['estado'] ?? 'activo'
             ]);
             
             if (!$result) {
-                throw new Exception('Error al crear el usuario en la tabla usuarios');
+                throw new RuntimeException('Error al crear el usuario en la tabla usuarios');
             }
             
             // ✅ Commit
@@ -182,18 +191,18 @@ class SupervisoresController extends Controller {
                     'supervisores',
                     $supervisorId
                 );
-            } catch (Exception $e) {
-                error_log("Error al registrar auditoría: " . $e->getMessage());
+            } catch (Throwable $e) {   // ✅ FIX: Throwable
+                error_log("Error al registrar auditoría de creación de supervisor: " . $e->getMessage());
             }
             
             unset($_SESSION['old']);
-            $_SESSION['mensaje'] = 'Supervisor creado correctamente. Ya puede iniciar sesión.';
-            $_SESSION['mensaje_tipo'] = 'success';
-            $this->redirect('/supervisores');
+            $this->redirectWithSuccess('/supervisores', 'Supervisor creado correctamente. Ya puede iniciar sesión.');
             
-        } catch (Exception $e) {
-            // ✅ Rollback
-            $this->db->rollBack();
+        } catch (Throwable $e) {   // ✅ FIX: Throwable
+            // ✅ FIX: rollBack protegido
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             error_log("Error en SupervisoresController::guardar: " . $e->getMessage());
             $_SESSION['error'] = 'Error: ' . $e->getMessage();
             $_SESSION['old'] = $_POST;
@@ -210,8 +219,8 @@ class SupervisoresController extends Controller {
         $supervisor = $this->model->obtenerPorId($id);
         
         if (!$supervisor) {
-            $_SESSION['error'] = 'Supervisor no encontrado';
-            $this->redirect('/supervisores');
+            $this->redirectWithError('/supervisores', 'Supervisor no encontrado');
+            return;
         }
         
         $seccion = 'supervisores';
@@ -226,19 +235,20 @@ class SupervisoresController extends Controller {
     public function actualizar($id) {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->redirect('/supervisores');
+            return;
         }
         
         if (!SecurityHelper::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
-            $_SESSION['error'] = 'Token de seguridad inválido';
-            $this->redirect('/supervisores/editar/' . $id);
+            $this->redirectWithError('/supervisores/editar/' . $id, 'Token de seguridad inválido');
+            return;
         }
         
         $id = (int)$id;
         $supervisor_original = $this->model->obtenerPorId($id);
         
         if (!$supervisor_original) {
-            $_SESSION['error'] = 'Supervisor no encontrado';
-            $this->redirect('/supervisores');
+            $this->redirectWithError('/supervisores', 'Supervisor no encontrado');
+            return;
         }
         
         $errores = [];
@@ -272,6 +282,7 @@ class SupervisoresController extends Controller {
         if (!empty($errores)) {
             $_SESSION['errores'] = $errores;
             $this->redirect('/supervisores/editar/' . $id);
+            return;
         }
         
         try {
@@ -288,36 +299,25 @@ class SupervisoresController extends Controller {
             
             // Si se proporcionó nueva contraseña
             $password = $_POST['password'] ?? '';
+            $passwordHash = null;
+            
             if (!empty($password)) {
                 if (strlen($password) < 6) {
-                    throw new Exception('La contraseña debe tener al menos 6 caracteres');
+                    throw new RuntimeException('La contraseña debe tener al menos 6 caracteres');
                 }
-                $datosSupervisor['password'] = $password;
+                $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+                $datosSupervisor['password_hash'] = $passwordHash;   // ✅ FIX: hash ya calculado
             }
             
             $resultSupervisor = $this->model->actualizar($id, $datosSupervisor);
             
             if (!$resultSupervisor) {
-                throw new Exception('Error al actualizar el supervisor');
+                throw new RuntimeException('Error al actualizar el supervisor');
             }
             
             // Actualizar también en la tabla usuarios
-            $sql = "UPDATE usuarios SET 
-                        nombre = ?,
-                        email = ?,
-                        estado = ?,
-                        fecha_actualizacion = NOW()
-                    WHERE email = ? AND rol = 'supervisor'";
-            $params = [
-                $nombre,
-                $email,
-                $_POST['estado'] ?? 'activo',
-                $supervisor_original['email']
-            ];
-            
-            // Si se cambió la contraseña
-            if (!empty($password)) {
-                $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+            if ($passwordHash !== null) {
+                // Con cambio de contraseña
                 $sql = "UPDATE usuarios SET 
                             nombre = ?,
                             email = ?,
@@ -325,20 +325,33 @@ class SupervisoresController extends Controller {
                             estado = ?,
                             fecha_actualizacion = NOW()
                         WHERE email = ? AND rol = 'supervisor'";
-                $params = [
+                $stmt = $this->db->prepare($sql);
+                $resultUsuario = $stmt->execute([
                     $nombre,
                     $email,
                     $passwordHash,
                     $_POST['estado'] ?? 'activo',
                     $supervisor_original['email']
-                ];
+                ]);
+            } else {
+                // Sin cambio de contraseña
+                $sql = "UPDATE usuarios SET 
+                            nombre = ?,
+                            email = ?,
+                            estado = ?,
+                            fecha_actualizacion = NOW()
+                        WHERE email = ? AND rol = 'supervisor'";
+                $stmt = $this->db->prepare($sql);
+                $resultUsuario = $stmt->execute([
+                    $nombre,
+                    $email,
+                    $_POST['estado'] ?? 'activo',
+                    $supervisor_original['email']
+                ]);
             }
             
-            $stmt = $this->db->prepare($sql);
-            $resultUsuario = $stmt->execute($params);
-            
             if (!$resultUsuario) {
-                throw new Exception('Error al actualizar el usuario');
+                throw new RuntimeException('Error al actualizar el usuario');
             }
             
             // ✅ Commit
@@ -355,15 +368,17 @@ class SupervisoresController extends Controller {
                     'supervisores',
                     $id
                 );
-            } catch (Exception $e) {
-                error_log("Error al registrar auditoría: " . $e->getMessage());
+            } catch (Throwable $e) {   // ✅ FIX: Throwable
+                error_log("Error al registrar auditoría de actualización de supervisor: " . $e->getMessage());
             }
             
-            $_SESSION['mensaje'] = 'Supervisor actualizado correctamente.';
-            $_SESSION['mensaje_tipo'] = 'success';
+            $this->redirectWithSuccess('/supervisores', 'Supervisor actualizado correctamente.');
             
-        } catch (Exception $e) {
-            $this->db->rollBack();
+        } catch (Throwable $e) {   // ✅ FIX: Throwable
+            // ✅ FIX: rollBack protegido
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             error_log("Error en SupervisoresController::actualizar: " . $e->getMessage());
             $_SESSION['error'] = 'Error: ' . $e->getMessage();
         }
@@ -378,25 +393,26 @@ class SupervisoresController extends Controller {
     public function cambiarEstado($id) {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->redirect('/supervisores');
+            return;
         }
         
         if (!SecurityHelper::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
-            $_SESSION['error'] = 'Token de seguridad inválido';
-            $this->redirect('/supervisores');
+            $this->redirectWithError('/supervisores', 'Token de seguridad inválido');
+            return;
         }
         
         $id = (int)$id;
         $estado = $_POST['estado'] ?? 'activo';
         
-        if (!in_array($estado, ['activo', 'inactivo'])) {
-            $_SESSION['error'] = 'Estado inválido';
-            $this->redirect('/supervisores');
+        if (!in_array($estado, ['activo', 'inactivo'], true)) {
+            $this->redirectWithError('/supervisores', 'Estado inválido');
+            return;
         }
         
         $supervisor = $this->model->obtenerPorId($id);
         if (!$supervisor) {
-            $_SESSION['error'] = 'Supervisor no encontrado';
-            $this->redirect('/supervisores');
+            $this->redirectWithError('/supervisores', 'Supervisor no encontrado');
+            return;
         }
         
         try {
@@ -406,7 +422,7 @@ class SupervisoresController extends Controller {
             $resultSupervisor = $this->model->cambiarEstado($id, $estado);
             
             if (!$resultSupervisor) {
-                throw new Exception('Error al cambiar el estado del supervisor');
+                throw new RuntimeException('Error al cambiar el estado del supervisor');
             }
             
             // Actualizar también en usuarios
@@ -416,7 +432,7 @@ class SupervisoresController extends Controller {
             $resultUsuario = $stmt->execute([$estado, $supervisor['email']]);
             
             if (!$resultUsuario) {
-                throw new Exception('Error al cambiar el estado del usuario');
+                throw new RuntimeException('Error al cambiar el estado del usuario');
             }
             
             $this->db->commit();
@@ -431,15 +447,17 @@ class SupervisoresController extends Controller {
                     'supervisores',
                     $id
                 );
-            } catch (Exception $e) {
-                error_log("Error al registrar auditoría: " . $e->getMessage());
+            } catch (Throwable $e) {   // ✅ FIX: Throwable
+                error_log("Error al registrar auditoría de cambio de estado: " . $e->getMessage());
             }
             
-            $_SESSION['mensaje'] = 'Estado actualizado correctamente.';
-            $_SESSION['mensaje_tipo'] = 'success';
+            $this->redirectWithSuccess('/supervisores', 'Estado actualizado correctamente.');
             
-        } catch (Exception $e) {
-            $this->db->rollBack();
+        } catch (Throwable $e) {   // ✅ FIX: Throwable
+            // ✅ FIX: rollBack protegido
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             error_log("Error en SupervisoresController::cambiarEstado: " . $e->getMessage());
             $_SESSION['error'] = 'Error: ' . $e->getMessage();
         }
@@ -454,11 +472,12 @@ class SupervisoresController extends Controller {
     public function cambiarPassword($id) {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->redirect('/supervisores');
+            return;
         }
         
         if (!SecurityHelper::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
-            $_SESSION['error'] = 'Token de seguridad inválido';
-            $this->redirect('/supervisores');
+            $this->redirectWithError('/supervisores', 'Token de seguridad inválido');
+            return;
         }
         
         $id = (int)$id;
@@ -466,31 +485,32 @@ class SupervisoresController extends Controller {
         $confirmar_password = $_POST['confirmar_password'] ?? '';
         
         if (empty($password) || strlen($password) < 6) {
-            $_SESSION['error'] = 'La contraseña debe tener al menos 6 caracteres';
-            $this->redirect('/supervisores');
+            $this->redirectWithError('/supervisores', 'La contraseña debe tener al menos 6 caracteres');
+            return;
         }
         
         if ($password !== $confirmar_password) {
-            $_SESSION['error'] = 'Las contraseñas no coinciden';
-            $this->redirect('/supervisores');
+            $this->redirectWithError('/supervisores', 'Las contraseñas no coinciden');
+            return;
         }
         
         $supervisor = $this->model->obtenerPorId($id);
         if (!$supervisor) {
-            $_SESSION['error'] = 'Supervisor no encontrado';
-            $this->redirect('/supervisores');
+            $this->redirectWithError('/supervisores', 'Supervisor no encontrado');
+            return;
         }
         
         try {
             $this->db->beginTransaction();
             
+            // ✅ FIX: calcular hash UNA sola vez
             $passwordHash = password_hash($password, PASSWORD_DEFAULT);
             
             // Actualizar en supervisores
             $resultSupervisor = $this->model->actualizarPassword($id, $passwordHash);
             
             if (!$resultSupervisor) {
-                throw new Exception('Error al actualizar la contraseña del supervisor');
+                throw new RuntimeException('Error al actualizar la contraseña del supervisor');
             }
             
             // Actualizar también en usuarios
@@ -500,7 +520,7 @@ class SupervisoresController extends Controller {
             $resultUsuario = $stmt->execute([$passwordHash, $supervisor['email']]);
             
             if (!$resultUsuario) {
-                throw new Exception('Error al actualizar la contraseña del usuario');
+                throw new RuntimeException('Error al actualizar la contraseña del usuario');
             }
             
             $this->db->commit();
@@ -515,15 +535,17 @@ class SupervisoresController extends Controller {
                     'supervisores',
                     $id
                 );
-            } catch (Exception $e) {
-                error_log("Error al registrar auditoría: " . $e->getMessage());
+            } catch (Throwable $e) {   // ✅ FIX: Throwable
+                error_log("Error al registrar auditoría de cambio de contraseña: " . $e->getMessage());
             }
             
-            $_SESSION['mensaje'] = 'Contraseña actualizada correctamente.';
-            $_SESSION['mensaje_tipo'] = 'success';
+            $this->redirectWithSuccess('/supervisores', 'Contraseña actualizada correctamente.');
             
-        } catch (Exception $e) {
-            $this->db->rollBack();
+        } catch (Throwable $e) {   // ✅ FIX: Throwable
+            // ✅ FIX: rollBack protegido
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             error_log("Error en SupervisoresController::cambiarPassword: " . $e->getMessage());
             $_SESSION['error'] = 'Error: ' . $e->getMessage();
         }
@@ -538,19 +560,20 @@ class SupervisoresController extends Controller {
     public function eliminar($id) {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->redirect('/supervisores');
+            return;
         }
         
         if (!SecurityHelper::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
-            $_SESSION['error'] = 'Token de seguridad inválido';
-            $this->redirect('/supervisores');
+            $this->redirectWithError('/supervisores', 'Token de seguridad inválido');
+            return;
         }
         
         $id = (int)$id;
         $supervisor = $this->model->obtenerPorId($id);
         
         if (!$supervisor) {
-            $_SESSION['error'] = 'Supervisor no encontrado';
-            $this->redirect('/supervisores');
+            $this->redirectWithError('/supervisores', 'Supervisor no encontrado');
+            return;
         }
         
         try {
@@ -563,14 +586,24 @@ class SupervisoresController extends Controller {
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if (($result['total'] ?? 0) > 0) {
-                throw new Exception('No se puede eliminar el supervisor porque tiene órdenes asignadas');
+                throw new RuntimeException('No se puede eliminar el supervisor porque tiene órdenes asignadas');
+            }
+            
+            // ✅ NUEVO: verificar supervisiones
+            $sqlSup = "SELECT COUNT(*) as total FROM supervisiones WHERE supervisor_id = ?";
+            $stmtSup = $this->db->prepare($sqlSup);
+            $stmtSup->execute([$id]);
+            $resultSup = $stmtSup->fetch(PDO::FETCH_ASSOC);
+            
+            if (($resultSup['total'] ?? 0) > 0) {
+                throw new RuntimeException('No se puede eliminar el supervisor porque tiene supervisiones registradas');
             }
             
             // Eliminar de supervisores
             $resultSupervisor = $this->model->eliminar($id);
             
             if (!$resultSupervisor) {
-                throw new Exception('Error al eliminar el supervisor');
+                throw new RuntimeException('Error al eliminar el supervisor');
             }
             
             // Eliminar también de usuarios
@@ -579,7 +612,7 @@ class SupervisoresController extends Controller {
             $resultUsuario = $stmt->execute([$supervisor['email']]);
             
             if (!$resultUsuario) {
-                throw new Exception('Error al eliminar el usuario');
+                throw new RuntimeException('Error al eliminar el usuario');
             }
             
             $this->db->commit();
@@ -594,15 +627,17 @@ class SupervisoresController extends Controller {
                     'supervisores',
                     $id
                 );
-            } catch (Exception $e) {
-                error_log("Error al registrar auditoría: " . $e->getMessage());
+            } catch (Throwable $e) {   // ✅ FIX: Throwable
+                error_log("Error al registrar auditoría de eliminación: " . $e->getMessage());
             }
             
-            $_SESSION['mensaje'] = 'Supervisor eliminado correctamente.';
-            $_SESSION['mensaje_tipo'] = 'success';
+            $this->redirectWithSuccess('/supervisores', 'Supervisor eliminado correctamente.');
             
-        } catch (Exception $e) {
-            $this->db->rollBack();
+        } catch (Throwable $e) {   // ✅ FIX: Throwable
+            // ✅ FIX: rollBack protegido
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             error_log("Error en SupervisoresController::eliminar: " . $e->getMessage());
             $_SESSION['error'] = 'Error: ' . $e->getMessage();
         }
@@ -610,4 +645,3 @@ class SupervisoresController extends Controller {
         $this->redirect('/supervisores');
     }
 }
-?>

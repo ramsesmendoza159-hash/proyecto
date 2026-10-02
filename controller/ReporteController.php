@@ -1,4 +1,10 @@
 <?php
+// controller/ReporteController.php
+// VERSIÓN CORREGIDA
+// ✅ FIX: catch (PDOException) → catch (Throwable) en métodos privados (6 ocurrencias)
+// ✅ FIX CRÍTICO: supervision() hacía JOIN con usuarios en vez de supervisores
+// ✅ FIX: métodos privados con manejo de errores consistente
+// ✅ FIX: tecnicosData() mantiene bindValue PARAM_INT para LIMIT/OFFSET
 
 require_once __DIR__ . '/../helpers/Controller.php';
 require_once __DIR__ . '/../model/OrdenTrabajo.php';
@@ -39,7 +45,7 @@ class ReporteController extends Controller {
         try {
             $stmt = $this->db->query("SELECT id, nombre FROM tecnicos WHERE estado = 'activo' ORDER BY nombre ASC");
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } catch (PDOException $e) {
+        } catch (Throwable $e) {   // ✅ FIX: Throwable
             error_log("Error al cargar técnicos: " . $e->getMessage());
             return [];
         }
@@ -112,7 +118,7 @@ class ReporteController extends Controller {
 
             foreach ($ordenes as $o) {
                 $status = $o['status'] ?? 'PENDIENTE';
-                if (in_array($status, ['CERRADA', 'APROBADA', 'EJECUTADA'])) {
+                if (in_array($status, ['CERRADA', 'APROBADA', 'EJECUTADA'], true)) {
                     $estadisticas['completadas']++;
                 } elseif ($status === 'PENDIENTE') {
                     $estadisticas['pendientes']++;
@@ -151,8 +157,6 @@ class ReporteController extends Controller {
 
     /**
      * ✅ FIX CRÍTICO: usa bindValue con PARAM_INT para LIMIT/OFFSET
-     * porque la conexión tiene PDO::ATTR_EMULATE_PREPARES = false
-     * y MariaDB rechaza placeholders como strings en LIMIT/OFFSET.
      */
     public function tecnicosData() {
         header('Content-Type: application/json; charset=utf-8');
@@ -162,7 +166,7 @@ class ReporteController extends Controller {
             $fechaFin = $_GET['fecha_fin'] ?? date('Y-m-t');
             $tecnicoId = !empty($_GET['tecnico_id']) ? (int)$_GET['tecnico_id'] : null;
             $page = max(1, (int)($_GET['page'] ?? 1));
-            $limit = max(1, (int)($_GET['limit'] ?? 10));
+            $limit = max(1, min(100, (int)($_GET['limit'] ?? 10)));   // límite máx 100
             $offset = ($page - 1) * $limit;
 
             $sql = "SELECT 
@@ -189,7 +193,6 @@ class ReporteController extends Controller {
 
             $stmt = $this->db->prepare($sql);
 
-            // ✅ FIX: bindValue explícito con PARAM_INT para LIMIT/OFFSET
             $i = 1;
             foreach ($params as $p) {
                 $tipo = is_int($p) ? PDO::PARAM_INT : PDO::PARAM_STR;
@@ -208,18 +211,22 @@ class ReporteController extends Controller {
 
         } catch (Throwable $e) {
             error_log("Error en tecnicosData: " . $e->getMessage());
-            echo json_encode(['tecnicos' => [], 'total' => 0, 'error' => $e->getMessage()]);
+            echo json_encode(['tecnicos' => [], 'total' => 0, 'error' => 'Error al procesar la solicitud']);
         }
         exit;
     }
 
+    /**
+     * ✅ FIX CRÍTICO: JOIN con supervisores (no usuarios)
+     * supervisiones.supervisor_id → supervisores.id, NO usuarios.id
+     */
     public function supervision() {
         try {
             $sql = "SELECT s.*, 
-                           u.nombre as supervisor,
+                           sup.nombre as supervisor,
                            t.nombre as tecnico
                     FROM supervisiones s
-                    LEFT JOIN usuarios u ON s.supervisor_id = u.id
+                    LEFT JOIN supervisores sup ON s.supervisor_id = sup.id
                     LEFT JOIN ordenes_mantenimiento o ON s.orden_id = o.id
                     LEFT JOIN tecnicos t ON o.tecnico_id = t.id
                     ORDER BY s.fecha_creacion DESC";
@@ -240,8 +247,9 @@ class ReporteController extends Controller {
             $count_calif = 0;
 
             foreach ($supervisiones as $s) {
-                if ($s['estado'] === 'APROBADA') $estadisticas['aprobadas']++;
-                elseif ($s['estado'] === 'RECHAZADA') $estadisticas['rechazadas']++;
+                $estado = strtoupper($s['estado'] ?? '');
+                if ($estado === 'APROBADA') $estadisticas['aprobadas']++;
+                elseif ($estado === 'RECHAZADA') $estadisticas['rechazadas']++;
                 else $estadisticas['pendientes']++;
 
                 if (!empty($s['calificacion'])) {
@@ -323,8 +331,8 @@ class ReporteController extends Controller {
         $formato = $_GET['formato'] ?? 'excel';
 
         if ($formato === 'pdf') {
-            header('Location: /proyecto/reportes/imprimir?tipo=' . $tipo . '&' . http_build_query($_GET));
-            exit;
+            $this->redirect('/reportes/imprimir?tipo=' . $tipo . '&' . http_build_query($_GET));
+            return;
         }
 
         header('Content-Type: text/csv; charset=utf-8');
@@ -409,6 +417,10 @@ class ReporteController extends Controller {
         require_once __DIR__ . '/../views/reportes/imprimir.php';
     }
 
+    // ==========================================
+    // MÉTODOS PRIVADOS (todos con Throwable)
+    // ==========================================
+
     private function getOrdenesPorMes($fechaInicio, $fechaFin) {
         try {
             $sql = "SELECT 
@@ -427,7 +439,7 @@ class ReporteController extends Controller {
             ]);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        } catch (PDOException $e) {
+        } catch (Throwable $e) {   // ✅ FIX: Throwable
             error_log("Error en getOrdenesPorMes: " . $e->getMessage());
             return [];
         }
@@ -450,7 +462,7 @@ class ReporteController extends Controller {
             ]);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        } catch (PDOException $e) {
+        } catch (Throwable $e) {   // ✅ FIX: Throwable
             error_log("Error en getOrdenesPorEstado: " . $e->getMessage());
             return [];
         }
@@ -480,7 +492,7 @@ class ReporteController extends Controller {
             ]);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        } catch (PDOException $e) {
+        } catch (Throwable $e) {   // ✅ FIX: Throwable
             error_log("Error en getOrdenesPorPrioridad: " . $e->getMessage());
             return [];
         }
@@ -506,7 +518,7 @@ class ReporteController extends Controller {
             ]);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        } catch (PDOException $e) {
+        } catch (Throwable $e) {   // ✅ FIX: Throwable
             error_log("Error en getOrdenesPorTecnico: " . $e->getMessage());
             return [];
         }
@@ -529,7 +541,7 @@ class ReporteController extends Controller {
             ]);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        } catch (PDOException $e) {
+        } catch (Throwable $e) {   // ✅ FIX: Throwable
             error_log("Error en getCostosPorMes: " . $e->getMessage());
             return [];
         }

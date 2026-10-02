@@ -9,6 +9,8 @@
 // ✅ FIX 6: emailExiste() acepta $rol opcional
 // ✅ FIX 7: agregado buscar()
 // ✅ FIX 8: agregado obtenerTodosConFiltros()
+// ✅ FIX 9: logs sanitizados (NO filtrar email en error_log)
+// ✅ FIX 10: trim() en nombres y validaciones de longitud
 
 require_once __DIR__ . '/../config/database.php';
 
@@ -28,6 +30,9 @@ class UsuariosModel {
     // AUTENTICACIÓN
     // ==========================================
 
+    /**
+     * ✅ FIX 9: logs sanitizados (NO filtrar email)
+     */
     public function autenticar($email, $password) {
         try {
             $sql = "SELECT id, nombre, email, password_hash, rol, estado 
@@ -39,29 +44,28 @@ class UsuariosModel {
             $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if (!$usuario) {
-                error_log("Usuario no encontrado: " . $email);
+                // ✅ NO loguear el email (información sensible)
+                error_log("Autenticación fallida: usuario no encontrado");
                 return false;
             }
             
             if ($usuario['estado'] !== 'activo') {
-                error_log("Usuario inactivo: " . $email);
+                error_log("Autenticación fallida: usuario inactivo");
                 return false;
             }
             
             if (!password_verify($password, $usuario['password_hash'])) {
-                error_log("Contraseña incorrecta para: " . $email);
+                error_log("Autenticación fallida: contraseña incorrecta");
                 return false;
             }
             
             unset($usuario['password_hash']);
-            error_log("Autenticación exitosa para: " . $email);
             return $usuario;
             
         } catch (PDOException $e) {
             error_log("Error en UsuariosModel::autenticar (PDO): " . $e->getMessage());
             return false;
         } catch (Throwable $e) {
-            // ✅ FIX 1: Throwable en vez de Exception
             error_log("Error en UsuariosModel::autenticar: " . $e->getMessage());
             return false;
         }
@@ -77,7 +81,7 @@ class UsuariosModel {
     public function obtenerPorId($id) {
         try {
             if (!is_numeric($id) || (int)$id <= 0) {
-                error_log("UsuariosModel::obtenerPorId - ID inválido: $id");
+                error_log("UsuariosModel::obtenerPorId - ID inválido");
                 return null;
             }
             
@@ -92,7 +96,7 @@ class UsuariosModel {
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if (!$result) {
-                error_log("UsuariosModel::obtenerPorId - Usuario con ID $id no encontrado");
+                error_log("UsuariosModel::obtenerPorId - Usuario no encontrado");
                 return null;
             }
             
@@ -118,7 +122,7 @@ class UsuariosModel {
     }
 
     /**
-     * ✅ FIX 5: agregado listado general.
+     * ✅ FIX 5: listado general.
      */
     public function obtenerTodos($filtros = []) {
         try {
@@ -163,7 +167,7 @@ class UsuariosModel {
     }
 
     /**
-     * ✅ FIX 7: agregado buscar() para autocompletar.
+     * ✅ FIX 7: buscar() para autocompletar.
      */
     public function buscar($termino) {
         try {
@@ -200,7 +204,6 @@ class UsuariosModel {
                 $params[':id'] = (int)$excluirId;
             }
 
-            // ✅ FIX 6: filtrar por rol si se especifica
             if ($rol !== null) {
                 $sql .= " AND rol = :rol";
                 $params[':rol'] = $rol;
@@ -223,17 +226,37 @@ class UsuariosModel {
     // ==========================================
 
     /**
-     * ✅ FIX 5: agregado crear().
+     * ✅ FIX 5: crear().
      * Acepta 'password' (hashea) o 'password_hash' (ya hasheado).
+     * ✅ FIX 10: trim() y validaciones de longitud
      */
     public function crear($datos) {
         try {
-            if (empty($datos['nombre']) || empty($datos['email']) || empty($datos['rol'])) {
-                error_log("UsuariosModel::crear - Datos incompletos");
+            // Validar nombre
+            $nombre = trim($datos['nombre'] ?? '');
+            if (empty($nombre)) {
+                error_log("UsuariosModel::crear - Nombre vacío");
+                return false;
+            }
+            if (mb_strlen($nombre) < 3 || mb_strlen($nombre) > 100) {
+                error_log("UsuariosModel::crear - Nombre fuera de rango (3-100)");
                 return false;
             }
 
-            if ($this->emailExiste($datos['email'])) {
+            // Validar email
+            $email = trim($datos['email'] ?? '');
+            if (empty($email)) {
+                error_log("UsuariosModel::crear - Email vacío");
+                return false;
+            }
+
+            // Validar rol
+            if (empty($datos['rol'])) {
+                error_log("UsuariosModel::crear - Rol vacío");
+                return false;
+            }
+
+            if ($this->emailExiste($email)) {
                 error_log("UsuariosModel::crear - Email ya registrado");
                 return false;
             }
@@ -253,8 +276,8 @@ class UsuariosModel {
                     VALUES (?, ?, ?, ?, ?, NOW())";
             $stmt = $this->db->prepare($sql);
             $result = $stmt->execute([
-                $datos['nombre'],
-                $datos['email'],
+                $nombre,
+                $email,
                 $passwordHash,
                 $datos['rol'],
                 $datos['estado'] ?? 'activo'
@@ -278,15 +301,35 @@ class UsuariosModel {
 
     /**
      * ✅ FIX 3: valida email duplicado.
+     * ✅ FIX 10: trim() y validaciones de longitud
      */
     public function actualizar($id, $datos) {
         try {
             $id = (int)$id;
+            if ($id <= 0) {
+                error_log("UsuariosModel::actualizar - ID inválido");
+                return false;
+            }
 
-            // ✅ FIX 3: validar email duplicado si cambia
-            if (!empty($datos['email'])) {
-                if ($this->emailExiste($datos['email'], $id)) {
-                    error_log("UsuariosModel::actualizar - Email ya registrado: " . $datos['email']);
+            // Validar que el usuario exista
+            $usuario = $this->obtenerPorId($id);
+            if (!$usuario) {
+                error_log("UsuariosModel::actualizar - Usuario no encontrado");
+                return false;
+            }
+
+            // Validar nombre
+            $nombre = trim($datos['nombre'] ?? $usuario['nombre']);
+            if (empty($nombre) || mb_strlen($nombre) < 3 || mb_strlen($nombre) > 100) {
+                error_log("UsuariosModel::actualizar - Nombre inválido");
+                return false;
+            }
+
+            // Validar email duplicado si cambia
+            $email = trim($datos['email'] ?? $usuario['email']);
+            if ($email !== $usuario['email']) {
+                if ($this->emailExiste($email, $id)) {
+                    error_log("UsuariosModel::actualizar - Email ya registrado");
                     return false;
                 }
             }
@@ -297,8 +340,8 @@ class UsuariosModel {
                         fecha_actualizacion = NOW()";
             
             $params = [
-                ':nombre' => $datos['nombre'] ?? '',
-                ':email' => $datos['email'] ?? '',
+                ':nombre' => $nombre,
+                ':email' => $email,
                 ':id' => $id
             ];
             
@@ -333,7 +376,7 @@ class UsuariosModel {
     // ==========================================
 
     /**
-     * ✅ FIX 5: agregado eliminar().
+     * ✅ FIX 5: eliminar().
      */
     public function eliminar($id) {
         try {
@@ -352,7 +395,7 @@ class UsuariosModel {
     // ==========================================
 
     /**
-     * ✅ FIX 5: agregado cambiarEstado() con validación.
+     * ✅ FIX 5: cambiarEstado() con validación.
      */
     public function cambiarEstado($id, $estado) {
         try {
@@ -380,7 +423,6 @@ class UsuariosModel {
      */
     public function cambiarPassword($id, $password) {
         try {
-            // ✅ FIX 4: validar largo mínimo
             if (empty($password) || strlen($password) < 6) {
                 error_log("UsuariosModel::cambiarPassword - Contraseña muy corta");
                 return false;

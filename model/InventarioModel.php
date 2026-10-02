@@ -1,8 +1,12 @@
 <?php
 // model/InventarioModel.php
-// VERSIÓN COMPLETA CORREGIDA
+// Modelo de Inventario
 // ✅ FIX: Filtro de stock usa stock_minimo por producto, no rangos fijos
 // ✅ FIX: catch (Throwable) en vez de Exception
+// ✅ FIX: validar cantidad >= 0 en crear/actualizar
+// ✅ FIX: validar precio_unitario >= 0
+// ✅ FIX: validar stock_minimo >= 0 y stock_maximo >= stock_minimo
+// ✅ FIX: trim() en nombre y código
 
 require_once __DIR__ . '/../config/database.php';
 
@@ -132,9 +136,12 @@ class InventarioModel {
 
     public function obtenerPorId($id) {
         try {
+            $id = (int)$id;
+            if ($id <= 0) return null;
+
             $sql = "SELECT * FROM inventario WHERE id = ?";
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([(int)$id]);
+            $stmt->execute([$id]);
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if ($result) {
@@ -153,15 +160,48 @@ class InventarioModel {
         }
     }
 
+    /**
+     * ✅ FIX: valida cantidad >= 0, precio >= 0, stock_minimo >= 0, stock_maximo >= stock_minimo
+     */
     public function crear($datos) {
         try {
-            if (empty($datos['nombre'])) {
+            $nombre = trim($datos['nombre'] ?? '');
+            if (empty($nombre)) {
                 $this->lastError = 'El nombre es obligatorio';
                 return false;
             }
 
-            if (empty($datos['categoria'])) {
+            $categoria = trim($datos['categoria'] ?? '');
+            if (empty($categoria)) {
                 $this->lastError = 'La categoría es obligatoria';
+                return false;
+            }
+
+            // ✅ Validar cantidad
+            $cantidad = (int)($datos['cantidad'] ?? 0);
+            if ($cantidad < 0) {
+                $this->lastError = 'La cantidad no puede ser negativa';
+                return false;
+            }
+
+            // ✅ Validar precio
+            $precio = (float)($datos['precio_unitario'] ?? 0);
+            if ($precio < 0) {
+                $this->lastError = 'El precio no puede ser negativo';
+                return false;
+            }
+
+            // ✅ Validar stock_minimo
+            $stock_minimo = (int)($datos['stock_minimo'] ?? 0);
+            if ($stock_minimo < 0) {
+                $this->lastError = 'El stock mínimo no puede ser negativo';
+                return false;
+            }
+
+            // ✅ Validar stock_maximo >= stock_minimo
+            $stock_maximo = !empty($datos['stock_maximo']) ? (int)$datos['stock_maximo'] : null;
+            if ($stock_maximo !== null && $stock_maximo < $stock_minimo) {
+                $this->lastError = 'El stock máximo no puede ser menor que el stock mínimo';
                 return false;
             }
 
@@ -174,25 +214,25 @@ class InventarioModel {
             $stmt = $this->db->prepare($sql);
 
             $result = $stmt->execute([
-                !empty($datos['codigo']) ? $datos['codigo'] : null,
-                $datos['nombre'],
-                $datos['descripcion'] ?? '',
-                $datos['descripcion_tecnica'] ?? '',
-                $datos['categoria'],
-                (int)($datos['cantidad'] ?? 0),
-                (float)($datos['precio_unitario'] ?? 0),
-                !empty($datos['unidad_medida']) ? $datos['unidad_medida'] : (!empty($datos['unidad']) ? $datos['unidad'] : 'Unidad'),
-                (int)($datos['stock_minimo'] ?? 0),
-                !empty($datos['stock_maximo']) ? (int)$datos['stock_maximo'] : null,
-                $datos['ubicacion'] ?? '',
+                !empty($datos['codigo']) ? trim($datos['codigo']) : null,
+                $nombre,
+                trim($datos['descripcion'] ?? ''),
+                trim($datos['descripcion_tecnica'] ?? ''),
+                $categoria,
+                $cantidad,
+                $precio,
+                !empty($datos['unidad_medida']) ? trim($datos['unidad_medida']) : (!empty($datos['unidad']) ? trim($datos['unidad']) : 'Unidad'),
+                $stock_minimo,
+                $stock_maximo,
+                trim($datos['ubicacion'] ?? ''),
                 $datos['estado'] ?? 'activo',
-                $datos['proveedor'] ?? ''
+                trim($datos['proveedor'] ?? '')
             ]);
 
             if ($result) {
                 $lastId = (int)$this->db->lastInsertId();
-                if ((int)($datos['cantidad'] ?? 0) > 0) {
-                    $this->agregarMovimiento($lastId, 'entrada', (int)$datos['cantidad']);
+                if ($cantidad > 0) {
+                    $this->agregarMovimiento($lastId, 'entrada', $cantidad);
                 }
                 return $lastId;
             }
@@ -206,21 +246,59 @@ class InventarioModel {
         }
     }
 
+    /**
+     * ✅ FIX: valida cantidad >= 0, precio >= 0, stock_minimo >= 0, stock_maximo >= stock_minimo
+     */
     public function actualizar($id, $datos) {
         try {
-            if (empty($datos['nombre'])) {
+            $id = (int)$id;
+            if ($id <= 0) {
+                $this->lastError = 'ID inválido';
+                return false;
+            }
+
+            $nombre = trim($datos['nombre'] ?? '');
+            if (empty($nombre)) {
                 $this->lastError = 'El nombre es obligatorio';
                 return false;
             }
 
-            if (empty($datos['categoria'])) {
+            $categoria = trim($datos['categoria'] ?? '');
+            if (empty($categoria)) {
                 $this->lastError = 'La categoría es obligatoria';
+                return false;
+            }
+
+            // ✅ Validar cantidad
+            $cantidad = (int)($datos['cantidad'] ?? 0);
+            if ($cantidad < 0) {
+                $this->lastError = 'La cantidad no puede ser negativa';
+                return false;
+            }
+
+            // ✅ Validar precio
+            $precio = (float)($datos['precio_unitario'] ?? 0);
+            if ($precio < 0) {
+                $this->lastError = 'El precio no puede ser negativo';
+                return false;
+            }
+
+            // ✅ Validar stock_minimo
+            $stock_minimo = (int)($datos['stock_minimo'] ?? 0);
+            if ($stock_minimo < 0) {
+                $this->lastError = 'El stock mínimo no puede ser negativo';
+                return false;
+            }
+
+            // ✅ Validar stock_maximo >= stock_minimo
+            $stock_maximo = !empty($datos['stock_maximo']) ? (int)$datos['stock_maximo'] : null;
+            if ($stock_maximo !== null && $stock_maximo < $stock_minimo) {
+                $this->lastError = 'El stock máximo no puede ser menor que el stock mínimo';
                 return false;
             }
 
             $itemActual = $this->obtenerPorId($id);
             $cantidadAnterior = $itemActual ? (int)$itemActual['cantidad'] : 0;
-            $cantidadNueva = (int)($datos['cantidad'] ?? 0);
 
             $sql = "UPDATE inventario SET 
                         codigo = ?, nombre = ?, descripcion = ?, descripcion_tecnica = ?, 
@@ -232,24 +310,24 @@ class InventarioModel {
             $stmt = $this->db->prepare($sql);
 
             $result = $stmt->execute([
-                !empty($datos['codigo']) ? $datos['codigo'] : null,
-                $datos['nombre'],
-                $datos['descripcion'] ?? '',
-                $datos['descripcion_tecnica'] ?? '',
-                $datos['categoria'],
-                $cantidadNueva,
-                (float)($datos['precio_unitario'] ?? 0),
-                !empty($datos['unidad_medida']) ? $datos['unidad_medida'] : (!empty($datos['unidad']) ? $datos['unidad'] : 'Unidad'),
-                (int)($datos['stock_minimo'] ?? 0),
-                !empty($datos['stock_maximo']) ? (int)$datos['stock_maximo'] : null,
-                $datos['ubicacion'] ?? '',
+                !empty($datos['codigo']) ? trim($datos['codigo']) : null,
+                $nombre,
+                trim($datos['descripcion'] ?? ''),
+                trim($datos['descripcion_tecnica'] ?? ''),
+                $categoria,
+                $cantidad,
+                $precio,
+                !empty($datos['unidad_medida']) ? trim($datos['unidad_medida']) : (!empty($datos['unidad']) ? trim($datos['unidad']) : 'Unidad'),
+                $stock_minimo,
+                $stock_maximo,
+                trim($datos['ubicacion'] ?? ''),
                 $datos['estado'] ?? 'activo',
-                $datos['proveedor'] ?? '',
-                (int)$id
+                trim($datos['proveedor'] ?? ''),
+                $id
             ]);
 
             if ($result) {
-                $diferencia = $cantidadNueva - $cantidadAnterior;
+                $diferencia = $cantidad - $cantidadAnterior;
                 if ($diferencia != 0) {
                     $tipo = $diferencia > 0 ? 'entrada' : 'salida';
                     $this->agregarMovimiento($id, $tipo, abs($diferencia));
@@ -487,7 +565,8 @@ class InventarioModel {
                     LIMIT ?";
 
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([(int)$limite]);
+            $stmt->bindValue(1, (int)$limite, PDO::PARAM_INT);
+            $stmt->execute();
             $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             foreach ($result as &$item) {
@@ -715,7 +794,8 @@ class InventarioModel {
                     LIMIT ?";
 
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([(int)$limite]);
+            $stmt->bindValue(1, (int)$limite, PDO::PARAM_INT);
+            $stmt->execute();
             $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             foreach ($result as $index => &$item) {
@@ -772,7 +852,8 @@ class InventarioModel {
                     LIMIT ?";
 
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([(int)$limite]);
+            $stmt->bindValue(1, (int)$limite, PDO::PARAM_INT);
+            $stmt->execute();
             $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             foreach ($result as &$item) {

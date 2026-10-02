@@ -1,7 +1,8 @@
 <?php
 // controller/OperadorController.php
 // Panel de Operador - VERSIÓN COMPLETA CON PERMISOS DE ADMIN
-// ✅ FIX: El operador ahora puede ver TODAS las órdenes, no solo las que él creó
+// ✅ FIX: header() → $this->redirect()
+// ✅ FIX: try/catch (Throwable)
 
 require_once __DIR__ . '/../model/OrdenTrabajo.php';
 require_once __DIR__ . '/../model/PlantasModel.php';
@@ -16,59 +17,48 @@ class OperadorController extends Controller {
         parent::__construct();
         
         if (!$this->authHelper->isLoggedIn() || !$this->authHelper->isOperador()) {
-            header('Location: /proyecto/auth/login');
-            exit();
+            $this->redirect('/auth/login');
         }
         
         $this->ordenModel = new OrdenTrabajo();
     }
 
-    /**
-     * Dashboard del Operador - CON DASHBOARD COMPLETO
-     * ✅ FIX: Ahora ve TODAS las órdenes del sistema, igual que admin
-     * URL: /operador
-     */
     public function index() {
-        // ✅ FIX: Ver TODAS las órdenes, no solo las del operador
-        $ordenes = $this->ordenModel->obtenerTodos();
-        $estadisticas = $this->calcularEstadisticas($ordenes);
-        
-        // Cargar plantas para el filtro
-        $plantasModel = new PlantasModel();
-        $plantas = $plantasModel->obtenerTodos();
+        try {
+            $ordenes = $this->ordenModel->obtenerTodos();
+            $estadisticas = $this->calcularEstadisticas($ordenes);
+            
+            $plantasModel = new PlantasModel();
+            $plantas = $plantasModel->obtenerTodos();
+        } catch (Throwable $e) {
+            error_log("Error en OperadorController::index: " . $e->getMessage());
+            $ordenes = [];
+            $estadisticas = ['total' => 0, 'pendientes' => 0, 'en_proceso' => 0, 'completadas' => 0];
+            $plantas = [];
+        }
         
         $titulo = "Panel de Operador";
         $seccion = "operador";
         require_once __DIR__ . '/../views/operador/index.php';
     }
 
-    /**
-     * Ver TODAS las órdenes (igual que admin)
-     * ✅ FIX: Ahora ve todas las órdenes, no solo las suyas
-     * URL: /operador/ordenes
-     */
     public function ordenes() {
-        // ✅ FIX: Ver TODAS las órdenes
-        $ordenes = $this->ordenModel->obtenerTodos();
+        try {
+            $ordenes = $this->ordenModel->obtenerTodos();
+        } catch (Throwable $e) {
+            error_log("Error en OperadorController::ordenes: " . $e->getMessage());
+            $ordenes = [];
+        }
         
         $titulo = "Gestión de Órdenes";
         $seccion = "ordenes";
         require_once __DIR__ . '/../views/operador/ordenes.php';
     }
 
-    /**
-     * Crear nueva orden (redirige al formulario de órdenes)
-     * URL: /operador/crear_orden
-     */
     public function crear_orden() {
-        $seccion = "crear_orden";
-        header('Location: /proyecto/ordenes/crear');
-        exit();
+        $this->redirect('/ordenes/crear');
     }
 
-    /**
-     * Calcular estadísticas de órdenes
-     */
     private function calcularEstadisticas($ordenes) {
         $total = count($ordenes);
         $pendientes = 0;
@@ -94,4 +84,3 @@ class OperadorController extends Controller {
         ];
     }
 }
-?>

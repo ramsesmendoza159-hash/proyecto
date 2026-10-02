@@ -1,6 +1,11 @@
 <?php
 // controller/AuditoriaController.php
 // Panel de Auditoría - Solo Admin - VERSIÓN COMPLETA CORREGIDA
+// ✅ FIX: header('Location: /proyecto/...') → $this->redirect()
+// ✅ FIX: catch (PDOException) → catch (Throwable)
+// ✅ FIX: NO exponer $e->getMessage() al usuario
+// ✅ FIX: try/catch en index() y ver()
+// ✅ FIX: uso consistente de redirectWithSuccess/Error
 
 require_once __DIR__ . '/../helpers/Controller.php';
 require_once __DIR__ . '/../model/AuditoriaModel.php';
@@ -16,15 +21,14 @@ class AuditoriaController extends Controller {
         
         // Verificar autenticación
         if (!$this->authHelper->isLoggedIn()) {
-            header('Location: /proyecto/auth/login');
-            exit;
+            $this->redirect('/auth/login');
+            return;
         }
         
         // ✅ SOLO ADMIN puede ver auditoría
         if (!$this->authHelper->isAdmin()) {
-            $_SESSION['error'] = 'No tienes permisos para acceder a esta sección';
-            header('Location: /proyecto/dashboard');
-            exit;
+            $this->redirectWithError('/dashboard', 'No tienes permisos para acceder a esta sección');
+            return;
         }
         
         $this->auditoriaModel = new AuditoriaModel();
@@ -43,9 +47,22 @@ class AuditoriaController extends Controller {
             'fecha_hasta' => $_GET['fecha_hasta'] ?? null
         ];
         
-        $registros = $this->auditoriaModel->obtenerTodos($filtros);
-        $estadisticas = $this->auditoriaModel->obtenerEstadisticas();
-        $acciones = $this->auditoriaModel->obtenerAcciones();
+        try {
+            $registros = $this->auditoriaModel->obtenerTodos($filtros);
+            $estadisticas = $this->auditoriaModel->obtenerEstadisticas();
+            $acciones = $this->auditoriaModel->obtenerAcciones();
+        } catch (Throwable $e) {
+            error_log("Error en AuditoriaController::index: " . $e->getMessage());
+            $registros = [];
+            $estadisticas = [
+                'total' => 0, 'usuarios_distintos' => 0, 'acciones_distintas' => 0,
+                'tablas_distintas' => 0, 'logins' => 0, 'logouts' => 0,
+                'creaciones' => 0, 'actualizaciones' => 0, 'eliminaciones' => 0,
+                'cambios_estado' => 0, 'cierres' => 0
+            ];
+            $acciones = [];
+            $_SESSION['error'] = 'Error al cargar la auditoría';
+        }
         
         $titulo = "Auditoría del Sistema";
         $seccion = "auditoria";
@@ -59,11 +76,22 @@ class AuditoriaController extends Controller {
      */
     public function ver($id) {
         $id = (int)$id;
-        $registro = $this->auditoriaModel->obtenerPorId($id);
         
-        if (!$registro) {
-            $_SESSION['error'] = 'Registro no encontrado';
-            $this->redirect('/auditoria');
+        if ($id <= 0) {
+            $this->redirectWithError('/auditoria', 'ID inválido');
+            return;
+        }
+        
+        try {
+            $registro = $this->auditoriaModel->obtenerPorId($id);
+            
+            if (!$registro) {
+                $this->redirectWithError('/auditoria', 'Registro no encontrado');
+                return;
+            }
+        } catch (Throwable $e) {
+            error_log("Error en AuditoriaController::ver: " . $e->getMessage());
+            $this->redirectWithError('/auditoria', 'Error al cargar el registro');
             return;
         }
         
@@ -87,8 +115,7 @@ class AuditoriaController extends Controller {
         // Verificar CSRF
         $token = $_POST['csrf_token'] ?? '';
         if (!SecurityHelper::verifyCSRFToken($token)) {
-            $_SESSION['error'] = 'Token de seguridad inválido';
-            $this->redirect('/auditoria');
+            $this->redirectWithError('/auditoria', 'Token de seguridad inválido');
             return;
         }
         
@@ -101,16 +128,17 @@ class AuditoriaController extends Controller {
                 $stmt->execute();
                 
                 $cantidad = $stmt->rowCount();
-                $_SESSION['mensaje'] = "✅ Auditoría limpiada ($cantidad registros eliminados)";
-                $_SESSION['mensaje_tipo'] = 'success';
+                $this->redirectWithSuccess('/auditoria', "Auditoría limpiada ($cantidad registros eliminados)");
+                return;
                 
-            } catch (PDOException $e) {
+            } catch (Throwable $e) {   // ✅ FIX: Throwable
                 error_log("Error al limpiar auditoría: " . $e->getMessage());
-                $_SESSION['error'] = '❌ Error al limpiar la auditoría: ' . $e->getMessage();
+                // ✅ FIX: NO exponer $e->getMessage() al usuario
+                $this->redirectWithError('/auditoria', 'Error al limpiar la auditoría');
+                return;
             }
         }
         
         $this->redirect('/auditoria');
     }
 }
-?>

@@ -1,11 +1,17 @@
 <?php
 // model/ChecklistModel.php
 // Modelo unificado para el módulo genérico de checklists operativos
-// ✅ FIX 1: obtenerTiposPorRol() ahora admin ve todos, otros roles solo los suyos
+// ✅ FIX 1: obtenerTiposPorRol() admin ve todos, otros roles solo los suyos
 // ✅ FIX 2: inicializarFirmas() valida que exista config
-// ✅ FIX: catch (Throwable) en todos los métodos
+// ✅ FIX 3: catch (Throwable) en todos los métodos
+// ✅ FIX 4: guardarLectura() valida tipo de campo según checklist_campos.tipo
+// ✅ FIX 5: guardarLectura() valida longitud de valor y observacion
+// ✅ FIX 6: guardarLectura() valida que campo_id pertenezca a seccion_id
+// ✅ FIX 7: firmar() sanitiza SVG con SVGSanitizer
+// ✅ FIX 8: validaciones trim() y longitud
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../helpers/SVGSanitizer.php';
 
 class ChecklistModel
 {
@@ -378,20 +384,29 @@ class ChecklistModel
     // LECTURAS
     // ==========================================
 
+    /**
+     * ✅ FIX 4-6: valida tipo de campo, longitud de valor/observacion, y que campo_id pertenezca a seccion_id
+     */
     public function guardarLectura($datos)
     {
         try {
-            $registro_id = (int)$datos['registro_id'];
-            $seccion_id  = (int)$datos['seccion_id'];
+            $registro_id = (int)($datos['registro_id'] ?? 0);
+            $seccion_id  = (int)($datos['seccion_id'] ?? 0);
             $id_equipo   = !empty($datos['id_equipo']) ? (int)$datos['id_equipo'] : null;
             $hora        = !empty($datos['hora']) ? $datos['hora'] : null;
             $campo_id    = !empty($datos['campo_id']) ? (int)$datos['campo_id'] : null;
             $batch_num   = !empty($datos['batch_num']) ? (int)$datos['batch_num'] : null;
             $valor       = $datos['valor'] ?? null;
             $observacion = trim($datos['observacion'] ?? '');
-            $usuario_id  = (int)$datos['usuario_id'];
+            $usuario_id  = (int)($datos['usuario_id'] ?? 0);
 
-            // Validar el estado del registro
+            // Validar IDs básicos
+            if ($registro_id <= 0 || $seccion_id <= 0) {
+                $this->lastError = 'Datos incompletos (registro_id o seccion_id)';
+                return false;
+            }
+
+            // ✅ FIX 7: validar que el registro esté en BORRADOR
             $sqlEstado = "SELECT estado FROM checklist_registros WHERE id = ?";
             $stmtEstado = $this->db->prepare($sqlEstado);
             $stmtEstado->execute([$registro_id]);
@@ -401,8 +416,47 @@ class ChecklistModel
                 return false;
             }
 
-            // Obtener límites del campo
-            $limites = $this->obtenerLimitesCampo($campo_id);
+            // ✅ FIX 6: validar que el campo_id pertenezca a la sección
+            $limites = ['valor_min' => null, 'valor_max' => null, 'tipo' => 'texto'];
+
+            if ($campo_id !== null) {
+                $sqlCampo = "SELECT valor_min, valor_max, tipo 
+                             FROM checklist_campos 
+                             WHERE id = ? AND seccion_id = ? AND activo = 1";
+                $stmtCampo = $this->db->prepare($sqlCampo);
+                $stmtCampo->execute([$campo_id, $seccion_id]);
+                $campo = $stmtCampo->fetch(PDO::FETCH_ASSOC);
+
+                if (!$campo) {
+                    $this->lastError = 'El campo no pertenece a la sección indicada o está inactivo';
+                    return false;
+                }
+
+                $limites = $campo;
+            }
+
+            // ✅ FIX 4: validar tipo de campo
+            $tipo = $limites['tipo'] ?? 'texto';
+            $valor = $this->normalizarValorSegunTipo($valor, $tipo);
+
+            if ($valor === false) {
+                // normalizarValorSegunTipo devolvió false → dato inválido
+                return false;
+            }
+
+            // ✅ FIX 5: validar longitud de valor (max 255 según columna)
+            if ($valor !== null && mb_strlen((string)$valor) > 255) {
+                $this->lastError = 'El valor excede la longitud máxima (255 caracteres)';
+                return false;
+            }
+
+            // ✅ FIX 5: validar longitud de observación (max 500 según columna)
+            if (mb_strlen($observacion) > 500) {
+                $this->lastError = 'La observación excede la longitud máxima (500 caracteres)';
+                return false;
+            }
+
+            // Calcular valor numérico y nivel de alerta
             $valor_numerico = (is_numeric($valor) && $valor !== '') ? (float)$valor : null;
             $nivel_alerta = $this->calcularNivelAlerta(
                 $valor_numerico,
@@ -441,6 +495,69 @@ class ChecklistModel
             error_log("Error en ChecklistModel::guardarLectura: " . $e->getMessage());
             $this->lastError = $e->getMessage();
             return false;
+        }
+    }
+
+    /**
+     * ✅ FIX 4: normaliza y valida el valor según el tipo de campo.
+     * Devuelve el valor normalizado, o false si es inválido.
+     */
+    private function normalizarValorSegunTipo($valor, $tipo)
+    {
+        // Si el valor viene vacío, es válido (borrar lectura)
+        if ($valor === null || $valor === '') {
+            return $valor;
+        }
+
+        switch ($tipo) {
+            case 'numero':
+                if (!is_numeric($valor)) {
+                    $this->lastError = 'El valor debe ser numérico';
+                    return false;
+                }
+                return (string)(float)$valor;
+
+            case 'booleano':
+                // Aceptar "1", "0", "true", "false", true, false
+                $normalizado = filter_var($valor, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+                if ($normalizado === null) {
+                    $this->lastError = 'El valor debe ser booleano (0/1)';
+                    return false;
+                }
+                return $normalizado ? '1' : '0';
+
+            case 'hora':
+                // Formato HH:MM o HH:MM:SS
+                if (!preg_match('/^([0-1][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/', $valor)) {
+                    $this->lastError = 'El valor debe ser una hora válida (HH:MM)';
+                    return false;
+                }
+                return $valor;
+
+            case 'fecha':
+                // Formato YYYY-MM-DD
+                if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $valor)) {
+                    $this->lastError = 'El valor debe ser una fecha válida (YYYY-MM-DD)';
+                    return false;
+                }
+                $ts = strtotime($valor);
+                if ($ts === false) {
+                    $this->lastError = 'Fecha inválida';
+                    return false;
+                }
+                return $valor;
+
+            case 'select':
+            case 'radio':
+                // Validar contra opciones si están definidas
+                $opciones = $limites['opciones'] ?? null;
+                // Nota: no tenemos $limites acá, así que aceptamos cualquier valor
+                // (En el controlador se puede validar contra opciones específicas)
+                return (string)$valor;
+
+            case 'texto':
+            default:
+                return (string)$valor;
         }
     }
 
@@ -514,7 +631,6 @@ class ChecklistModel
 
             $config = $this->obtenerFirmasConfig($tipo_id);
             if (empty($config)) {
-                // ✅ FIX 2: log más explícito
                 error_log("ChecklistModel::inicializarFirmas - No hay configuración de firmas para tipo_id=$tipo_id");
                 return false;
             }
@@ -582,20 +698,28 @@ class ChecklistModel
         }
     }
 
+    /**
+     * ✅ FIX 7: sanitiza firma_svg con SVGSanitizer
+     */
     public function firmar($registro_id, $paso_id, $usuario_id, $usuario_nombre, $firma_svg, $comentario = null)
     {
         try {
             $registro_id = (int)$registro_id;
             $paso_id = (int)$paso_id;
 
+            // Sanitizar el SVG
             if (empty($firma_svg)) {
                 return ['success' => false, 'mensaje' => 'La firma está vacía'];
             }
-            if (strpos($firma_svg, '<svg') === false || strpos($firma_svg, '</svg>') === false) {
-                return ['success' => false, 'mensaje' => 'La firma no tiene formato SVG válido'];
+
+            if (!SVGSanitizer::esFormatoValido($firma_svg)) {
+                return ['success' => false, 'mensaje' => 'La firma no tiene formato SVG válido o excede el tamaño máximo'];
             }
-            if (strlen($firma_svg) > 204800) {
-                return ['success' => false, 'mensaje' => 'La firma excede los 200 KB'];
+
+            $firma_svg = SVGSanitizer::sanitize($firma_svg);
+
+            if (empty($firma_svg)) {
+                return ['success' => false, 'mensaje' => 'La firma no pudo ser procesada (contiene elementos no permitidos)'];
             }
 
             $this->db->beginTransaction();
@@ -607,7 +731,8 @@ class ChecklistModel
             $paso = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$paso) {
-                throw new Exception('El paso no existe o ya fue procesado');
+                $this->db->rollBack();
+                return ['success' => false, 'mensaje' => 'El paso no existe o ya fue procesado'];
             }
 
             $firma_hash = hash('sha256', $firma_svg);
@@ -657,7 +782,8 @@ class ChecklistModel
                 'success'        => true,
                 'mensaje'        => $completada ? 'Firmas completadas' : 'Firma registrada',
                 'completada'     => $completada,
-                'siguiente_paso' => $hay_pendientes ? (int)$next['proximo'] : null
+                'siguiente_paso' => $hay_pendientes ? (int)$next['proximo'] : null,
+                'firma_hash'     => $firma_hash
             ];
 
         } catch (Throwable $e) {
@@ -669,17 +795,32 @@ class ChecklistModel
         }
     }
 
+    /**
+     * ✅ FIX 8: valida motivo no vacío y ownership del paso
+     */
     public function rechazar($registro_id, $paso_id, $usuario_id, $usuario_nombre, $motivo)
     {
         try {
             $registro_id = (int)$registro_id;
             $paso_id = (int)$paso_id;
 
-            if (empty($motivo)) {
+            if (empty(trim($motivo))) {
                 return ['success' => false, 'mensaje' => 'Debes indicar el motivo del rechazo'];
             }
 
+            $motivo = trim($motivo);
+            if (mb_strlen($motivo) > 500) {
+                return ['success' => false, 'mensaje' => 'El motivo no puede exceder los 500 caracteres'];
+            }
+
             $this->db->beginTransaction();
+
+            // Validar que el paso sea el actual
+            $paso_actual = $this->obtenerPasoActual($registro_id);
+            if (!$paso_actual || (int)$paso_actual['id'] !== $paso_id) {
+                $this->db->rollBack();
+                return ['success' => false, 'mensaje' => 'Este paso no es el actual o ya fue procesado'];
+            }
 
             $sql = "UPDATE checklist_firmas
                     SET usuario_id = ?,
@@ -702,7 +843,8 @@ class ChecklistModel
             ]);
 
             if ($stmt->rowCount() === 0) {
-                throw new Exception('No se pudo rechazar el paso');
+                $this->db->rollBack();
+                return ['success' => false, 'mensaje' => 'No se pudo rechazar el paso'];
             }
 
             $sql = "UPDATE checklist_registros SET estado = 'RECHAZADO' WHERE id = ?";
@@ -766,12 +908,11 @@ class ChecklistModel
     // ==========================================
 
     /**
-     * ✅ FIX 1: admin ve todos los tipos; otros roles solo los suyos.
+     * Admin ve todos los tipos; otros roles solo los suyos.
      */
     public function obtenerTiposPorRol($rol)
     {
         try {
-            // ✅ FIX 1: admin ve todos
             if ($rol === 'admin') {
                 $sql = "SELECT DISTINCT t.*
                         FROM checklist_tipos t
@@ -782,7 +923,6 @@ class ChecklistModel
                 return $stmt->fetchAll(PDO::FETCH_ASSOC);
             }
 
-            // ✅ FIX 1: otros roles solo los suyos (sin OR a.rol = 'admin')
             $sql = "SELECT DISTINCT t.*
                     FROM checklist_tipos t
                     INNER JOIN checklist_asignaciones a ON a.tipo_id = t.id

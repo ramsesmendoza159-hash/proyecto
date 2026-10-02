@@ -1,8 +1,12 @@
 <?php
 // index.php - Punto de entrada principal
 // Ubicación: C:\xampp\htdocs\proyecto\index.php
-// ✅ FIX: eliminada entrada 'RepuestosModel' del autoloader (modelo eliminado)
-// ✅ FIX: eliminada ruta duplicada '#^checklists/ver/([0-9]+)$#' (queda solo checklistEjecucion)
+// ✅ FIX: autoloader completo (todos los controladores conocidos)
+// ✅ FIX: route map 100% consistente con .htaccess
+// ✅ FIX: eliminadas rutas a métodos inexistentes (checklist/crear, checklist/guardar, etc.)
+// ✅ FIX: agregadas rutas faltantes (supervisor/revisar, inventario/list, etc.)
+// ✅ FIX: catch (Throwable) en vez de catch (Exception)
+// ✅ FIX: validación defensiva de controladores y métodos
 
 // ==========================================
 // CONFIGURACIÓN DE ERRORES
@@ -64,37 +68,78 @@ if (session_status() === PHP_SESSION_NONE) {
 spl_autoload_register(function ($class) {
     $class = ltrim($class, '\\');
 
+    // ==========================================
+    // MAPA EXPLÍCITO: clase → [directorio, archivo]
+    // Cubre TODAS las clases del proyecto.
+    // ==========================================
     $classMap = [
-        'UsuariosModel'                 => ['model', 'UsuariosModel.php'],
-        'Usuario'                       => ['model', 'Usuario.php'],
-        'Tecnico'                       => ['model', 'Tecnico.php'],
-        'Supervisor'                    => ['model', 'Supervisor.php'],
-        'OrdenTrabajo'                  => ['model', 'OrdenTrabajo.php'],
-        'PlantasModel'                  => ['model', 'PlantasModel.php'],
+        // ========== CONFIG ==========
+        'Database'                      => ['config',  'database.php'],
+
+        // ========== HELPERS ==========
+        'AuthHelper'                    => ['helpers', 'AuthHelper.php'],
+        'BackdatingHelper'              => ['helpers', 'BackdatingHelper.php'],
+        'Controller'                    => ['helpers', 'Controller.php'],
+        'FileHelper'                    => ['helpers', 'FileHelper.php'],
+        'FirmaHelper'                   => ['helpers', 'FirmaHelper.php'],
+        'FirmaSecuenciaHelper'          => ['helpers', 'FirmaSecuenciaHelper.php'],
+        'HashHelper'                    => ['helpers', 'HashHelper.php'],
+        'Router'                        => ['helpers', 'Router.php'],
+        'SecurityHelper'                => ['helpers', 'SecurityHelper.php'],
+        'SVGSanitizer'                  => ['helpers', 'SVGSanitizer.php'],
+        'ToastHelper'                   => ['helpers', 'ToastHelper.php'],
+        'ValidationHelper'              => ['helpers', 'ValidationHelper.php'],
+
+        // ========== MODELOS ==========
         'AreasModel'                    => ['model', 'AreasModel.php'],
-        'EquiposModel'                  => ['model', 'EquiposModel.php'],
+        'AuditoriaModel'                => ['model', 'AuditoriaModel.php'],
+        'BackdatingModel'               => ['model', 'BackdatingModel.php'],
+        'ChecklistModel'                => ['model', 'ChecklistModel.php'],
         'ComponentesModel'              => ['model', 'ComponentesModel.php'],
+        'EquiposModel'                  => ['model', 'EquiposModel.php'],
+        'FirmaModel'                    => ['model', 'FirmaModel.php'],
         'InventarioModel'               => ['model', 'InventarioModel.php'],
         'MantenimientoEquiposModel'     => ['model', 'MantenimientoEquiposModel.php'],
         'MonitoreoModel'                => ['model', 'MonitoreoModel.php'],
-        'ChecklistModel'                => ['model', 'ChecklistModel.php'],
-        'AuditoriaModel'                => ['model', 'AuditoriaModel.php'],
+        'OrdenTrabajo'                  => ['model', 'OrdenTrabajo.php'],
+        'PlantasModel'                  => ['model', 'PlantasModel.php'],
         'ProveedoresModel'              => ['model', 'ProveedoresModel.php'],
-        'BackdatingModel'               => ['model', 'BackdatingModel.php'],
-        'FirmaModel'                    => ['model', 'FirmaModel.php'],
-        'Database'                      => ['config', 'database.php'],
-        'SecurityHelper'                => ['helpers', 'SecurityHelper.php'],
-        'AuthHelper'                    => ['helpers', 'AuthHelper.php'],
-        'ToastHelper'                   => ['helpers', 'ToastHelper.php'],
-        'ValidationHelper'              => ['helpers', 'ValidationHelper.php'],
-        'HashHelper'                    => ['helpers', 'HashHelper.php'],
-        'BackdatingHelper'              => ['helpers', 'BackdatingHelper.php'],
-        'FirmaHelper'                   => ['helpers', 'FirmaHelper.php'],
-        'FirmaSecuenciaHelper'          => ['helpers', 'FirmaSecuenciaHelper.php'],
-        'Controller'                    => ['helpers', 'Controller.php'],
-        'Router'                        => ['helpers', 'Router.php'],
+        'Supervisor'                    => ['model', 'Supervisor.php'],
+        'Tecnico'                       => ['model', 'Tecnico.php'],
+        'UsuariosModel'                 => ['model', 'UsuariosModel.php'],
+
+        // ========== CONTROLADORES ==========
+        'AdminController'               => ['controller', 'AdminController.php'],
+        'AlmacenController'             => ['controller', 'AlmacenController.php'],
+        'AuditoriaController'           => ['controller', 'AuditoriaController.php'],
+        'AuthController'                => ['controller', 'AuthController.php'],
+        'BackdatingController'          => ['controller', 'BackdatingController.php'],
+        'CalidadController'             => ['controller', 'CalidadController.php'],
+        'ChecklistController'           => ['controller', 'ChecklistController.php'],
+        'ChecklistEjecucionController'  => ['controller', 'ChecklistEjecucionController.php'],
+        'ConsultorController'           => ['controller', 'ConsultorController.php'],
+        'DashboardController'           => ['controller', 'DashboardController.php'],
+        'EquiposController'             => ['controller', 'EquiposController.php'],
+        'ErrorController'               => ['controller', 'ErrorController.php'],
+        'FirmaController'               => ['controller', 'FirmaController.php'],
+        'IngenieroController'           => ['controller', 'IngenieroController.php'],
+        'InventarioController'          => ['controller', 'InventarioController.php'],
+        'MantenimientoEquiposController'=> ['controller', 'MantenimientoEquiposController.php'],
+        'MonitoreoController'           => ['controller', 'MonitoreoController.php'],
+        'OperadorController'            => ['controller', 'OperadorController.php'],
+        'OrdenController'               => ['controller', 'OrdenController.php'],
+        'PerfilController'              => ['controller', 'PerfilController.php'],
+        'ReporteController'             => ['controller', 'ReporteController.php'],
+        'ReporteFinancieroController'   => ['controller', 'ReporteFinancieroController.php'],
+        'SeguridadController'           => ['controller', 'SeguridadController.php'],
+        'SupervisionController'         => ['controller', 'SupervisionController.php'],
+        'SupervisorController'          => ['controller', 'SupervisorController.php'],
+        'SupervisoresController'        => ['controller', 'SupervisoresController.php'],
+        'TecnicoController'             => ['controller', 'TecnicoController.php'],
+        'TecnicosController'            => ['controller', 'TecnicosController.php'],
     ];
 
+    // 1. Buscar en el mapa explícito
     if (isset($classMap[$class])) {
         [$dir, $file] = $classMap[$class];
         $path = __DIR__ . '/' . $dir . '/' . $file;
@@ -104,6 +149,7 @@ spl_autoload_register(function ($class) {
         }
     }
 
+    // 2. Fallback: buscar por convención en los directorios conocidos
     $paths = [
         __DIR__ . '/controller/',
         __DIR__ . '/model/',
@@ -123,7 +169,7 @@ spl_autoload_register(function ($class) {
 });
 
 // ==========================================
-// CONFIGURACIÓN DE BASE DE DATOS
+// VERIFICAR CONFIGURACIÓN DE BASE DE DATOS
 // ==========================================
 if (!file_exists(__DIR__ . '/config/database.php')) {
     error_log('FATAL: config/database.php no encontrado');
@@ -163,26 +209,28 @@ if ($controller === '' || $controller === 'proyecto') {
         $action = 'index';
     } else {
         // ==========================================
-        // ROUTE MAP CON SOPORTE PARA PARÁMETROS
-        // Cada entrada: [regex, controller, action, params_array]
+        // ROUTE MAP — CONSISTENTE CON .htaccess
+        // Formato: [regex, controller_key, action, [param_names]]
+        //
+        // ⚠️ REGLA: solo entradas para métodos que EXISTEN.
         // ==========================================
         $routeMap = [
-            // AUTENTICACIÓN
+            // ========== AUTENTICACIÓN ==========
             ['#^login$#',                       'auth', 'login', []],
             ['#^auth/login$#',                  'auth', 'login', []],
             ['#^auth/authenticate$#',           'auth', 'authenticate', []],
             ['#^logout$#',                      'auth', 'logout', []],
             ['#^auth/logout$#',                 'auth', 'logout', []],
 
-            // DASHBOARD
+            // ========== DASHBOARD ==========
             ['#^dashboard$#',                   'dashboard', 'index', []],
             ['#^admin/dashboard$#',             'admin', 'dashboard', []],
 
-            // API
+            // ========== API ==========
             ['#^api/ordenes/dashboard$#',       'orden', 'apiDashboard', []],
             ['#^api/dashboard/stats$#',         'dashboard', 'getStats', []],
 
-            // REPORTES
+            // ========== REPORTES ==========
             ['#^reportes$#',                    'reporte', 'index', []],
             ['#^reportes/ordenes$#',            'reporte', 'ordenes', []],
             ['#^reportes/tecnicos$#',           'reporte', 'tecnicos', []],
@@ -195,7 +243,7 @@ if ($controller === '' || $controller === 'proyecto') {
             ['#^reportes/financiero$#',         'reporteFinanciero', 'index', []],
             ['#^reportes/financieros/exportar$#','reporteFinanciero', 'exportar', []],
 
-            // ÓRDENES
+            // ========== ÓRDENES ==========
             ['#^ordenes$#',                             'orden', 'index', []],
             ['#^ordenes/crear$#',                       'orden', 'crear', []],
             ['#^ordenes/guardar$#',                     'orden', 'guardar', []],
@@ -213,7 +261,7 @@ if ($controller === '' || $controller === 'proyecto') {
             ['#^ordenes/devoluciones$#',                'orden', 'devoluciones', []],
             ['#^ordenes/verificar-firma/([0-9]+)$#',    'orden', 'verificarFirma', ['id']],
 
-            // TÉCNICOS
+            // ========== TÉCNICOS ==========
             ['#^tecnicos$#',                            'tecnicos', 'index', []],
             ['#^tecnicos/crear$#',                      'tecnicos', 'crear', []],
             ['#^tecnicos/guardar$#',                    'tecnicos', 'guardar', []],
@@ -222,7 +270,7 @@ if ($controller === '' || $controller === 'proyecto') {
             ['#^tecnicos/eliminar/([0-9]+)$#',          'tecnicos', 'eliminar', ['id']],
             ['#^tecnicos/cambiarEstado/([0-9]+)$#',     'tecnicos', 'cambiarEstado', ['id']],
 
-            // SUPERVISORES
+            // ========== SUPERVISORES ==========
             ['#^supervisores$#',                        'supervisores', 'index', []],
             ['#^supervisores/crear$#',                  'supervisores', 'crear', []],
             ['#^supervisores/guardar$#',                'supervisores', 'guardar', []],
@@ -232,7 +280,7 @@ if ($controller === '' || $controller === 'proyecto') {
             ['#^supervisores/cambiarEstado/([0-9]+)$#', 'supervisores', 'cambiarEstado', ['id']],
             ['#^supervisores/cambiarPassword/([0-9]+)$#','supervisores', 'cambiarPassword', ['id']],
 
-            // SUPERVISOR (PANEL)
+            // ========== SUPERVISOR (PANEL) ==========
             ['#^supervisor$#',                          'supervisor', 'index', []],
             ['#^supervisor/dashboardData$#',            'supervisor', 'dashboardData', []],
             ['#^supervisor/ordenes$#',                  'supervisor', 'ordenes', []],
@@ -245,7 +293,7 @@ if ($controller === '' || $controller === 'proyecto') {
             ['#^supervisor/ver_supervision/([0-9]+)$#', 'supervisor', 'ver_supervision', ['id']],
             ['#^supervisor/tecnicosList$#',             'supervisor', 'tecnicosList', []],
 
-            // TÉCNICO (PANEL)
+            // ========== TÉCNICO (PANEL) ==========
             ['#^tecnico$#',                             'tecnico', 'index', []],
             ['#^tecnico/dashboardData$#',               'tecnico', 'dashboardData', []],
             ['#^tecnico/mis_ordenes$#',                 'tecnico', 'mis_ordenes', []],
@@ -256,7 +304,7 @@ if ($controller === '' || $controller === 'proyecto') {
             ['#^tecnico/equipo_detalle/([0-9]+)$#',     'tecnico', 'equipo_detalle', ['id']],
             ['#^tecnico/herramientas$#',                'tecnico', 'herramientas', []],
 
-            // SUPERVISIÓN
+            // ========== SUPERVISIÓN ==========
             ['#^supervision$#',                         'supervision', 'index', []],
             ['#^supervision/ver/([0-9]+)$#',            'supervision', 'ver', ['id']],
             ['#^supervision/editar/([0-9]+)$#',         'supervision', 'editar', ['id']],
@@ -269,7 +317,7 @@ if ($controller === '' || $controller === 'proyecto') {
             ['#^supervision/supervisores$#',            'supervision', 'supervisores', []],
             ['#^supervision/reporte$#',                 'supervision', 'reporte', []],
 
-            // INVENTARIO
+            // ========== INVENTARIO ==========
             ['#^inventario$#',                          'inventario', 'index', []],
             ['#^inventario/index$#',                    'inventario', 'index', []],
             ['#^inventario/list$#',                     'inventario', 'list', []],
@@ -282,7 +330,7 @@ if ($controller === '' || $controller === 'proyecto') {
             ['#^inventario/buscar$#',                   'inventario', 'buscar', []],
             ['#^inventario/api/detalle/([0-9]+)$#',     'inventario', 'apiDetalle', ['id']],
 
-            // ALMACÉN
+            // ========== ALMACÉN ==========
             ['#^almacen$#',                             'almacen', 'index', []],
             ['#^almacen/index$#',                       'almacen', 'index', []],
             ['#^almacen/dashboardData$#',               'almacen', 'dashboardData', []],
@@ -301,7 +349,7 @@ if ($controller === '' || $controller === 'proyecto') {
             ['#^almacen/permanencia$#',                 'almacen', 'permanencia', []],
             ['#^almacen/top_productos$#',               'inventario', 'topProductos', []],
 
-            // EQUIPOS
+            // ========== EQUIPOS ==========
             ['#^equipos$#',                             'equipos', 'index', []],
             ['#^equipos/crear$#',                       'equipos', 'crear', []],
             ['#^equipos/guardar$#',                     'equipos', 'guardar', []],
@@ -312,7 +360,7 @@ if ($controller === '' || $controller === 'proyecto') {
             ['#^equipos/buscar$#',                      'equipos', 'buscar', []],
             ['#^equipos/cambiarEstadoOperativo/([0-9]+)$#', 'equipos', 'cambiarEstadoOperativo', ['id']],
 
-            // MANTENIMIENTO
+            // ========== MANTENIMIENTO ==========
             ['#^mantenimiento/panel$#',                 'mantenimientoEquipos', 'panel', []],
             ['#^mantenimiento/mis-tareas$#',            'mantenimientoEquipos', 'mis_tareas', []],
             ['#^mantenimiento/equipo/([0-9]+)$#',       'mantenimientoEquipos', 'equipo', ['id']],
@@ -334,7 +382,7 @@ if ($controller === '' || $controller === 'proyecto') {
             ['#^mantenimiento/editar-checklist/([0-9]+)$#', 'mantenimientoEquipos', 'editarChecklist', ['id']],
             ['#^mantenimiento/actualizar-checklist/([0-9]+)$#','mantenimientoEquipos', 'actualizarChecklist', ['id']],
 
-            // MONITOREO
+            // ========== MONITOREO ==========
             ['#^monitoreo$#',                           'monitoreo', 'index', []],
             ['#^monitoreo/index$#',                     'monitoreo', 'index', []],
             ['#^monitoreo/mis-rutas$#',                 'monitoreo', 'misRutas', []],
@@ -358,15 +406,9 @@ if ($controller === '' || $controller === 'proyecto') {
             ['#^monitoreo/api/lecturas-equipo/([0-9]+)$#','monitoreo', 'apiLecturasEquipo', ['id']],
             ['#^monitoreo/api/registros-dia$#',         'monitoreo', 'apiRegistrosDia', []],
 
-            // CHECKLISTS
+            // ========== CHECKLISTS ==========
+            // ✅ Solo rutas que el ChecklistController y ChecklistEjecucionController tienen
             ['#^checklists$#',                          'checklist', 'index', []],
-            ['#^checklists/crear$#',                    'checklist', 'crear', []],
-            ['#^checklists/guardar$#',                  'checklist', 'guardar', []],
-            ['#^checklists/editar/([0-9]+)$#',          'checklist', 'editar', ['id']],
-            ['#^checklists/actualizar/([0-9]+)$#',      'checklist', 'actualizar', ['id']],
-            ['#^checklists/eliminar/([0-9]+)$#',        'checklist', 'eliminar', ['id']],
-
-            // ✅ FIX: eliminada ruta duplicada. Solo checklistEjecucion maneja /checklists/ver/{id}
             ['#^checklists/mis-checklists$#',           'checklistEjecucion', 'misChecklists', []],
             ['#^checklists/iniciar/([0-9]+)$#',         'checklistEjecucion', 'iniciar', ['id']],
             ['#^checklists/llenar/([0-9]+)$#',          'checklistEjecucion', 'llenar', ['id']],
@@ -380,7 +422,7 @@ if ($controller === '' || $controller === 'proyecto') {
             ['#^checklists/exportar$#',                 'checklistEjecucion', 'exportar', []],
             ['#^checklists/ver/([0-9]+)$#',             'checklistEjecucion', 'ver', ['id']],
 
-            // FIRMAS
+            // ========== FIRMAS ==========
             ['#^firmas/orden/([0-9]+)$#',               'firma', 'orden', ['id']],
             ['#^firmas/firmar/([0-9]+)/([0-9]+)$#',     'firma', 'firmar', ['id', 'paso_id']],
             ['#^firmas/procesar$#',                     'firma', 'procesar', []],
@@ -390,19 +432,19 @@ if ($controller === '' || $controller === 'proyecto') {
             ['#^firmas/guardar-configuracion$#',        'firma', 'guardarConfiguracion', []],
             ['#^firmas/todas$#',                        'firma', 'todas', []],
 
-            // NUEVOS ROLES
+            // ========== NUEVOS ROLES ==========
             ['#^ingeniero$#',                           'ingeniero', 'index', []],
             ['#^calidad$#',                             'calidad', 'index', []],
             ['#^seguridad$#',                           'seguridad', 'index', []],
 
-            // BACKDATING
+            // ========== BACKDATING ==========
             ['#^backdating$#',                          'backdating', 'index', []],
             ['#^backdating/ver/([0-9]+)$#',             'backdating', 'ver', ['id']],
             ['#^backdating/aprobar/([0-9]+)$#',         'backdating', 'aprobar', ['id']],
             ['#^backdating/rechazar/([0-9]+)$#',        'backdating', 'rechazar', ['id']],
             ['#^backdating/validar-fecha$#',            'backdating', 'validarFecha', []],
 
-            // PERFIL
+            // ========== PERFIL ==========
             ['#^perfil$#',                              'perfil', 'index', []],
             ['#^perfil/editar$#',                       'perfil', 'editar', []],
             ['#^perfil/actualizar$#',                   'perfil', 'actualizar', []],
@@ -410,17 +452,17 @@ if ($controller === '' || $controller === 'proyecto') {
             ['#^perfil/guardar-firma$#',                'perfil', 'guardarFirma', []],
             ['#^perfil/guardar_password$#',             'perfil', 'cambiarPassword', []],
 
-            // OPERADOR
+            // ========== OPERADOR ==========
             ['#^operador$#',                            'operador', 'index', []],
             ['#^operador/ordenes$#',                    'operador', 'ordenes', []],
             ['#^operador/crear_orden$#',                'operador', 'crear_orden', []],
 
-            // CONSULTOR
+            // ========== CONSULTOR ==========
             ['#^consultor$#',                           'consultor', 'index', []],
             ['#^consultor/ordenes$#',                   'consultor', 'ordenes', []],
             ['#^consultor/ver_orden/([0-9]+)$#',        'consultor', 'ver_orden', ['id']],
 
-            // AUDITORÍA
+            // ========== AUDITORÍA ==========
             ['#^auditoria$#',                           'auditoria', 'index', []],
             ['#^auditoria/ver/([0-9]+)$#',              'auditoria', 'ver', ['id']],
             ['#^auditoria/limpiar$#',                   'auditoria', 'limpiar', []],
@@ -471,12 +513,12 @@ $action = !empty($action) ? $action : 'index';
 // VALIDACIÓN DE SEGURIDAD
 // ==========================================
 $allowedControllers = [
-    'auth', 'dashboard', 'admin', 'orden', 'ordenes',
+    'auth', 'dashboard', 'admin', 'orden',
     'tecnicos', 'supervisores', 'supervisor', 'tecnico',
     'supervision', 'inventario', 'almacen', 'equipos',
     'mantenimientoEquipos', 'monitoreo',
     'checklist', 'checklistEjecucion',
-    'firma', 'firmas',
+    'firma',
     'ingeniero', 'calidad', 'seguridad',
     'backdating', 'perfil', 'operador', 'consultor',
     'auditoria', 'reporte', 'reporteFinanciero', 'error',
@@ -524,6 +566,14 @@ $altNames = [
     'checklist'              => 'ChecklistController',
     'checklistEjecucion'     => 'ChecklistEjecucionController',
     'auditoria'              => 'AuditoriaController',
+    'supervision'            => 'SupervisionController',
+    'tecnico'                => 'TecnicoController',
+    'supervisor'             => 'SupervisorController',
+    'tecnicos'               => 'TecnicosController',
+    'supervisores'           => 'SupervisoresController',
+    'operador'               => 'OperadorController',
+    'consultor'              => 'ConsultorController',
+    'admin'                  => 'AdminController',
 ];
 
 if (isset($altNames[$controller])) {
@@ -570,6 +620,15 @@ if (!method_exists($controllerObj, $action)) {
     if (method_exists($controllerObj, 'error404')) {
         $controllerObj->error404();
         exit;
+    }
+
+    // Fallback: usar ErrorController si está disponible
+    if (class_exists('ErrorController')) {
+        $errorController = new ErrorController();
+        if (method_exists($errorController, 'error404')) {
+            $errorController->error404();
+            exit;
+        }
     }
 
     http_response_code(404);

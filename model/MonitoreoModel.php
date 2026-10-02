@@ -3,14 +3,16 @@
 // Modelo para el módulo de Monitoreo de Equipos (MTTO R007 y sucesivos)
 // ✅ FIX: obtenerTodas() usa isset() en vez de !empty() para activo=0
 // ✅ FIX: guardarLectura() valida que id_equipo pertenezca a la ruta
-// ✅ FIX: firmar() y rechazar() validan que el paso sea el actual
+// ✅ FIX: guardarLectura() valida que la hora corresponda a un horario configurado
+// ✅ FIX: guardarLectura() valida longitud de observacion (max 255)
+// ✅ FIX: firmar() sanitiza SVG con SVGSanitizer
+// ✅ FIX: rechazar() valida motivo y ownership
 // ✅ FIX: inicializarFirmas() usa transacción
 // ✅ FIX: contarPendientesDelDia() suma vencidos de días anteriores
-// ✅ FIX: crearRegistrosDelDia() optimizado con INSERT masivo
-// ✅ FIX: sanitización SVG en método firmar() usando SVGSanitizer
+// ✅ FIX: crearRegistrosDelDia() optimizado
 
 require_once __DIR__ . '/../config/database.php';
-require_once __DIR__ . '/../helpers/SVGSanitizer.php';  // ✅ NUEVO
+require_once __DIR__ . '/../helpers/SVGSanitizer.php';
 
 class MonitoreoModel {
     private $db;
@@ -44,7 +46,6 @@ class MonitoreoModel {
                     WHERE 1=1";
             $params = [];
 
-            // ✅ FIX: isset() en vez de !empty() para permitir activo=0
             if (isset($filtros['activo']) && $filtros['activo'] !== '') {
                 $sql .= " AND r.activo = ?";
                 $params[] = (int)$filtros['activo'];
@@ -102,11 +103,11 @@ class MonitoreoModel {
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             $stmt = $this->db->prepare($sql);
             $stmt->execute([
-                $datos['codigo'],
-                $datos['nombre'],
-                $datos['descripcion'] ?? '',
+                trim($datos['codigo'] ?? ''),
+                trim($datos['nombre'] ?? ''),
+                trim($datos['descripcion'] ?? ''),
                 $datos['tipo_valor'] ?? 'porcentaje',
-                $datos['unidad_medida'] ?? '%',
+                trim($datos['unidad_medida'] ?? '%'),
                 (int)($datos['frecuencia_horas'] ?? 2),
                 $datos['valor_min_global'] ?? null,
                 $datos['valor_max_global'] ?? null,
@@ -138,10 +139,10 @@ class MonitoreoModel {
                     WHERE id = ?";
             $stmt = $this->db->prepare($sql);
             return $stmt->execute([
-                $datos['nombre'],
-                $datos['descripcion'] ?? '',
+                trim($datos['nombre'] ?? ''),
+                trim($datos['descripcion'] ?? ''),
                 $datos['tipo_valor'] ?? 'porcentaje',
-                $datos['unidad_medida'] ?? '%',
+                trim($datos['unidad_medida'] ?? '%'),
                 (int)($datos['frecuencia_horas'] ?? 2),
                 $datos['valor_min_global'] ?? null,
                 $datos['valor_max_global'] ?? null,
@@ -421,6 +422,7 @@ class MonitoreoModel {
                 return false;
             }
 
+            // Validar que todas las lecturas esperadas estén completas
             $horarios_turno = $this->obtenerHorariosPorTurno($registro['ruta_id'], $registro['turno']);
             $equipos = $this->obtenerEquipos($registro['ruta_id']);
 
@@ -455,6 +457,11 @@ class MonitoreoModel {
     // LECTURAS
     // ==========================================
 
+    /**
+     * ✅ FIX: valida que id_equipo pertenezca a la ruta
+     * ✅ FIX: valida que la hora corresponda a un horario configurado
+     * ✅ FIX: valida longitud de observacion (max 255)
+     */
     public function guardarLectura($registro_id, $id_equipo, $hora, $valor, $observacion, $usuario_id) {
         try {
             $registro_id = (int)$registro_id;
@@ -472,10 +479,30 @@ class MonitoreoModel {
                 return false;
             }
 
-            // ✅ FIX: validar que el equipo pertenezca a la ruta
+            // ✅ Validar que el equipo pertenezca a la ruta
             $equipos_ruta = array_column($registro['equipos'], 'id_equipo');
             if (!in_array($id_equipo, array_map('intval', $equipos_ruta), true)) {
                 $this->lastError = 'El equipo no pertenece a esta ruta de monitoreo';
+                return false;
+            }
+
+            // ✅ NUEVO: validar que la hora corresponda a un horario configurado
+            $horarios_validos = array_column($registro['horarios'], 'hora');
+            if (!in_array($hora, $horarios_validos, true)) {
+                $this->lastError = 'La hora no corresponde a un horario configurado para esta ruta';
+                return false;
+            }
+
+            // ✅ Validar longitud de observación
+            $observacion = trim($observacion ?? '');
+            if (mb_strlen($observacion) > 255) {
+                $this->lastError = 'La observación excede la longitud máxima (255 caracteres)';
+                return false;
+            }
+
+            // Validar valor numérico si aplica
+            if ($valor !== null && $valor !== '' && !is_numeric($valor)) {
+                $this->lastError = 'El valor debe ser numérico';
                 return false;
             }
 
@@ -640,7 +667,6 @@ class MonitoreoModel {
 
             if (empty($config)) return false;
 
-            // ✅ FIX: usar transacción
             $this->db->beginTransaction();
 
             $sql = "INSERT INTO monitoreo_firmas
@@ -669,18 +695,13 @@ class MonitoreoModel {
     }
 
     /**
-     * Registra una firma en un registro de monitoreo.
-     * ✅ FIX: sanitizar firma_svg con SVGSanitizer (defensa en profundidad)
-     * ✅ FIX: hash calculado sobre el SVG YA sanitizado
+     * ✅ FIX: sanitiza firma_svg con SVGSanitizer
      */
     public function firmar($registro_id, $paso_id, $usuario_id, $usuario_nombre, $firma_svg, $comentario = null) {
         try {
             $registro_id = (int)$registro_id;
             $paso_id = (int)$paso_id;
 
-            // ==========================================
-            // ✅ FIX: Sanitizar el SVG ANTES de cualquier cosa
-            // ==========================================
             if (empty($firma_svg)) {
                 return ['success' => false, 'mensaje' => 'La firma está vacía'];
             }
@@ -710,10 +731,10 @@ class MonitoreoModel {
             $paso = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$paso) {
-                throw new Exception('El paso no existe o ya fue procesado');
+                $this->db->rollBack();
+                return ['success' => false, 'mensaje' => 'El paso no existe o ya fue procesado'];
             }
 
-            // ✅ FIX: hash sobre el SVG sanitizado
             $firma_hash = hash('sha256', $firma_svg);
 
             $sql = "UPDATE monitoreo_firmas
@@ -773,16 +794,23 @@ class MonitoreoModel {
         }
     }
 
+    /**
+     * ✅ FIX: valida motivo no vacío y ownership del paso
+     */
     public function rechazar($registro_id, $paso_id, $usuario_id, $usuario_nombre, $motivo) {
         try {
             $registro_id = (int)$registro_id;
             $paso_id = (int)$paso_id;
 
-            if (empty($motivo)) {
+            if (empty(trim($motivo))) {
                 return ['success' => false, 'mensaje' => 'Debes indicar el motivo del rechazo'];
             }
 
-            // ✅ FIX: validar que el paso sea el actual
+            $motivo = trim($motivo);
+            if (mb_strlen($motivo) > 500) {
+                return ['success' => false, 'mensaje' => 'El motivo no puede exceder 500 caracteres'];
+            }
+
             $paso_actual = $this->obtenerPasoActual($registro_id);
             if (!$paso_actual || (int)$paso_actual['id'] !== $paso_id) {
                 return ['success' => false, 'mensaje' => 'Este paso no es el actual o ya fue procesado'];
@@ -811,7 +839,8 @@ class MonitoreoModel {
             ]);
 
             if ($stmt->rowCount() === 0) {
-                throw new Exception('No se pudo rechazar el paso');
+                $this->db->rollBack();
+                return ['success' => false, 'mensaje' => 'No se pudo rechazar el paso'];
             }
 
             $sql = "UPDATE monitoreo_registros SET estado = 'RECHAZADO' WHERE id = ?";
@@ -1095,9 +1124,6 @@ class MonitoreoModel {
         }
     }
 
-    /**
-     * ✅ FIX: contar pendientes del día + vencidos de días anteriores
-     */
     public function contarPendientesDelDia() {
         try {
             $fecha = date('Y-m-d');

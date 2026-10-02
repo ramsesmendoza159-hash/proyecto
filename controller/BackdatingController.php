@@ -1,6 +1,10 @@
 <?php
 // controller/BackdatingController.php
 // Controlador para gestión de backdating
+// ✅ FIX: header('Location: /proyecto/...') → $this->redirect()
+// ✅ FIX: try/catch (Throwable) en aprobar() y rechazar()
+// ✅ FIX: header JSON con charset=utf-8 en validarFecha()
+// ✅ FIX: uso de redirectWithSuccess/Error
 
 require_once __DIR__ . '/../helpers/Controller.php';
 require_once __DIR__ . '/../helpers/BackdatingHelper.php';
@@ -15,8 +19,7 @@ class BackdatingController extends Controller {
         parent::__construct();
         
         if (!$this->authHelper->isLoggedIn()) {
-            header('Location: /proyecto/auth/login');
-            exit;
+            $this->redirect('/auth/login');
         }
         
         $this->backdatingModel = new BackdatingModel();
@@ -28,20 +31,26 @@ class BackdatingController extends Controller {
      */
     public function index() {
         if (!$this->authHelper->hasRole(['admin', 'ingeniero'])) {
-            $_SESSION['error'] = 'No tienes permisos para acceder a esta sección';
-            header('Location: /proyecto/dashboard');
-            exit;
+            $this->redirectWithError('/dashboard', 'No tienes permisos para acceder a esta sección');
+            return;
         }
         
-        $filtros = [
-            'estado' => $_GET['estado'] ?? '',
-            'tipo' => $_GET['tipo'] ?? '',
-            'fecha_desde' => $_GET['fecha_desde'] ?? '',
-            'fecha_hasta' => $_GET['fecha_hasta'] ?? ''
-        ];
-        
-        $registros = $this->backdatingModel->obtenerTodos($filtros);
-        $estadisticas = $this->backdatingModel->obtenerEstadisticas();
+        try {
+            $filtros = [
+                'estado' => $_GET['estado'] ?? '',
+                'tipo' => $_GET['tipo'] ?? '',
+                'fecha_desde' => $_GET['fecha_desde'] ?? '',
+                'fecha_hasta' => $_GET['fecha_hasta'] ?? ''
+            ];
+            
+            $registros = $this->backdatingModel->obtenerTodos($filtros);
+            $estadisticas = $this->backdatingModel->obtenerEstadisticas();
+        } catch (Throwable $e) {
+            error_log("Error en BackdatingController::index: " . $e->getMessage());
+            $registros = [];
+            $estadisticas = ['total' => 0, 'pendientes' => 0, 'aprobados' => 0, 'rechazados' => 0, 'hoy' => 0];
+            $_SESSION['error'] = 'Error al cargar los registros';
+        }
         
         $titulo = 'Registros Retroactivos (Backdating)';
         $seccion = 'backdating';
@@ -55,17 +64,21 @@ class BackdatingController extends Controller {
      */
     public function ver($id) {
         if (!$this->authHelper->hasRole(['admin', 'ingeniero', 'supervisor'])) {
-            $_SESSION['error'] = 'No tienes permisos';
-            header('Location: /proyecto/dashboard');
-            exit;
+            $this->redirectWithError('/dashboard', 'No tienes permisos');
+            return;
         }
         
-        $registro = $this->backdatingModel->obtenerPorId($id);
-        
-        if (!$registro) {
-            $_SESSION['error'] = 'Registro no encontrado';
-            header('Location: /proyecto/backdating');
-            exit;
+        try {
+            $registro = $this->backdatingModel->obtenerPorId($id);
+            
+            if (!$registro) {
+                $this->redirectWithError('/backdating', 'Registro no encontrado');
+                return;
+            }
+        } catch (Throwable $e) {
+            error_log("Error en BackdatingController::ver: " . $e->getMessage());
+            $this->redirectWithError('/backdating', 'Error al cargar el registro');
+            return;
         }
         
         $titulo = 'Detalle de Backdating';
@@ -80,33 +93,32 @@ class BackdatingController extends Controller {
      */
     public function aprobar($id) {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: /proyecto/backdating');
-            exit;
+            $this->redirect('/backdating');
+            return;
         }
         
         if (!$this->authHelper->hasRole(['admin', 'ingeniero'])) {
-            $_SESSION['error'] = 'No tienes permisos para aprobar';
-            header('Location: /proyecto/backdating');
-            exit;
+            $this->redirectWithError('/backdating', 'No tienes permisos para aprobar');
+            return;
         }
         
         if (!SecurityHelper::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
-            $_SESSION['error'] = 'Token de seguridad inválido';
-            header('Location: /proyecto/backdating');
-            exit;
+            $this->redirectWithError('/backdating', 'Token de seguridad inválido');
+            return;
         }
         
-        $resultado = $this->backdatingModel->aprobar($id, $this->authHelper->getUserId());
-        
-        if ($resultado) {
-            $_SESSION['mensaje'] = '✅ Registro aprobado correctamente';
-            $_SESSION['mensaje_tipo'] = 'success';
-        } else {
-            $_SESSION['error'] = '❌ Error al aprobar el registro';
+        try {
+            $resultado = $this->backdatingModel->aprobar($id, $this->authHelper->getUserId());
+            
+            if ($resultado) {
+                $this->redirectWithSuccess('/backdating', 'Registro aprobado correctamente');
+            } else {
+                $this->redirectWithError('/backdating', 'Error al aprobar el registro');
+            }
+        } catch (Throwable $e) {
+            error_log("Error en BackdatingController::aprobar: " . $e->getMessage());
+            $this->redirectWithError('/backdating', 'Error al aprobar el registro');
         }
-        
-        header('Location: /proyecto/backdating');
-        exit;
     }
     
     /**
@@ -115,41 +127,39 @@ class BackdatingController extends Controller {
      */
     public function rechazar($id) {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: /proyecto/backdating');
-            exit;
+            $this->redirect('/backdating');
+            return;
         }
         
         if (!$this->authHelper->hasRole(['admin', 'ingeniero'])) {
-            $_SESSION['error'] = 'No tienes permisos para rechazar';
-            header('Location: /proyecto/backdating');
-            exit;
+            $this->redirectWithError('/backdating', 'No tienes permisos para rechazar');
+            return;
         }
         
         if (!SecurityHelper::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
-            $_SESSION['error'] = 'Token de seguridad inválido';
-            header('Location: /proyecto/backdating');
-            exit;
+            $this->redirectWithError('/backdating', 'Token de seguridad inválido');
+            return;
         }
         
-        $motivo = $_POST['motivo_rechazo'] ?? '';
+        $motivo = trim($_POST['motivo_rechazo'] ?? '');
         
         if (empty($motivo)) {
-            $_SESSION['error'] = 'Debes indicar el motivo del rechazo';
-            header('Location: /proyecto/backdating');
-            exit;
+            $this->redirectWithError('/backdating', 'Debes indicar el motivo del rechazo');
+            return;
         }
         
-        $resultado = $this->backdatingModel->rechazar($id, $this->authHelper->getUserId(), $motivo);
-        
-        if ($resultado) {
-            $_SESSION['mensaje'] = '✅ Registro rechazado';
-            $_SESSION['mensaje_tipo'] = 'success';
-        } else {
-            $_SESSION['error'] = '❌ Error al rechazar el registro';
+        try {
+            $resultado = $this->backdatingModel->rechazar($id, $this->authHelper->getUserId(), $motivo);
+            
+            if ($resultado) {
+                $this->redirectWithSuccess('/backdating', 'Registro rechazado');
+            } else {
+                $this->redirectWithError('/backdating', 'Error al rechazar el registro');
+            }
+        } catch (Throwable $e) {
+            error_log("Error en BackdatingController::rechazar: " . $e->getMessage());
+            $this->redirectWithError('/backdating', 'Error al rechazar el registro');
         }
-        
-        header('Location: /proyecto/backdating');
-        exit;
     }
     
     /**
@@ -157,24 +167,28 @@ class BackdatingController extends Controller {
      * URL: /proyecto/backdating/validar-fecha (POST)
      */
     public function validarFecha() {
-        header('Content-Type: application/json');
+        header('Content-Type: application/json; charset=utf-8');
         
         if (!$this->authHelper->isLoggedIn()) {
             echo json_encode(['valido' => false, 'error' => 'No autorizado']);
             exit;
         }
         
-        $fecha = $_POST['fecha'] ?? $_GET['fecha'] ?? '';
-        $rol = $this->authHelper->getRole();
-        
-        $resultado = BackdatingHelper::validarFecha($fecha, $rol);
-        
-        // Info adicional
-        $resultado['limite_dias'] = BackdatingHelper::getLimitePorRol($rol);
-        $resultado['puede_backdating'] = BackdatingHelper::puedeHacerBackdating($rol);
-        
-        echo json_encode($resultado);
+        try {
+            $fecha = $_POST['fecha'] ?? $_GET['fecha'] ?? '';
+            $rol = $this->authHelper->getRole();
+            
+            $resultado = BackdatingHelper::validarFecha($fecha, $rol);
+            
+            // Info adicional
+            $resultado['limite_dias'] = BackdatingHelper::getLimitePorRol($rol);
+            $resultado['puede_backdating'] = BackdatingHelper::puedeHacerBackdating($rol);
+            
+            echo json_encode($resultado);
+        } catch (Throwable $e) {
+            error_log("Error en validarFecha: " . $e->getMessage());
+            echo json_encode(['valido' => false, 'error' => 'Error al validar la fecha']);
+        }
         exit;
     }
 }
-?>

@@ -1,6 +1,11 @@
 <?php
 // controller/ChecklistEjecucionController.php
 // Controlador de ejecución de checklists (llenar, guardar lecturas, cerrar, firmar)
+// ✅ FIX: throw new Exception → \RuntimeException
+// ✅ FIX: NO exponer $e->getMessage() al usuario (JSON ni $_SESSION)
+// ✅ FIX: return explícito tras cada redirect()/redirectWithError()
+// ✅ FIX: try/catch en iniciar() al buscar el tipo
+// ✅ FIX: try/catch en procesarFirma() y rechazar()
 
 require_once __DIR__ . '/../helpers/Controller.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
@@ -65,34 +70,37 @@ class ChecklistEjecucionController extends Controller
     {
         $tipo_id = (int)$tipo_id;
         if ($tipo_id <= 0) {
-            $_SESSION['error'] = 'Tipo inválido';
-            $this->redirect('/checklists/mis-checklists');
+            $this->redirectWithError('/checklists/mis-checklists', 'Tipo inválido');
+            return;
         }
-
-        $tipo = $this->model->obtenerTipoPorId($tipo_id);
-        if (!$tipo) {
-            $_SESSION['error'] = 'Checklist no encontrado';
-            $this->redirect('/checklists/mis-checklists');
-        }
-
-        $fecha = $this->get('fecha', date('Y-m-d'));
-        $turno = $tipo['requiere_turno'] ? $this->get('turno', $this->model->detectarTurnoActual()) : null;
 
         try {
+            $tipo = $this->model->obtenerTipoPorId($tipo_id);
+            if (!$tipo) {
+                $this->redirectWithError('/checklists/mis-checklists', 'Checklist no encontrado');
+                return;
+            }
+
+            $fecha = $this->get('fecha', date('Y-m-d'));
+            $turno = $tipo['requiere_turno'] ? $this->get('turno', $this->model->detectarTurnoActual()) : null;
+
             $registro = $this->model->iniciarRegistro(
                 $tipo_id, $fecha, $turno, $this->authHelper->getUserId()
             );
 
             if (!$registro) {
-                throw new Exception($this->model->getLastError() ?: 'No se pudo iniciar el registro');
+                // ✅ FIX: \RuntimeException en vez de Exception
+                throw new \RuntimeException($this->model->getLastError() ?: 'No se pudo iniciar el registro');
             }
 
             $this->redirect('/checklists/llenar/' . $registro['id']);
+            return;
 
         } catch (Throwable $e) {
             error_log("Error en ChecklistEjecucionController::iniciar: " . $e->getMessage());
-            $_SESSION['error'] = 'Error: ' . $e->getMessage();
-            $this->redirect('/checklists/mis-checklists');
+            // ✅ FIX: NO exponer detalles internos
+            $this->redirectWithError('/checklists/mis-checklists', 'No se pudo iniciar el registro');
+            return;
         }
     }
 
@@ -104,15 +112,15 @@ class ChecklistEjecucionController extends Controller
     {
         $registro_id = (int)$registro_id;
         if ($registro_id <= 0) {
-            $_SESSION['error'] = 'Registro inválido';
-            $this->redirect('/checklists');
+            $this->redirectWithError('/checklists', 'Registro inválido');
+            return;
         }
 
         try {
             $registro = $this->model->obtenerRegistro($registro_id);
             if (!$registro) {
-                $_SESSION['error'] = 'Registro no encontrado';
-                $this->redirect('/checklists/mis-checklists');
+                $this->redirectWithError('/checklists/mis-checklists', 'Registro no encontrado');
+                return;
             }
 
             $puede_editar = ($registro['estado'] === 'BORRADOR');
@@ -129,8 +137,8 @@ class ChecklistEjecucionController extends Controller
 
         } catch (Throwable $e) {
             error_log("Error en ChecklistEjecucionController::llenar: " . $e->getMessage());
-            $_SESSION['error'] = 'Error al cargar el registro';
-            $this->redirect('/checklists/mis-checklists');
+            $this->redirectWithError('/checklists/mis-checklists', 'Error al cargar el registro');
+            return;
         }
 
         $titulo = 'Llenar: ' . $registro['tipo_nombre'];
@@ -186,7 +194,8 @@ class ChecklistEjecucionController extends Controller
 
         } catch (Throwable $e) {
             error_log("Error en ChecklistEjecucionController::guardarLectura: " . $e->getMessage());
-            echo json_encode(['success' => false, 'mensaje' => 'Error: ' . $e->getMessage()]);
+            // ✅ FIX: NO exponer $e->getMessage()
+            echo json_encode(['success' => false, 'mensaje' => 'Error al procesar la solicitud']);
         }
         exit;
     }
@@ -201,17 +210,22 @@ class ChecklistEjecucionController extends Controller
 
         $token = $this->post('csrf_token', '');
         if (!SecurityHelper::verifyCSRFToken($token)) {
-            $_SESSION['error'] = 'Token de seguridad inválido';
-            $this->redirect('/checklists/llenar/' . $registro_id);
+            $this->redirectWithError('/checklists/llenar/' . $registro_id, 'Token de seguridad inválido');
+            return;
         }
 
         $registro_id = (int)$registro_id;
+        if ($registro_id <= 0) {
+            $this->redirectWithError('/checklists', 'Registro inválido');
+            return;
+        }
 
         try {
             $resultado = $this->model->cerrarRegistro($registro_id, $this->authHelper->getUserId());
 
             if (!$resultado) {
-                throw new Exception($this->model->getLastError() ?: 'No se pudo cerrar');
+                // ✅ FIX: \RuntimeException en vez de Exception
+                throw new \RuntimeException($this->model->getLastError() ?: 'No se pudo cerrar');
             }
 
             try {
@@ -232,11 +246,13 @@ class ChecklistEjecucionController extends Controller
                 '/checklists/firmar/' . $registro_id,
                 'Registro cerrado. Ahora firmalo.'
             );
+            return;
 
         } catch (Throwable $e) {
             error_log("Error en ChecklistEjecucionController::cerrar: " . $e->getMessage());
-            $_SESSION['error'] = 'Error: ' . $e->getMessage();
-            $this->redirect('/checklists/llenar/' . $registro_id);
+            // ✅ FIX: NO exponer $e->getMessage()
+            $this->redirectWithError('/checklists/llenar/' . $registro_id, 'Error al cerrar el registro');
+            return;
         }
     }
 
@@ -251,8 +267,8 @@ class ChecklistEjecucionController extends Controller
         try {
             $registro = $this->model->obtenerRegistro($registro_id);
             if (!$registro) {
-                $_SESSION['error'] = 'Registro no encontrado';
-                $this->redirect('/checklists/mis-checklists');
+                $this->redirectWithError('/checklists/mis-checklists', 'Registro no encontrado');
+                return;
             }
 
             $paso_actual = $this->model->obtenerPasoActual($registro_id);
@@ -271,8 +287,8 @@ class ChecklistEjecucionController extends Controller
 
         } catch (Throwable $e) {
             error_log("Error en ChecklistEjecucionController::firmar: " . $e->getMessage());
-            $_SESSION['error'] = 'Error al cargar el registro';
-            $this->redirect('/checklists/mis-checklists');
+            $this->redirectWithError('/checklists/mis-checklists', 'Error al cargar el registro');
+            return;
         }
 
         $titulo = 'Firmar: ' . $registro['tipo_nombre'];
@@ -291,6 +307,7 @@ class ChecklistEjecucionController extends Controller
         $token = $this->post('csrf_token', '');
         if (!SecurityHelper::verifyCSRFToken($token)) {
             $this->redirectWithError('/checklists', 'Token de seguridad inválido');
+            return;
         }
 
         $registro_id = (int)$this->post('registro_id', 0);
@@ -300,62 +317,76 @@ class ChecklistEjecucionController extends Controller
 
         if ($registro_id <= 0 || $paso_id <= 0) {
             $this->redirectWithError('/checklists', 'Datos incompletos');
+            return;
         }
 
-        // Validar paso
-        $paso_actual = $this->model->obtenerPasoActual($registro_id);
-        $rol = $this->authHelper->getRole();
+        try {
+            // Validar paso
+            $paso_actual = $this->model->obtenerPasoActual($registro_id);
+            $rol = $this->authHelper->getRole();
 
-        if (!$paso_actual) {
-            $this->redirectWithError('/checklists/firmar/' . $registro_id, 'No hay pasos pendientes');
-        }
-        if ((int)$paso_actual['id'] !== $paso_id) {
-            $this->redirectWithError('/checklists/firmar/' . $registro_id, 'Paso inválido');
-        }
-        if ($paso_actual['rol_firmante'] !== $rol) {
-            $this->redirectWithError('/checklists/firmar/' . $registro_id, 'No tienes el rol requerido');
-        }
-        if (!empty($paso_actual['turno_firma'])) {
-            $turno_actual = $this->model->detectarTurnoFirma();
-            if ($paso_actual['turno_firma'] !== $turno_actual) {
-                $this->redirectWithError('/checklists/firmar/' . $registro_id,
-                    'Este paso corresponde al turno ' . $paso_actual['turno_firma']);
+            if (!$paso_actual) {
+                $this->redirectWithError('/checklists/firmar/' . $registro_id, 'No hay pasos pendientes');
+                return;
             }
-        }
-
-        $resultado = $this->model->firmar(
-            $registro_id,
-            $paso_id,
-            $this->authHelper->getUserId(),
-            $_SESSION['nombre'] ?? 'Usuario',
-            $firma_svg,
-            $comentario
-        );
-
-        if ($resultado['success']) {
-            try {
-                $auditoria = new AuditoriaModel();
-                $auditoria->registrar(
-                    $this->authHelper->getUserId(),
-                    $_SESSION['nombre'] ?? 'Usuario',
-                    $rol,
-                    'firmar_checklist',
-                    'checklist_firmas',
-                    $paso_id,
-                    null,
-                    ['registro_id' => $registro_id, 'paso' => $paso_actual['paso']]
-                );
-            } catch (Throwable $e) {
-                error_log("Error auditoría firma: " . $e->getMessage());
+            if ((int)$paso_actual['id'] !== $paso_id) {
+                $this->redirectWithError('/checklists/firmar/' . $registro_id, 'Paso inválido');
+                return;
+            }
+            if ($paso_actual['rol_firmante'] !== $rol) {
+                $this->redirectWithError('/checklists/firmar/' . $registro_id, 'No tienes el rol requerido');
+                return;
+            }
+            if (!empty($paso_actual['turno_firma'])) {
+                $turno_actual = $this->model->detectarTurnoFirma();
+                if ($paso_actual['turno_firma'] !== $turno_actual) {
+                    $this->redirectWithError('/checklists/firmar/' . $registro_id,
+                        'Este paso corresponde al turno ' . $paso_actual['turno_firma']);
+                    return;
+                }
             }
 
-            $msg = $resultado['completada']
-                ? '¡Firmas completadas! El checklist está aprobado.'
-                : 'Firma registrada. Siguiente paso: ' . ($resultado['siguiente_paso'] ?? 'N/A');
+            $resultado = $this->model->firmar(
+                $registro_id,
+                $paso_id,
+                $this->authHelper->getUserId(),
+                $_SESSION['nombre'] ?? 'Usuario',
+                $firma_svg,
+                $comentario
+            );
 
-            $this->redirectWithSuccess('/checklists/ver/' . $registro_id, $msg);
-        } else {
-            $this->redirectWithError('/checklists/firmar/' . $registro_id, $resultado['mensaje']);
+            if ($resultado['success']) {
+                try {
+                    $auditoria = new AuditoriaModel();
+                    $auditoria->registrar(
+                        $this->authHelper->getUserId(),
+                        $_SESSION['nombre'] ?? 'Usuario',
+                        $rol,
+                        'firmar_checklist',
+                        'checklist_firmas',
+                        $paso_id,
+                        null,
+                        ['registro_id' => $registro_id, 'paso' => $paso_actual['paso']]
+                    );
+                } catch (Throwable $e) {
+                    error_log("Error auditoría firma: " . $e->getMessage());
+                }
+
+                $msg = $resultado['completada']
+                    ? '¡Firmas completadas! El checklist está aprobado.'
+                    : 'Firma registrada. Siguiente paso: ' . ($resultado['siguiente_paso'] ?? 'N/A');
+
+                $this->redirectWithSuccess('/checklists/ver/' . $registro_id, $msg);
+                return;
+            } else {
+                $this->redirectWithError('/checklists/firmar/' . $registro_id, $resultado['mensaje']);
+                return;
+            }
+
+        } catch (Throwable $e) {
+            error_log("Error en ChecklistEjecucionController::procesarFirma: " . $e->getMessage());
+            $this->redirectWithError('/checklists/firmar/' . $registro_id, 'Error al procesar la firma');
+            return;
         }
     }
 
@@ -370,6 +401,7 @@ class ChecklistEjecucionController extends Controller
         $token = $this->post('csrf_token', '');
         if (!SecurityHelper::verifyCSRFToken($token)) {
             $this->redirectWithError('/checklists', 'Token de seguridad inválido');
+            return;
         }
 
         $registro_id = (int)$this->post('registro_id', 0);
@@ -378,20 +410,30 @@ class ChecklistEjecucionController extends Controller
 
         if (empty($motivo)) {
             $this->redirectWithError('/checklists/firmar/' . $registro_id, 'Debes indicar el motivo');
+            return;
         }
 
-        $resultado = $this->model->rechazar(
-            $registro_id,
-            $paso_id,
-            $this->authHelper->getUserId(),
-            $_SESSION['nombre'] ?? 'Usuario',
-            $motivo
-        );
+        try {
+            $resultado = $this->model->rechazar(
+                $registro_id,
+                $paso_id,
+                $this->authHelper->getUserId(),
+                $_SESSION['nombre'] ?? 'Usuario',
+                $motivo
+            );
 
-        if ($resultado['success']) {
-            $this->redirectWithWarning('/checklists/ver/' . $registro_id, 'Registro rechazado');
-        } else {
-            $this->redirectWithError('/checklists/firmar/' . $registro_id, $resultado['mensaje']);
+            if ($resultado['success']) {
+                $this->redirectWithWarning('/checklists/ver/' . $registro_id, 'Registro rechazado');
+                return;
+            } else {
+                $this->redirectWithError('/checklists/firmar/' . $registro_id, $resultado['mensaje']);
+                return;
+            }
+
+        } catch (Throwable $e) {
+            error_log("Error en ChecklistEjecucionController::rechazar: " . $e->getMessage());
+            $this->redirectWithError('/checklists/firmar/' . $registro_id, 'Error al rechazar el registro');
+            return;
         }
     }
 
@@ -406,8 +448,8 @@ class ChecklistEjecucionController extends Controller
         try {
             $registro = $this->model->obtenerRegistro($registro_id);
             if (!$registro) {
-                $_SESSION['error'] = 'Registro no encontrado';
-                $this->redirect('/checklists/mis-checklists');
+                $this->redirectWithError('/checklists/mis-checklists', 'Registro no encontrado');
+                return;
             }
 
             $matriz = [];
@@ -421,8 +463,8 @@ class ChecklistEjecucionController extends Controller
 
         } catch (Throwable $e) {
             error_log("Error en ChecklistEjecucionController::ver: " . $e->getMessage());
-            $_SESSION['error'] = 'Error al cargar el registro';
-            $this->redirect('/checklists/mis-checklists');
+            $this->redirectWithError('/checklists/mis-checklists', 'Error al cargar el registro');
+            return;
         }
 
         $titulo = 'Ver: ' . $registro['tipo_nombre'];
@@ -471,8 +513,8 @@ class ChecklistEjecucionController extends Controller
         try {
             $registro = $this->model->obtenerRegistro($registro_id);
             if (!$registro) {
-                $_SESSION['error'] = 'Registro no encontrado';
-                $this->redirect('/checklists/historial');
+                $this->redirectWithError('/checklists/historial', 'Registro no encontrado');
+                return;
             }
 
             $matriz = [];
@@ -486,12 +528,11 @@ class ChecklistEjecucionController extends Controller
 
         } catch (Throwable $e) {
             error_log("Error en ChecklistEjecucionController::reporte: " . $e->getMessage());
-            $_SESSION['error'] = 'Error al cargar el reporte';
-            $this->redirect('/checklists/historial');
+            $this->redirectWithError('/checklists/historial', 'Error al cargar el reporte');
+            return;
         }
 
         $titulo = 'Reporte';
         require_once __DIR__ . '/../views/checklists/reporte.php';
     }
 }
-?>

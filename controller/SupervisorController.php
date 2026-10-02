@@ -1,7 +1,12 @@
 <?php
 // controller/SupervisorController.php
 // Panel del Supervisor - VERSIÓN COMPLETA CORREGIDA
-// ✅ FIX NUEVO: ver_supervision() trae todos los campos necesarios con JOIN completo
+// ✅ FIX CRÍTICO: ordenesList() y supervisionesList() usaban LIMIT/OFFSET interpolados
+// ✅ FIX: bindValue con PDO::PARAM_INT explícito para LIMIT/OFFSET
+// ✅ FIX: WHERE con placeholders dinámicos + bindValue
+// ✅ FIX: try/catch (Throwable) en todos los métodos
+// ✅ FIX: ver_supervision() trae todos los campos con JOIN completo
+// ✅ FIX: headers JSON con charset=utf-8
 
 require_once __DIR__ . '/../helpers/Controller.php';
 require_once __DIR__ . '/../config/database.php';
@@ -21,14 +26,12 @@ class SupervisorController extends Controller {
         parent::__construct();
         
         if (!$this->authHelper->isLoggedIn()) {
-            header('Location: /proyecto/auth/login');
-            exit();
+            $this->redirect('/auth/login');
         }
         
         if (!$this->authHelper->isSupervisor() && !$this->authHelper->isAdmin()) {
             $_SESSION['error'] = 'No tienes permisos para acceder a esta sección';
-            header('Location: /proyecto/dashboard');
-            exit();
+            $this->redirect('/dashboard');
         }
         
         $this->db = Database::getInstance()->getConnection();
@@ -42,7 +45,7 @@ class SupervisorController extends Controller {
             $email = $_SESSION['email'] ?? '';
             if (empty($email)) return null;
             
-            $sql = "SELECT id FROM supervisores WHERE email = ? LIMIT 1";
+            $sql = "SELECT id FROM supervisores WHERE LOWER(email) = LOWER(?) LIMIT 1";
             $stmt = $this->db->prepare($sql);
             $stmt->execute([$email]);
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -129,7 +132,7 @@ class SupervisorController extends Controller {
             error_log("Error en dashboardData: " . $e->getMessage());
             echo json_encode([
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error' => 'Error al procesar la solicitud',
                 'total_ordenes' => 0,
                 'pendientes_revision' => 0,
                 'aprobadas' => 0,
@@ -175,6 +178,10 @@ class SupervisorController extends Controller {
         require_once __DIR__ . '/../views/supervisor/ordenes.php';
     }
 
+    /**
+     * Listado JSON de órdenes con paginación
+     * ✅ FIX: bindValue con PARAM_INT para LIMIT/OFFSET
+     */
     public function ordenesList() {
         header('Content-Type: application/json; charset=utf-8');
         
@@ -184,7 +191,7 @@ class SupervisorController extends Controller {
             $tecnico_id = !empty($_GET['tecnico']) ? (int)$_GET['tecnico'] : null;
             $fecha = $_GET['fecha'] ?? '';
             $page = max(1, (int)($_GET['page'] ?? 1));
-            $limit = max(1, (int)($_GET['limit'] ?? 10));
+            $limit = max(1, min(100, (int)($_GET['limit'] ?? 10)));   // límite máx 100
             $offset = ($page - 1) * $limit;
             
             $where = ["1=1"];
@@ -214,6 +221,7 @@ class SupervisorController extends Controller {
             
             $where_sql = implode(' AND ', $where);
             
+            // Count
             $sqlCount = "SELECT COUNT(*) as total 
                          FROM ordenes_mantenimiento o 
                          WHERE $where_sql";
@@ -221,6 +229,7 @@ class SupervisorController extends Controller {
             $stmtCount->execute($params);
             $total = (int)$stmtCount->fetch(PDO::FETCH_ASSOC)['total'];
             
+            // Datos con bindValue PARAM_INT para LIMIT/OFFSET
             $sql = "SELECT o.id, o.num_om, o.titulo, o.status, o.prioridad,
                            o.fecha_finalizacion, o.fecha_creacion,
                            t.nombre as tecnico,
@@ -230,9 +239,19 @@ class SupervisorController extends Controller {
                     LEFT JOIN supervisiones s ON o.id = s.orden_id
                     WHERE $where_sql
                     ORDER BY o.fecha_finalizacion DESC, o.fecha_creacion DESC
-                    LIMIT $limit OFFSET $offset";
+                    LIMIT ? OFFSET ?";
+            
             $stmt = $this->db->prepare($sql);
-            $stmt->execute($params);
+            
+            $i = 1;
+            foreach ($params as $p) {
+                $tipo = is_int($p) ? PDO::PARAM_INT : PDO::PARAM_STR;
+                $stmt->bindValue($i++, $p, $tipo);
+            }
+            $stmt->bindValue($i++, $limit, PDO::PARAM_INT);
+            $stmt->bindValue($i++, $offset, PDO::PARAM_INT);
+            
+            $stmt->execute();
             $ordenes = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
             foreach ($ordenes as &$orden) {
@@ -254,7 +273,7 @@ class SupervisorController extends Controller {
             error_log("Error en ordenesList: " . $e->getMessage());
             echo json_encode([
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error' => 'Error al procesar la solicitud',
                 'ordenes' => [],
                 'total' => 0,
                 'paginas' => 0
@@ -266,17 +285,21 @@ class SupervisorController extends Controller {
     public function revisar($id) {
         $id = (int)$id;
         if ($id <= 0) {
-            $_SESSION['error'] = 'ID de orden inválido';
-            header('Location: /proyecto/supervisor/ordenes');
-            exit();
+            $this->redirectWithError('/supervisor/ordenes', 'ID de orden inválido');
+            return;
         }
         
-        $orden = $this->ordenModel->obtenerPorId($id);
-        
-        if (!$orden) {
-            $_SESSION['error'] = 'Orden no encontrada';
-            header('Location: /proyecto/supervisor/ordenes');
-            exit();
+        try {
+            $orden = $this->ordenModel->obtenerPorId($id);
+            
+            if (!$orden) {
+                $this->redirectWithError('/supervisor/ordenes', 'Orden no encontrada');
+                return;
+            }
+        } catch (Throwable $e) {
+            error_log("Error en revisar($id): " . $e->getMessage());
+            $this->redirectWithError('/supervisor/ordenes', 'Error al cargar la orden');
+            return;
         }
         
         $titulo = 'Revisar Orden #' . $id;
@@ -286,15 +309,14 @@ class SupervisorController extends Controller {
 
     public function guardar_revision() {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: /proyecto/supervisor/ordenes');
-            exit();
+            $this->redirect('/supervisor/ordenes');
+            return;
         }
         
         $token = $_POST['csrf_token'] ?? '';
         if (!SecurityHelper::verifyCSRFToken($token)) {
-            $_SESSION['error'] = 'Token de seguridad inválido';
-            header('Location: /proyecto/supervisor/ordenes');
-            exit();
+            $this->redirectWithError('/supervisor/ordenes', 'Token de seguridad inválido');
+            return;
         }
         
         $orden_id = (int)($_POST['orden_id'] ?? 0);
@@ -304,15 +326,13 @@ class SupervisorController extends Controller {
         $cumple = isset($_POST['cumple']) ? 1 : 0;
         
         if ($orden_id <= 0) {
-            $_SESSION['error'] = 'ID de orden inválido';
-            header('Location: /proyecto/supervisor/ordenes');
-            exit();
+            $this->redirectWithError('/supervisor/ordenes', 'ID de orden inválido');
+            return;
         }
         
-        if (!in_array($estado, ['APROBADA', 'RECHAZADA'])) {
-            $_SESSION['error'] = 'Estado inválido';
-            header('Location: /proyecto/supervisor/revisar/' . $orden_id);
-            exit();
+        if (!in_array($estado, ['APROBADA', 'RECHAZADA'], true)) {
+            $this->redirectWithError('/supervisor/revisar/' . $orden_id, 'Estado inválido');
+            return;
         }
         
         try {
@@ -380,24 +400,21 @@ class SupervisorController extends Controller {
                     ['estado' => $estado, 'calificacion' => $calificacion]
                 );
             } catch (Throwable $e) {
-                error_log("Error auditoría: " . $e->getMessage());
+                error_log("Error auditoría revisar_orden: " . $e->getMessage());
             }
             
             $this->db->commit();
             
-            $_SESSION['mensaje'] = 'Orden ' . strtolower($nuevoStatus) . ' correctamente';
-            $_SESSION['mensaje_tipo'] = 'success';
-            header('Location: /proyecto/supervisor/ordenes');
-            exit();
+            $this->redirectWithSuccess('/supervisor/ordenes', 'Orden ' . strtolower($nuevoStatus) . ' correctamente');
+            return;
             
         } catch (Throwable $e) {
             if ($this->db->inTransaction()) {
                 $this->db->rollBack();
             }
             error_log("Error en guardar_revision: " . $e->getMessage());
-            $_SESSION['error'] = 'Error al guardar la revisión: ' . $e->getMessage();
-            header('Location: /proyecto/supervisor/revisar/' . $orden_id);
-            exit();
+            $this->redirectWithError('/supervisor/revisar/' . $orden_id, 'Error al guardar la revisión');
+            return;
         }
     }
 
@@ -407,6 +424,10 @@ class SupervisorController extends Controller {
         require_once __DIR__ . '/../views/supervisor/supervisiones.php';
     }
 
+    /**
+     * Listado JSON de supervisiones con paginación
+     * ✅ FIX: bindValue con PARAM_INT para LIMIT/OFFSET
+     */
     public function supervisionesList() {
         header('Content-Type: application/json; charset=utf-8');
         
@@ -415,14 +436,14 @@ class SupervisorController extends Controller {
             $calificacion = $_GET['calificacion'] ?? '';
             $fecha = $_GET['fecha'] ?? '';
             $page = max(1, (int)($_GET['page'] ?? 1));
-            $limit = max(1, (int)($_GET['limit'] ?? 10));
+            $limit = max(1, min(100, (int)($_GET['limit'] ?? 10)));   // límite máx 100
             $offset = ($page - 1) * $limit;
             
             $where = ["1=1"];
             $params = [];
             
             if (!empty($estado)) {
-                $where[] = "s.estado = ?";
+                $where[] = "UPPER(s.estado) = UPPER(?)";
                 $params[] = $estado;
             }
             
@@ -452,9 +473,19 @@ class SupervisorController extends Controller {
                     LEFT JOIN tecnicos t ON o.tecnico_id = t.id
                     WHERE $where_sql
                     ORDER BY s.fecha_supervision DESC, s.fecha_creacion DESC
-                    LIMIT $limit OFFSET $offset";
+                    LIMIT ? OFFSET ?";
+            
             $stmt = $this->db->prepare($sql);
-            $stmt->execute($params);
+            
+            $i = 1;
+            foreach ($params as $p) {
+                $tipo = is_int($p) ? PDO::PARAM_INT : PDO::PARAM_STR;
+                $stmt->bindValue($i++, $p, $tipo);
+            }
+            $stmt->bindValue($i++, $limit, PDO::PARAM_INT);
+            $stmt->bindValue($i++, $offset, PDO::PARAM_INT);
+            
+            $stmt->execute();
             $supervisiones = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
             foreach ($supervisiones as &$sup) {
@@ -475,7 +506,7 @@ class SupervisorController extends Controller {
             error_log("Error en supervisionesList: " . $e->getMessage());
             echo json_encode([
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error' => 'Error al procesar la solicitud',
                 'supervisiones' => [],
                 'total' => 0,
                 'paginas' => 0
@@ -487,17 +518,21 @@ class SupervisorController extends Controller {
     public function ver_orden($id) {
         $id = (int)$id;
         if ($id <= 0) {
-            $_SESSION['error'] = 'ID de orden inválido';
-            header('Location: /proyecto/supervisor/ordenes');
-            exit();
+            $this->redirectWithError('/supervisor/ordenes', 'ID de orden inválido');
+            return;
         }
         
-        $orden = $this->ordenModel->obtenerPorId($id);
-        
-        if (!$orden) {
-            $_SESSION['error'] = 'Orden no encontrada';
-            header('Location: /proyecto/supervisor/ordenes');
-            exit();
+        try {
+            $orden = $this->ordenModel->obtenerPorId($id);
+            
+            if (!$orden) {
+                $this->redirectWithError('/supervisor/ordenes', 'Orden no encontrada');
+                return;
+            }
+        } catch (Throwable $e) {
+            error_log("Error en ver_orden($id): " . $e->getMessage());
+            $this->redirectWithError('/supervisor/ordenes', 'Error al cargar la orden');
+            return;
         }
         
         $titulo = 'Ver Orden #' . $id;
@@ -506,16 +541,13 @@ class SupervisorController extends Controller {
     }
 
     /**
-     * ✅ FIX NUEVO: JOIN completo con ordenes_mantenimiento, areas, plantas, tecnicos
-     * para que la vista ver_supervision.php tenga todos los campos que necesita:
-     * num_om, orden_titulo, nombre_area, prioridad, tecnico, estado de la orden, etc.
+     * ✅ FIX: JOIN completo con ordenes_mantenimiento, areas, plantas, tecnicos
      */
     public function ver_supervision($id) {
         $id = (int)$id;
         if ($id <= 0) {
-            $_SESSION['error'] = 'ID de supervisión inválido';
-            header('Location: /proyecto/supervisor/supervisiones');
-            exit();
+            $this->redirectWithError('/supervisor/supervisiones', 'ID de supervisión inválido');
+            return;
         }
         
         try {
@@ -544,15 +576,13 @@ class SupervisorController extends Controller {
             $supervision = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if (!$supervision) {
-                $_SESSION['error'] = 'Supervisión no encontrada';
-                header('Location: /proyecto/supervisor/supervisiones');
-                exit();
+                $this->redirectWithError('/supervisor/supervisiones', 'Supervisión no encontrada');
+                return;
             }
         } catch (Throwable $e) {
             error_log("Error en ver_supervision: " . $e->getMessage());
-            $_SESSION['error'] = 'Error al cargar la supervisión';
-            header('Location: /proyecto/supervisor/supervisiones');
-            exit();
+            $this->redirectWithError('/supervisor/supervisiones', 'Error al cargar la supervisión');
+            return;
         }
         
         $titulo = 'Ver Supervisión #' . $id;

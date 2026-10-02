@@ -1,7 +1,12 @@
 <?php
 // controller/TecnicosController.php
 // Gestión de técnicos - CON AUDITORÍA Y TRANSACCIONES
-// ✅ FIX: Transacción al crear/actualizar/eliminar para consistencia entre 'tecnicos' y 'usuarios'
+// ✅ FIX: catch (Throwable) en TODOS los catch (reemplaza Exception)
+// ✅ FIX: throw new RuntimeException en vez de Exception
+// ✅ FIX: password_hash calculado UNA sola vez (evita doble hash con salt distinto)
+// ✅ FIX: rollBack() protegido con inTransaction() (ya estaba, se mantiene)
+// ✅ FIX: uso de redirectWithSuccess/Error (ToastHelper)
+// ✅ FIX: comentarios residuales eliminados
 
 require_once __DIR__ . '/../helpers/Controller.php';
 require_once __DIR__ . '/../model/Tecnico.php';
@@ -65,10 +70,9 @@ class TecnicosController extends Controller {
             
             require_once __DIR__ . '/../views/tecnicos/index.php';
             
-        } catch (Exception $e) {
+        } catch (Throwable $e) {   // ✅ FIX: Throwable
             error_log("Error en TecnicosController::index: " . $e->getMessage());
-            $_SESSION['error'] = 'Error al cargar los técnicos';
-            $this->redirect('/dashboard');
+            $this->redirectWithError('/dashboard', 'Error al cargar los técnicos');
         }
     }
     
@@ -81,10 +85,9 @@ class TecnicosController extends Controller {
             $seccion = 'tecnicos';
             $titulo = 'Crear Técnico';
             require_once __DIR__ . '/../views/tecnicos/crear.php';
-        } catch (Exception $e) {
+        } catch (Throwable $e) {   // ✅ FIX: Throwable
             error_log("Error en TecnicosController::crear: " . $e->getMessage());
-            $_SESSION['error'] = 'Error al cargar el formulario';
-            $this->redirect('/tecnicos');
+            $this->redirectWithError('/tecnicos', 'Error al cargar el formulario');
         }
     }
     
@@ -96,11 +99,12 @@ class TecnicosController extends Controller {
         try {
             if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                 $this->redirect('/tecnicos');
+                return;
             }
             
             if (!SecurityHelper::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
-                $_SESSION['error'] = 'Token de seguridad inválido. Por favor, recarga la página.';
-                $this->redirect('/tecnicos/crear');
+                $this->redirectWithError('/tecnicos/crear', 'Token de seguridad inválido. Por favor, recarga la página.');
+                return;
             }
             
             $_SESSION['old'] = [
@@ -168,16 +172,20 @@ class TecnicosController extends Controller {
             if (!empty($errores)) {
                 $_SESSION['errores'] = $errores;
                 $this->redirect('/tecnicos/crear');
+                return;
             }
             
             // ✅ Iniciar transacción
             $this->db->beginTransaction();
             
-            // 1. Insertar en tabla técnicos
+            // ✅ FIX: calcular el hash UNA sola vez
+            $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+            
+            // 1. Insertar en tabla técnicos (pasamos hash ya calculado)
             $datos = [
                 'nombre' => $nombre,
                 'email' => $email,
-                'password_hash' => password_hash($password, PASSWORD_DEFAULT),
+                'password_hash' => $passwordHash,   // ✅ FIX: evita doble hash
                 'especialidad' => $especialidad,
                 'tarifa' => $tarifa,
                 'telefono' => $telefono,
@@ -187,24 +195,22 @@ class TecnicosController extends Controller {
             $result = $this->model->crear($datos);
             
             if (!$result) {
-                throw new Exception('Error al crear el técnico en la tabla técnicos');
+                throw new RuntimeException('Error al crear el técnico en la tabla técnicos');
             }
             
             // 2. Insertar en tabla usuarios con rol 'tecnico'
-            $passwordHash = password_hash($password, PASSWORD_DEFAULT);
-            
             $sql = "INSERT INTO usuarios (nombre, email, password_hash, rol, estado, fecha_creacion) 
                     VALUES (?, ?, ?, 'tecnico', ?, NOW())";
             $stmt = $this->db->prepare($sql);
             $resultUsuario = $stmt->execute([
                 $nombre,
                 $email,
-                $passwordHash,
+                $passwordHash,   // ✅ FIX: mismo hash
                 $_POST['estado'] ?? 'activo'
             ]);
             
             if (!$resultUsuario) {
-                throw new Exception('Error al crear el usuario en la tabla usuarios');
+                throw new RuntimeException('Error al crear el usuario en la tabla usuarios');
             }
             
             // ✅ Commit
@@ -221,17 +227,15 @@ class TecnicosController extends Controller {
                     'tecnicos',
                     $result
                 );
-            } catch (Exception $e) {
-                error_log("Error al registrar auditoría: " . $e->getMessage());
+            } catch (Throwable $e) {   // ✅ FIX: Throwable
+                error_log("Error al registrar auditoría de creación de técnico: " . $e->getMessage());
             }
             
             unset($_SESSION['old']);
-            $_SESSION['mensaje'] = 'Técnico creado correctamente. Ya puede iniciar sesión.';
-            $_SESSION['mensaje_tipo'] = 'success';
-            $this->redirect('/tecnicos');
+            $this->redirectWithSuccess('/tecnicos', 'Técnico creado correctamente. Ya puede iniciar sesión.');
             
-        } catch (Exception $e) {
-            // ✅ Rollback
+        } catch (Throwable $e) {   // ✅ FIX: Throwable
+            // ✅ rollBack protegido
             if ($this->db->inTransaction()) {
                 $this->db->rollBack();
             }
@@ -250,15 +254,15 @@ class TecnicosController extends Controller {
             $id = (int)$id;
             
             if ($id <= 0) {
-                $_SESSION['error'] = 'ID de técnico inválido';
-                $this->redirect('/tecnicos');
+                $this->redirectWithError('/tecnicos', 'ID de técnico inválido');
+                return;
             }
             
             $tecnico = $this->model->obtenerPorId($id);
             
             if (!$tecnico) {
-                $_SESSION['error'] = 'Técnico no encontrado';
-                $this->redirect('/tecnicos');
+                $this->redirectWithError('/tecnicos', 'Técnico no encontrado');
+                return;
             }
             
             $seccion = 'tecnicos';
@@ -266,10 +270,9 @@ class TecnicosController extends Controller {
             
             require_once __DIR__ . '/../views/tecnicos/editar.php';
             
-        } catch (Exception $e) {
+        } catch (Throwable $e) {   // ✅ FIX: Throwable
             error_log("Error en TecnicosController::editar: " . $e->getMessage());
-            $_SESSION['error'] = 'Error al cargar el técnico';
-            $this->redirect('/tecnicos');
+            $this->redirectWithError('/tecnicos', 'Error al cargar el técnico');
         }
     }
     
@@ -283,22 +286,23 @@ class TecnicosController extends Controller {
             
             if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                 $this->redirect('/tecnicos');
+                return;
             }
             
             if ($id <= 0) {
-                $_SESSION['error'] = 'ID de técnico inválido';
-                $this->redirect('/tecnicos');
+                $this->redirectWithError('/tecnicos', 'ID de técnico inválido');
+                return;
             }
             
             if (!SecurityHelper::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
-                $_SESSION['error'] = 'Token de seguridad inválido. Por favor, recarga la página.';
-                $this->redirect('/tecnicos/editar/' . $id);
+                $this->redirectWithError('/tecnicos/editar/' . $id, 'Token de seguridad inválido. Por favor, recarga la página.');
+                return;
             }
             
             $tecnico_original = $this->model->obtenerPorId($id);
             if (!$tecnico_original) {
-                $_SESSION['error'] = 'Técnico no encontrado';
-                $this->redirect('/tecnicos');
+                $this->redirectWithError('/tecnicos', 'Técnico no encontrado');
+                return;
             }
             
             $_SESSION['old'] = [
@@ -367,6 +371,7 @@ class TecnicosController extends Controller {
             if (!empty($errores)) {
                 $_SESSION['errores'] = $errores;
                 $this->redirect('/tecnicos/editar/' . $id);
+                return;
             }
             
             // ✅ Iniciar transacción
@@ -381,32 +386,22 @@ class TecnicosController extends Controller {
                 'estado' => $_POST['estado'] ?? 'activo'
             ];
             
+            // ✅ FIX: calcular hash UNA vez y pasarlo al modelo
+            $passwordHash = null;
             if (!empty($password)) {
-                $datos['password'] = $password;
+                $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+                $datos['password_hash'] = $passwordHash;   // ✅ FIX
             }
             
             $result = $this->model->actualizar($id, $datos);
             
             if (!$result) {
-                throw new Exception('Error al actualizar el técnico');
+                throw new RuntimeException('Error al actualizar el técnico');
             }
             
             // Actualizar también en la tabla usuarios
-            $sql = "UPDATE usuarios SET 
-                        nombre = ?,
-                        email = ?,
-                        estado = ?,
-                        fecha_actualizacion = NOW()
-                    WHERE email = ? AND rol = 'tecnico'";
-            $params = [
-                $nombre,
-                $email,
-                $_POST['estado'] ?? 'activo',
-                $tecnico_original['email']
-            ];
-            
-            if (!empty($password)) {
-                $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+            if ($passwordHash !== null) {
+                // Con cambio de contraseña
                 $sql = "UPDATE usuarios SET 
                             nombre = ?,
                             email = ?,
@@ -414,20 +409,33 @@ class TecnicosController extends Controller {
                             estado = ?,
                             fecha_actualizacion = NOW()
                         WHERE email = ? AND rol = 'tecnico'";
-                $params = [
+                $stmt = $this->db->prepare($sql);
+                $resultUsuario = $stmt->execute([
                     $nombre,
                     $email,
                     $passwordHash,
                     $_POST['estado'] ?? 'activo',
                     $tecnico_original['email']
-                ];
+                ]);
+            } else {
+                // Sin cambio de contraseña
+                $sql = "UPDATE usuarios SET 
+                            nombre = ?,
+                            email = ?,
+                            estado = ?,
+                            fecha_actualizacion = NOW()
+                        WHERE email = ? AND rol = 'tecnico'";
+                $stmt = $this->db->prepare($sql);
+                $resultUsuario = $stmt->execute([
+                    $nombre,
+                    $email,
+                    $_POST['estado'] ?? 'activo',
+                    $tecnico_original['email']
+                ]);
             }
             
-            $stmt = $this->db->prepare($sql);
-            $resultUsuario = $stmt->execute($params);
-            
             if (!$resultUsuario) {
-                throw new Exception('Error al actualizar el usuario');
+                throw new RuntimeException('Error al actualizar el usuario');
             }
             
             // ✅ Commit
@@ -443,17 +451,15 @@ class TecnicosController extends Controller {
                     'tecnicos',
                     $id
                 );
-            } catch (Exception $e) {
-                error_log("Error al registrar auditoría: " . $e->getMessage());
+            } catch (Throwable $e) {   // ✅ FIX: Throwable
+                error_log("Error al registrar auditoría de actualización: " . $e->getMessage());
             }
             
             unset($_SESSION['old']);
-            $_SESSION['mensaje'] = 'Técnico actualizado correctamente';
-            $_SESSION['mensaje_tipo'] = 'success';
+            $this->redirectWithSuccess('/tecnicos', 'Técnico actualizado correctamente');
             
-            $this->redirect('/tecnicos');
-            
-        } catch (Exception $e) {
+        } catch (Throwable $e) {   // ✅ FIX: Throwable
+            // ✅ rollBack protegido
             if ($this->db->inTransaction()) {
                 $this->db->rollBack();
             }
@@ -473,22 +479,23 @@ class TecnicosController extends Controller {
             
             if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                 $this->redirect('/tecnicos');
+                return;
             }
             
             if ($id <= 0) {
-                $_SESSION['error'] = 'ID de técnico inválido';
-                $this->redirect('/tecnicos');
+                $this->redirectWithError('/tecnicos', 'ID de técnico inválido');
+                return;
             }
             
             if (!SecurityHelper::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
-                $_SESSION['error'] = 'Token de seguridad inválido';
-                $this->redirect('/tecnicos');
+                $this->redirectWithError('/tecnicos', 'Token de seguridad inválido');
+                return;
             }
             
             $tecnico = $this->model->obtenerPorId($id);
             if (!$tecnico) {
-                $_SESSION['error'] = 'Técnico no encontrado';
-                $this->redirect('/tecnicos');
+                $this->redirectWithError('/tecnicos', 'Técnico no encontrado');
+                return;
             }
             
             $this->db->beginTransaction();
@@ -500,14 +507,14 @@ class TecnicosController extends Controller {
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if (($result['total'] ?? 0) > 0) {
-                throw new Exception('No se puede eliminar el técnico porque tiene órdenes asignadas');
+                throw new RuntimeException('No se puede eliminar el técnico porque tiene órdenes asignadas');
             }
             
             // Eliminar de técnicos
             $resultTecnico = $this->model->eliminar($id);
             
             if (!$resultTecnico) {
-                throw new Exception('Error al eliminar el técnico');
+                throw new RuntimeException('Error al eliminar el técnico');
             }
             
             // Eliminar también de usuarios
@@ -516,7 +523,7 @@ class TecnicosController extends Controller {
             $resultUsuario = $stmt->execute([$tecnico['email']]);
             
             if (!$resultUsuario) {
-                throw new Exception('Error al eliminar el usuario');
+                throw new RuntimeException('Error al eliminar el usuario');
             }
             
             $this->db->commit();
@@ -531,16 +538,14 @@ class TecnicosController extends Controller {
                     'tecnicos',
                     $id
                 );
-            } catch (Exception $e) {
-                error_log("Error al registrar auditoría: " . $e->getMessage());
+            } catch (Throwable $e) {   // ✅ FIX: Throwable
+                error_log("Error al registrar auditoría de eliminación: " . $e->getMessage());
             }
             
-            $_SESSION['mensaje'] = 'Técnico eliminado correctamente';
-            $_SESSION['mensaje_tipo'] = 'success';
+            $this->redirectWithSuccess('/tecnicos', 'Técnico eliminado correctamente');
             
-            $this->redirect('/tecnicos');
-            
-        } catch (Exception $e) {
+        } catch (Throwable $e) {   // ✅ FIX: Throwable
+            // ✅ rollBack protegido
             if ($this->db->inTransaction()) {
                 $this->db->rollBack();
             }
@@ -560,29 +565,30 @@ class TecnicosController extends Controller {
             
             if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
                 $this->redirect('/tecnicos');
+                return;
             }
             
             if ($id <= 0) {
-                $_SESSION['error'] = 'ID de técnico inválido';
-                $this->redirect('/tecnicos');
+                $this->redirectWithError('/tecnicos', 'ID de técnico inválido');
+                return;
             }
             
             if (!SecurityHelper::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
-                $_SESSION['error'] = 'Token de seguridad inválido';
-                $this->redirect('/tecnicos');
+                $this->redirectWithError('/tecnicos', 'Token de seguridad inválido');
+                return;
             }
             
             $estado = $_POST['estado'] ?? 'activo';
             
-            if (!in_array($estado, ['activo', 'inactivo'])) {
-                $_SESSION['error'] = 'Estado inválido';
-                $this->redirect('/tecnicos');
+            if (!in_array($estado, ['activo', 'inactivo'], true)) {
+                $this->redirectWithError('/tecnicos', 'Estado inválido');
+                return;
             }
             
             $tecnico = $this->model->obtenerPorId($id);
             if (!$tecnico) {
-                $_SESSION['error'] = 'Técnico no encontrado';
-                $this->redirect('/tecnicos');
+                $this->redirectWithError('/tecnicos', 'Técnico no encontrado');
+                return;
             }
             
             $this->db->beginTransaction();
@@ -590,7 +596,7 @@ class TecnicosController extends Controller {
             $result = $this->model->cambiarEstado($id, $estado);
             
             if (!$result) {
-                throw new Exception('Error al cambiar el estado del técnico');
+                throw new RuntimeException('Error al cambiar el estado del técnico');
             }
             
             // Actualizar también en usuarios
@@ -600,7 +606,7 @@ class TecnicosController extends Controller {
             $resultUsuario = $stmt->execute([$estado, $tecnico['email']]);
             
             if (!$resultUsuario) {
-                throw new Exception('Error al cambiar el estado del usuario');
+                throw new RuntimeException('Error al cambiar el estado del usuario');
             }
             
             $this->db->commit();
@@ -615,16 +621,14 @@ class TecnicosController extends Controller {
                     'tecnicos',
                     $id
                 );
-            } catch (Exception $e) {
-                error_log("Error al registrar auditoría: " . $e->getMessage());
+            } catch (Throwable $e) {   // ✅ FIX: Throwable
+                error_log("Error al registrar auditoría de cambio de estado: " . $e->getMessage());
             }
             
-            $_SESSION['mensaje'] = 'Estado actualizado correctamente';
-            $_SESSION['mensaje_tipo'] = 'success';
+            $this->redirectWithSuccess('/tecnicos', 'Estado actualizado correctamente');
             
-            $this->redirect('/tecnicos');
-            
-        } catch (Exception $e) {
+        } catch (Throwable $e) {   // ✅ FIX: Throwable
+            // ✅ rollBack protegido
             if ($this->db->inTransaction()) {
                 $this->db->rollBack();
             }
@@ -639,7 +643,7 @@ class TecnicosController extends Controller {
      */
     public function apiDatos() {
         try {
-            header('Content-Type: application/json');
+            header('Content-Type: application/json; charset=utf-8');
             
             $filtros = [
                 'estado' => $_GET['estado'] ?? '',
@@ -655,8 +659,9 @@ class TecnicosController extends Controller {
                 'total' => count($tecnicos)
             ]);
             
-        } catch (Exception $e) {
+        } catch (Throwable $e) {   // ✅ FIX: Throwable
             error_log("Error en TecnicosController::apiDatos: " . $e->getMessage());
+            header('Content-Type: application/json; charset=utf-8');
             echo json_encode([
                 'success' => false,
                 'error' => $e->getMessage()
@@ -665,4 +670,3 @@ class TecnicosController extends Controller {
         exit;
     }
 }
-?>

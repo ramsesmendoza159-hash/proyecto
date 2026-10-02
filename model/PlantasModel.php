@@ -2,12 +2,14 @@
 // model/PlantasModel.php
 // Modelo de Plantas
 // ✅ FIX 1: obtenerTodos() acepta filtros (estado, buscar)
-// ✅ FIX 2: crear() valida nombre y duplicados
+// ✅ FIX 2: crear() valida nombre y duplicados (case-insensitive)
 // ✅ FIX 3: actualizar() valida nombre y duplicados
 // ✅ FIX 4: crear() y actualizar() soportan columna 'estado'
 // ✅ FIX 5: agregado cambiarEstado()
 // ✅ FIX 6: agregado obtenerActivos()
 // ✅ FIX 7: catch (Throwable) en vez de Exception
+// ✅ FIX 8: trim() en nombres y validaciones de longitud
+// ✅ FIX 9: existe() case-insensitive
 
 require_once __DIR__ . '/../config/database.php';
 
@@ -29,9 +31,6 @@ class PlantasModel
     // LISTADO
     // ==========================================
 
-    /**
-     * ✅ FIX 1: acepta filtros.
-     */
     public function obtenerTodos($filtros = [])
     {
         try {
@@ -62,9 +61,6 @@ class PlantasModel
         }
     }
 
-    /**
-     * ✅ FIX 6: agregado obtenerActivos().
-     */
     public function obtenerActivos()
     {
         return $this->obtenerTodos(['estado' => 'activo']);
@@ -73,9 +69,12 @@ class PlantasModel
     public function obtenerPorId($id)
     {
         try {
+            $id = (int)$id;
+            if ($id <= 0) return false;
+
             $sql = "SELECT * FROM plantas WHERE id_planta = ?";
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([(int)$id]);
+            $stmt->execute([$id]);
             return $stmt->fetch(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
             error_log("Error en PlantasModel::obtenerPorId: " . $e->getMessage());
@@ -86,9 +85,9 @@ class PlantasModel
     public function obtenerPorNombre($nombre)
     {
         try {
-            $sql = "SELECT * FROM plantas WHERE nombre_planta = ?";
+            $sql = "SELECT * FROM plantas WHERE LOWER(nombre_planta) = LOWER(?)";
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([$nombre]);
+            $stmt->execute([trim($nombre)]);
             return $stmt->fetch(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
             error_log("Error en PlantasModel::obtenerPorNombre: " . $e->getMessage());
@@ -99,9 +98,9 @@ class PlantasModel
     public function obtenerIdPorNombre($nombre)
     {
         try {
-            $sql = "SELECT id_planta FROM plantas WHERE nombre_planta = ?";
+            $sql = "SELECT id_planta FROM plantas WHERE LOWER(nombre_planta) = LOWER(?)";
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([$nombre]);
+            $stmt->execute([trim($nombre)]);
             $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
             return $resultado ? (int)$resultado['id_planta'] : null;
         } catch (PDOException $e) {
@@ -150,30 +149,31 @@ class PlantasModel
     // ==========================================
 
     /**
-     * ✅ FIX 2: valida nombre y duplicados.
-     * ✅ FIX 4: soporta 'estado'.
+     * ✅ FIX 8: trim() y validaciones de longitud
      */
     public function crear($datos)
     {
         try {
-            // ✅ FIX 2: validar nombre
-            if (empty($datos['nombre'])) {
+            $nombre = trim($datos['nombre'] ?? '');
+            if (empty($nombre)) {
                 error_log("PlantasModel::crear - Nombre vacío");
                 return false;
             }
-
-            // ✅ FIX 2: validar duplicado
-            if ($this->existe($datos['nombre'])) {
-                error_log("PlantasModel::crear - Planta ya existe: " . $datos['nombre']);
+            if (mb_strlen($nombre) < 2 || mb_strlen($nombre) > 100) {
+                error_log("PlantasModel::crear - Nombre fuera de rango (2-100)");
                 return false;
             }
 
-            // ✅ FIX 4: incluir 'estado'
+            if ($this->existe($nombre)) {
+                error_log("PlantasModel::crear - Planta ya existe");
+                return false;
+            }
+
             $sql = "INSERT INTO plantas (nombre_planta, descripcion, estado) VALUES (?, ?, ?)";
             $stmt = $this->db->prepare($sql);
             $stmt->execute([
-                trim($datos['nombre']),
-                $datos['descripcion'] ?? '',
+                $nombre,
+                trim($datos['descripcion'] ?? ''),
                 $datos['estado'] ?? 'activo'
             ]);
             return (int)$this->db->lastInsertId();
@@ -188,26 +188,30 @@ class PlantasModel
     // ACTUALIZAR
     // ==========================================
 
-    /**
-     * ✅ FIX 3: valida nombre y duplicados.
-     * ✅ FIX 4: soporta 'estado'.
-     */
     public function actualizar($id, $datos)
     {
         try {
-            // ✅ FIX 3: validar nombre
-            if (empty($datos['nombre'])) {
+            $id = (int)$id;
+            if ($id <= 0) {
+                error_log("PlantasModel::actualizar - ID inválido");
+                return false;
+            }
+
+            $nombre = trim($datos['nombre'] ?? '');
+            if (empty($nombre)) {
                 error_log("PlantasModel::actualizar - Nombre vacío");
                 return false;
             }
-
-            // ✅ FIX 3: validar duplicado (excluyendo el actual)
-            if ($this->existe($datos['nombre'], $id)) {
-                error_log("PlantasModel::actualizar - Planta ya existe: " . $datos['nombre']);
+            if (mb_strlen($nombre) < 2 || mb_strlen($nombre) > 100) {
+                error_log("PlantasModel::actualizar - Nombre fuera de rango (2-100)");
                 return false;
             }
 
-            // ✅ FIX 4: incluir 'estado'
+            if ($this->existe($nombre, $id)) {
+                error_log("PlantasModel::actualizar - Planta ya existe");
+                return false;
+            }
+
             $sql = "UPDATE plantas SET 
                         nombre_planta = ?, 
                         descripcion = ?, 
@@ -216,10 +220,10 @@ class PlantasModel
                     WHERE id_planta = ?";
             $stmt = $this->db->prepare($sql);
             return $stmt->execute([
-                trim($datos['nombre']),
-                $datos['descripcion'] ?? '',
+                $nombre,
+                trim($datos['descripcion'] ?? ''),
                 $datos['estado'] ?? 'activo',
-                (int)$id
+                $id
             ]);
 
         } catch (PDOException $e) {
@@ -232,9 +236,6 @@ class PlantasModel
     // CAMBIAR ESTADO
     // ==========================================
 
-    /**
-     * ✅ FIX 5: agregado cambiarEstado().
-     */
     public function cambiarEstado($id, $estado)
     {
         try {
@@ -260,9 +261,10 @@ class PlantasModel
     public function eliminar($id)
     {
         try {
-            // Verificar si tiene áreas asociadas
+            $id = (int)$id;
+
             $stmt = $this->db->prepare("SELECT COUNT(*) as total FROM areas WHERE id_planta = ?");
-            $stmt->execute([(int)$id]);
+            $stmt->execute([$id]);
             $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if ($resultado && $resultado['total'] > 0) {
@@ -271,7 +273,7 @@ class PlantasModel
 
             $sql = "DELETE FROM plantas WHERE id_planta = ?";
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([(int)$id]);
+            $stmt->execute([$id]);
             return ['error' => false, 'message' => 'Planta eliminada correctamente'];
 
         } catch (PDOException $e) {
@@ -323,11 +325,14 @@ class PlantasModel
     // VALIDACIONES
     // ==========================================
 
+    /**
+     * ✅ FIX 9: case-insensitive
+     */
     public function existe($nombre, $excluirId = null)
     {
         try {
-            $sql = "SELECT COUNT(*) as total FROM plantas WHERE nombre_planta = ?";
-            $params = [$nombre];
+            $sql = "SELECT COUNT(*) as total FROM plantas WHERE LOWER(nombre_planta) = LOWER(?)";
+            $params = [trim($nombre)];
 
             if ($excluirId !== null) {
                 $sql .= " AND id_planta != ?";

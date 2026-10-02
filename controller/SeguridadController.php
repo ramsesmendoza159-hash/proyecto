@@ -1,7 +1,7 @@
 <?php
 // controller/SeguridadController.php
 // Panel del rol Seguridad
-// ✅ FIX: confirmado que pasa $total_pendientes y $pendientes a la vista
+// ✅ FIX: try/catch (Throwable) en index()
 
 require_once __DIR__ . '/../helpers/Controller.php';
 require_once __DIR__ . '/../model/FirmaModel.php';
@@ -17,13 +17,11 @@ class SeguridadController extends Controller {
         
         if (!$this->authHelper->isLoggedIn()) {
             $this->redirect('/auth/login');
-            exit;
         }
         
         if (!$this->authHelper->hasRole('seguridad')) {
-            $_SESSION['error'] = 'No tienes permisos para acceder a esta sección';
-            $this->redirect('/dashboard');
-            exit;
+            $this->redirectWithError('/dashboard', 'No tienes permisos para acceder a esta sección');
+            return;
         }
         
         $this->firmaModel = new FirmaModel();
@@ -31,10 +29,16 @@ class SeguridadController extends Controller {
     }
     
     public function index() {
-        $pendientes = $this->firmaModel->obtenerPendientesPorRol('seguridad');
-        $total_pendientes = count($pendientes);
-        
-        $estadisticas = $this->ordenModel->obtenerEstadisticas();
+        try {
+            $pendientes = $this->firmaModel->obtenerPendientesPorRol('seguridad');
+            $total_pendientes = count($pendientes);
+            $estadisticas = $this->ordenModel->obtenerEstadisticas();
+        } catch (Throwable $e) {
+            error_log("Error en SeguridadController::index: " . $e->getMessage());
+            $pendientes = [];
+            $total_pendientes = 0;
+            $estadisticas = [];
+        }
         
         $titulo = 'Panel de Seguridad';
         $seccion = 'seguridad';

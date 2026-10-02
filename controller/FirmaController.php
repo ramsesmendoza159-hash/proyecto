@@ -1,14 +1,16 @@
 <?php
 // controller/FirmaController.php
 // Controlador para el sistema de firmas secuenciales
-// ✅ FIX: pasar validaciones de rol antes de firmar
-// ✅ FIX: catch (Throwable) en vez de Exception
+// ✅ FIX: usar SVGSanitizer en procesar() en vez de validación manual
+// ✅ FIX: validar whitelist de roles en guardarConfiguracion()
+// ✅ FIX: catch (Throwable)
 
 require_once __DIR__ . '/../helpers/Controller.php';
 require_once __DIR__ . '/../model/FirmaModel.php';
 require_once __DIR__ . '/../model/OrdenTrabajo.php';
 require_once __DIR__ . '/../helpers/FirmaSecuenciaHelper.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
+require_once __DIR__ . '/../helpers/SVGSanitizer.php';   // ✅ FIX
 require_once __DIR__ . '/../config/database.php';
 
 class FirmaController extends Controller {
@@ -16,12 +18,14 @@ class FirmaController extends Controller {
     private $firmaModel;
     private $ordenModel;
 
+    /** Roles permitidos en la secuencia de firmas */
+    private const ROLES_VALIDOS = ['ingeniero', 'calidad', 'tecnico', 'supervisor', 'seguridad'];
+
     public function __construct() {
         parent::__construct();
 
         if (!$this->authHelper->isLoggedIn()) {
             $this->redirect('/auth/login');
-            exit;
         }
 
         $this->firmaModel = new FirmaModel();
@@ -36,9 +40,15 @@ class FirmaController extends Controller {
             return;
         }
 
-        $orden = $this->ordenModel->obtenerPorId($orden_id);
-        if (!$orden) {
-            $this->redirectWithError('/ordenes', 'Orden no encontrada');
+        try {
+            $orden = $this->ordenModel->obtenerPorId($orden_id);
+            if (!$orden) {
+                $this->redirectWithError('/ordenes', 'Orden no encontrada');
+                return;
+            }
+        } catch (Throwable $e) {
+            error_log("Error en FirmaController::orden: " . $e->getMessage());
+            $this->redirectWithError('/ordenes', 'Error al cargar la orden');
             return;
         }
 
@@ -91,40 +101,46 @@ class FirmaController extends Controller {
             return;
         }
 
-        $orden = $this->ordenModel->obtenerPorId($orden_id);
-        if (!$orden) {
-            $this->redirectWithError('/ordenes', 'Orden no encontrada');
-            return;
-        }
+        try {
+            $orden = $this->ordenModel->obtenerPorId($orden_id);
+            if (!$orden) {
+                $this->redirectWithError('/ordenes', 'Orden no encontrada');
+                return;
+            }
 
-        if ($paso_id <= 0) {
-            $pasoActualTemp = $this->firmaModel->obtenerPasoActual($orden_id);
-            if (!$pasoActualTemp) {
+            if ($paso_id <= 0) {
+                $pasoActualTemp = $this->firmaModel->obtenerPasoActual($orden_id);
+                if (!$pasoActualTemp) {
+                    $this->redirectWithError(
+                        '/firmas/orden/' . $orden_id,
+                        'No hay pasos pendientes para firmar'
+                    );
+                    return;
+                }
+                $paso_id = (int)$pasoActualTemp['id'];
+            }
+
+            $pasoActual = $this->firmaModel->obtenerPasoActual($orden_id);
+
+            if (!$pasoActual || (int)$pasoActual['id'] !== $paso_id) {
                 $this->redirectWithError(
-                    '/firmas/orden/' . $orden_id,
-                    'No hay pasos pendientes para firmar'
+                    '/firmas/orden/' . $orden_id, 
+                    'Este paso ya no está disponible para firmar'
                 );
                 return;
             }
-            $paso_id = (int)$pasoActualTemp['id'];
-        }
 
-        $pasoActual = $this->firmaModel->obtenerPasoActual($orden_id);
-
-        if (!$pasoActual || (int)$pasoActual['id'] !== $paso_id) {
-            $this->redirectWithError(
-                '/firmas/orden/' . $orden_id, 
-                'Este paso ya no está disponible para firmar'
-            );
-            return;
-        }
-
-        $rol = $this->authHelper->getRole();
-        if ($pasoActual['rol_firmante'] !== $rol) {
-            $this->redirectWithError(
-                '/firmas/orden/' . $orden_id, 
-                'No tienes el rol requerido para este paso'
-            );
+            $rol = $this->authHelper->getRole();
+            if ($pasoActual['rol_firmante'] !== $rol) {
+                $this->redirectWithError(
+                    '/firmas/orden/' . $orden_id, 
+                    'No tienes el rol requerido para este paso'
+                );
+                return;
+            }
+        } catch (Throwable $e) {
+            error_log("Error en FirmaController::firmar: " . $e->getMessage());
+            $this->redirectWithError('/ordenes', 'Error al cargar la orden');
             return;
         }
 
@@ -163,82 +179,83 @@ class FirmaController extends Controller {
             return;
         }
 
-        if (strpos($firma_svg, '<svg') === false || strpos($firma_svg, '</svg>') === false) {
+        // ✅ FIX: usar SVGSanitizer centralizado
+        if (!SVGSanitizer::esFormatoValido($firma_svg)) {
             $this->redirectWithError(
                 '/firmas/firmar/' . $orden_id . '/' . $paso_id,
-                'La firma no tiene el formato correcto (SVG)'
+                'La firma no tiene el formato correcto (SVG) o excede el tamaño máximo (200 KB)'
             );
             return;
         }
 
-        if (strlen($firma_svg) > 204800) {
-            $this->redirectWithError(
-                '/firmas/firmar/' . $orden_id . '/' . $paso_id,
-                'La firma es demasiado grande (máx 200 KB)'
-            );
-            return;
-        }
+        try {
+            $paso_actual = $this->firmaModel->obtenerPasoActual($orden_id);
+            $rol_usuario = $this->authHelper->getRole();
 
-        $paso_actual = $this->firmaModel->obtenerPasoActual($orden_id);
-        $rol_usuario = $this->authHelper->getRole();
-
-        if (!$paso_actual) {
-            $this->redirectWithError('/firmas/orden/' . $orden_id, 'No hay pasos pendientes');
-            return;
-        }
-
-        if ((int)$paso_actual['id'] !== $paso_id) {
-            $this->redirectWithError('/firmas/orden/' . $orden_id, 'Este paso ya no está disponible');
-            return;
-        }
-
-        if ($paso_actual['rol_firmante'] !== $rol_usuario) {
-            $this->redirectWithError(
-                '/firmas/orden/' . $orden_id, 
-                'No tienes el rol requerido para este paso'
-            );
-            return;
-        }
-
-        $usuario_id = $this->authHelper->getUserId();
-        $usuario_nombre = $_SESSION['nombre'] ?? 'Usuario';
-
-        $resultado = $this->firmaModel->firmar(
-            $orden_id,
-            $paso_id,
-            $usuario_id,
-            $usuario_nombre,
-            $firma_svg,
-            $comentario
-        );
-
-        if ($resultado['success']) {
-            try {
-                require_once __DIR__ . '/../model/AuditoriaModel.php';
-                $auditoria = new AuditoriaModel();
-                $auditoria->registrar(
-                    $usuario_id,
-                    $usuario_nombre,
-                    $_SESSION['rol'] ?? '',
-                    'firmar_orden',
-                    'firmas_orden',
-                    $paso_id,
-                    null,
-                    ['orden_id' => $orden_id, 'paso' => $paso_id]
-                );
-            } catch (Throwable $e) {
-                error_log("Error auditoría: " . $e->getMessage());
+            if (!$paso_actual) {
+                $this->redirectWithError('/firmas/orden/' . $orden_id, 'No hay pasos pendientes');
+                return;
             }
 
-            $mensaje = $resultado['completada'] 
-                ? '¡Todas las firmas completadas! La orden ha sido aprobada.'
-                : 'Firma registrada. Siguiente paso: ' . $resultado['siguiente_paso'];
+            if ((int)$paso_actual['id'] !== $paso_id) {
+                $this->redirectWithError('/firmas/orden/' . $orden_id, 'Este paso ya no está disponible');
+                return;
+            }
 
-            $this->redirectWithSuccess('/firmas/orden/' . $orden_id, $mensaje);
-        } else {
+            if ($paso_actual['rol_firmante'] !== $rol_usuario) {
+                $this->redirectWithError(
+                    '/firmas/orden/' . $orden_id, 
+                    'No tienes el rol requerido para este paso'
+                );
+                return;
+            }
+
+            $usuario_id = $this->authHelper->getUserId();
+            $usuario_nombre = $_SESSION['nombre'] ?? 'Usuario';
+
+            $resultado = $this->firmaModel->firmar(
+                $orden_id,
+                $paso_id,
+                $usuario_id,
+                $usuario_nombre,
+                $firma_svg,
+                $comentario
+            );
+
+            if ($resultado['success']) {
+                try {
+                    require_once __DIR__ . '/../model/AuditoriaModel.php';
+                    $auditoria = new AuditoriaModel();
+                    $auditoria->registrar(
+                        $usuario_id,
+                        $usuario_nombre,
+                        $_SESSION['rol'] ?? '',
+                        'firmar_orden',
+                        'firmas_orden',
+                        $paso_id,
+                        null,
+                        ['orden_id' => $orden_id, 'paso' => $paso_id]
+                    );
+                } catch (Throwable $e) {
+                    error_log("Error auditoría firma: " . $e->getMessage());
+                }
+
+                $mensaje = $resultado['completada'] 
+                    ? '¡Todas las firmas completadas! La orden ha sido aprobada.'
+                    : 'Firma registrada. Siguiente paso: ' . $resultado['siguiente_paso'];
+
+                $this->redirectWithSuccess('/firmas/orden/' . $orden_id, $mensaje);
+            } else {
+                $this->redirectWithError(
+                    '/firmas/firmar/' . $orden_id . '/' . $paso_id,
+                    $resultado['mensaje']
+                );
+            }
+        } catch (Throwable $e) {
+            error_log("Error en FirmaController::procesar: " . $e->getMessage());
             $this->redirectWithError(
                 '/firmas/firmar/' . $orden_id . '/' . $paso_id,
-                $resultado['mensaje']
+                'Error al procesar la firma'
             );
         }
     }
@@ -264,26 +281,34 @@ class FirmaController extends Controller {
             return;
         }
 
-        $usuario_id = $this->authHelper->getUserId();
-        $usuario_nombre = $_SESSION['nombre'] ?? 'Usuario';
+        try {
+            $usuario_id = $this->authHelper->getUserId();
+            $usuario_nombre = $_SESSION['nombre'] ?? 'Usuario';
 
-        $resultado = $this->firmaModel->rechazar(
-            $orden_id,
-            $paso_id,
-            $usuario_id,
-            $usuario_nombre,
-            $motivo
-        );
-
-        if ($resultado['success']) {
-            $this->redirectWithWarning(
-                '/firmas/orden/' . $orden_id,
-                'La orden ha sido rechazada en este paso'
+            $resultado = $this->firmaModel->rechazar(
+                $orden_id,
+                $paso_id,
+                $usuario_id,
+                $usuario_nombre,
+                $motivo
             );
-        } else {
+
+            if ($resultado['success']) {
+                $this->redirectWithWarning(
+                    '/firmas/orden/' . $orden_id,
+                    'La orden ha sido rechazada en este paso'
+                );
+            } else {
+                $this->redirectWithError(
+                    '/firmas/firmar/' . $orden_id . '/' . $paso_id,
+                    $resultado['mensaje']
+                );
+            }
+        } catch (Throwable $e) {
+            error_log("Error en FirmaController::rechazar: " . $e->getMessage());
             $this->redirectWithError(
                 '/firmas/firmar/' . $orden_id . '/' . $paso_id,
-                $resultado['mensaje']
+                'Error al procesar el rechazo'
             );
         }
     }
@@ -312,6 +337,9 @@ class FirmaController extends Controller {
         require_once __DIR__ . '/../views/firmas/configuracion.php';
     }
 
+    /**
+     * ✅ FIX: validar whitelist de roles en pasos
+     */
     public function guardarConfiguracion() {
         if (!$this->authHelper->isAdmin()) {
             $this->redirectWithError('/dashboard', 'No tienes permisos');
@@ -332,7 +360,15 @@ class FirmaController extends Controller {
         $activos = $this->post('activo', []);
 
         $pasos = [];
+        $errores = [];
+
         foreach ($roles as $paso => $rol) {
+            // ✅ FIX: validar whitelist de roles
+            if (!in_array($rol, self::ROLES_VALIDOS, true)) {
+                $errores[] = "Rol inválido en el paso " . (int)$paso . ": $rol";
+                continue;
+            }
+
             $pasos[] = [
                 'paso' => (int)$paso,
                 'rol_firmante' => $rol,
@@ -342,9 +378,19 @@ class FirmaController extends Controller {
             ];
         }
 
-        if ($this->firmaModel->actualizarSecuencia($pasos)) {
-            $this->redirectWithSuccess('/firmas/configuracion', 'Configuración guardada');
-        } else {
+        if (!empty($errores)) {
+            $this->redirectWithError('/firmas/configuracion', implode(' | ', $errores));
+            return;
+        }
+
+        try {
+            if ($this->firmaModel->actualizarSecuencia($pasos)) {
+                $this->redirectWithSuccess('/firmas/configuracion', 'Configuración guardada');
+            } else {
+                $this->redirectWithError('/firmas/configuracion', 'Error al guardar');
+            }
+        } catch (Throwable $e) {
+            error_log("Error en guardarConfiguracion: " . $e->getMessage());
             $this->redirectWithError('/firmas/configuracion', 'Error al guardar');
         }
     }

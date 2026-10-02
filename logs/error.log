@@ -1005,3 +1005,34 @@ Stack trace:
 [29-Sep-2026 18:55:39 Europe/Berlin] Error en MonitoreoController::cerrar: Faltan lecturas. Completadas: 0 / 52
 [29-Sep-2026 18:59:51 Europe/Berlin] Autenticación exitosa para: operador@proyecto.com
 [29-Sep-2026 18:59:51 Europe/Berlin] Monitoreo: 1 registros auto-creados para usuario 14
+[30-Sep-2026 18:50:29 Europe/Berlin] Autenticación exitosa para: admin2@proyecto.com
+[30-Sep-2026 18:50:34 Europe/Berlin] 📋 Filtros aplicados en list(): Array
+(
+    [orden] => nombre
+)
+
+[30-Sep-2026 18:51:46 Europe/Berlin] 📋 Filtros aplicados en list(): Array
+(
+    [orden] => nombre
+)
+
+[30-Sep-2026 22:01:34 Europe/Berlin] Controlador no permitido: mantenimiento
+[30-Sep-2026 22:01:36 Europe/Berlin] PHP Warning:  Undefined array key "vencidos_horas" in C:\xampp\htdocs\proyecto\views\mantenimiento\panel.php on line 113
+[30-Sep-2026 22:01:36 Europe/Berlin] PHP Warning:  Undefined array key "vencidos_fecha" in C:\xampp\htdocs\proyecto\views\mantenimiento\panel.php on line 127
+[30-Sep-2026 22:01:36 Europe/Berlin] PHP Warning:  Undefined array key "proximos_horas" in C:\xampp\htdocs\proyecto\views\mantenimiento\panel.php on line 141
+[30-Sep-2026 22:01:36 Europe/Berlin] PHP Warning:  Undefined array key "proximos_fecha" in C:\xampp\htdocs\proyecto\views\mantenimiento\panel.php on line 155
+[30-Sep-2026 22:01:36 Europe/Berlin] PHP Warning:  Undefined array key "horas_restantes" in C:\xampp\htdocs\proyecto\views\mantenimiento\panel.php on line 240
+[30-Sep-2026 22:01:36 Europe/Berlin] PHP Warning:  Undefined array key "dias_restantes" in C:\xampp\htdocs\proyecto\views\mantenimiento\panel.php on line 245
+[30-Sep-2026 22:01:36 Europe/Berlin] PHP Warning:  Undefined array key "horometro_actual" in C:\xampp\htdocs\proyecto\views\mantenimiento\panel.php on line 368
+[30-Sep-2026 22:01:36 Europe/Berlin] PHP Deprecated:  number_format(): Passing null to parameter #1 ($num) of type float is deprecated in C:\xampp\htdocs\proyecto\views\mantenimiento\panel.php on line 368
+[30-Sep-2026 22:07:37 Europe/Berlin] Error en PerfilController::index: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'usuario' in 'field list'
+[01-Oct-2026 16:16:34 Europe/Berlin] Error en PerfilController::index: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'usuario' in 'field list'
+[01-Oct-2026 16:16:38 Europe/Berlin] Error en PerfilController::index: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'usuario' in 'field list'
+[01-Oct-2026 16:16:41 Europe/Berlin] Error en PerfilController::index: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'usuario' in 'field list'
+[01-Oct-2026 16:16:43 Europe/Berlin] Error en PerfilController::index: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'usuario' in 'field list'
+[01-Oct-2026 16:16:44 Europe/Berlin] Error en PerfilController::index: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'usuario' in 'field list'
+[01-Oct-2026 16:16:47 Europe/Berlin] Error en PerfilController::index: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'usuario' in 'field list'
+[01-Oct-2026 16:16:49 Europe/Berlin] Error en PerfilController::index: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'usuario' in 'field list'
+[01-Oct-2026 16:16:51 Europe/Berlin] Error en PerfilController::index: SQLSTATE[42S22]: Column not found: 1054 Unknown column 'usuario' in 'field list'
+[02-Oct-2026 16:09:00 Europe/Berlin] Error en UsuariosModel::autenticar (PDO): SQLSTATE[HY000]: General error: 2006 MySQL server has gone away
+[02-Oct-2026 16:09:04 Europe/Berlin] Error de conexión a la base de datos: SQLSTATE[HY000] [2002] No se puede establecer una conexión ya que el equipo de destino denegó expresamente dicha conexión

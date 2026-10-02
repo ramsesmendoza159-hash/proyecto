@@ -1,6 +1,5 @@
 <?php
 // controller/InventarioController.php
-// VERSIÓN COMPLETA CON FILTROS AVANZADOS Y ENDPOINT AJAX CORREGIDO
 
 require_once __DIR__ . '/../helpers/Controller.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
@@ -14,14 +13,12 @@ class InventarioController extends Controller {
         parent::__construct();
         
         if (!$this->authHelper->isLoggedIn()) {
-            header('Location: /proyecto/auth/login');
-            exit;
+            $this->redirect('/auth/login');
         }
         
         if (!$this->authHelper->isAdmin() && !$this->authHelper->isAlmacen() && !$this->authHelper->isSupervisor()) {
             $_SESSION['error'] = 'No tienes permisos para acceder a esta sección';
-            header('Location: /proyecto/dashboard');
-            exit;
+            $this->redirect('/dashboard');
         }
         
         $this->db = Database::getInstance()->getConnection();
@@ -36,8 +33,8 @@ class InventarioController extends Controller {
      */
     public function guardar() {
         if (!$this->authHelper->isAdmin() && !$this->authHelper->isAlmacen()) {
-            $_SESSION['error'] = 'No tienes permisos para crear ítems';
-            $this->redirect('/inventario');
+            $this->redirectWithError('/inventario', 'No tienes permisos para crear ítems');
+            return;
         }
         
         $this->crear();
@@ -74,11 +71,11 @@ class InventarioController extends Controller {
                 $items = [];
             }
             
-        } catch (Exception $e) {
+        } catch (Throwable $e) {   // ✅ FIX: Throwable
             error_log("Error en inventario index: " . $e->getMessage());
             $items = [];
             $estadisticas = ['total' => 0, 'total_stock' => 0, 'precio_promedio' => 0, 'valor_total' => 0];
-            $_SESSION['error'] = 'Error al cargar el inventario: ' . $e->getMessage();
+            $_SESSION['error'] = 'Error al cargar el inventario';
         }
         
         $this->view('inventario/index', [
@@ -107,29 +104,25 @@ class InventarioController extends Controller {
         }
         
         if (!isset($_SESSION['usuario_id']) || empty($_SESSION['usuario_id'])) {
+            // ✅ FIX: NO exponer datos de sesión en el error
             echo json_encode([
                 'items' => [],
                 'total' => 0,
                 'paginas' => 0,
-                'error' => 'No autorizado - Sesión no iniciada',
-                'debug' => [
-                    'session_id' => session_id(),
-                    'usuario_id' => $_SESSION['usuario_id'] ?? null,
-                    'rol' => $_SESSION['rol'] ?? null
-                ]
+                'error' => 'No autorizado - Sesión no iniciada'
             ]);
             exit;
         }
         
         // ✅ 3. Verificar rol SIN redirigir
         $rol = $_SESSION['rol'] ?? '';
-        if (!in_array($rol, ['admin', 'almacen', 'supervisor', 'consultor'])) {
+        if (!in_array($rol, ['admin', 'almacen', 'supervisor', 'consultor'], true)) {
+            // ✅ FIX: NO exponer el rol actual
             echo json_encode([
                 'items' => [],
                 'total' => 0,
                 'paginas' => 0,
-                'error' => 'No tienes permisos para ver el inventario',
-                'rol_actual' => $rol
+                'error' => 'No tienes permisos para ver el inventario'
             ]);
             exit;
         }
@@ -181,8 +174,6 @@ class InventarioController extends Controller {
                 $filtros['fecha_hasta'] = $_GET['fecha_hasta'];
             }
             
-            error_log("📋 Filtros aplicados en list(): " . print_r($filtros, true));
-            
             // ✅ 5. Obtener items del modelo
             $items = $this->inventarioModel->obtenerTodos($filtros);
             
@@ -202,8 +193,9 @@ class InventarioController extends Controller {
                 'filtros_aplicados' => $filtros
             ]);
             
-        } catch (Exception $e) {
-            error_log("❌ Error en list inventario: " . $e->getMessage());
+        } catch (Throwable $e) {   // ✅ FIX: Throwable
+            // ✅ FIX: NO exponer file/line al cliente
+            error_log("Error en list inventario: " . $e->getMessage());
             error_log("Stack trace: " . $e->getTraceAsString());
             
             echo json_encode([
@@ -211,9 +203,7 @@ class InventarioController extends Controller {
                 'items' => [],
                 'total' => 0,
                 'paginas' => 0,
-                'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine()
+                'error' => 'Error al procesar la solicitud'
             ]);
         }
         exit;
@@ -225,15 +215,15 @@ class InventarioController extends Controller {
      */
     public function crear() {
         if (!$this->authHelper->isAdmin() && !$this->authHelper->isAlmacen()) {
-            $_SESSION['error'] = 'No tienes permisos para crear ítems';
-            $this->redirect('/inventario');
+            $this->redirectWithError('/inventario', 'No tienes permisos para crear ítems');
+            return;
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 $token = $_POST['csrf_token'] ?? '';
                 if (!SecurityHelper::verifyCSRFToken($token)) {
-                    throw new Exception('Token de seguridad inválido');
+                    throw new RuntimeException('Token de seguridad inválido');
                 }
                 
                 $datos = [
@@ -268,26 +258,27 @@ class InventarioController extends Controller {
                 }
                 
                 if (!empty($errores)) {
-                    throw new Exception(implode('<br>', $errores));
+                    throw new RuntimeException(implode('<br>', $errores));
                 }
                 
                 if (!empty($datos['codigo']) && $this->inventarioModel->codigoExiste($datos['codigo'])) {
-                    throw new Exception("El código SKU ya está registrado");
+                    throw new RuntimeException("El código SKU ya está registrado");
                 }
                 
                 $id = $this->inventarioModel->crear($datos);
                 
                 if ($id) {
-                    $_SESSION['success'] = "Ítem '" . $datos['nombre'] . "' creado exitosamente";
-                    $this->redirect('/inventario');
+                    $this->redirectWithSuccess('/inventario', "Ítem '" . $datos['nombre'] . "' creado exitosamente");
+                    return;
                 } else {
-                    throw new Exception("Error al crear el ítem");
+                    throw new RuntimeException($this->inventarioModel->getLastError() ?: "Error al crear el ítem");
                 }
                 
-            } catch (Exception $e) {
+            } catch (Throwable $e) {   // ✅ FIX: Throwable
                 $_SESSION['error'] = "Error: " . $e->getMessage();
                 $_SESSION['old'] = $_POST;
                 $this->redirect('/inventario/crear');
+                return;
             }
         }
         
@@ -300,28 +291,28 @@ class InventarioController extends Controller {
      */
     public function editar($id) {
         if (!$this->authHelper->isAdmin() && !$this->authHelper->isAlmacen()) {
-            $_SESSION['error'] = 'No tienes permisos para editar ítems';
-            $this->redirect('/inventario');
+            $this->redirectWithError('/inventario', 'No tienes permisos para editar ítems');
+            return;
         }
 
         $id = (int)$id;
         if ($id <= 0) {
-            $_SESSION['error'] = "ID de ítem inválido";
-            $this->redirect('/inventario');
+            $this->redirectWithError('/inventario', "ID de ítem inválido");
+            return;
         }
         
         $item = $this->inventarioModel->obtenerPorId($id);
         
         if (!$item) {
-            $_SESSION['error'] = "Ítem no encontrado";
-            $this->redirect('/inventario');
+            $this->redirectWithError('/inventario', "Ítem no encontrado");
+            return;
         }
         
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 $token = $_POST['csrf_token'] ?? '';
                 if (!SecurityHelper::verifyCSRFToken($token)) {
-                    throw new Exception('Token de seguridad inválido');
+                    throw new RuntimeException('Token de seguridad inválido');
                 }
                 
                 $datos = [
@@ -353,24 +344,25 @@ class InventarioController extends Controller {
                 }
                 
                 if (!empty($errores)) {
-                    throw new Exception(implode('<br>', $errores));
+                    throw new RuntimeException(implode('<br>', $errores));
                 }
                 
                 if (!empty($datos['codigo']) && $this->inventarioModel->codigoExiste($datos['codigo'], $id)) {
-                    throw new Exception("El código SKU ya está registrado");
+                    throw new RuntimeException("El código SKU ya está registrado");
                 }
                 
                 if ($this->inventarioModel->actualizar($id, $datos)) {
-                    $_SESSION['success'] = "Ítem actualizado exitosamente";
-                    $this->redirect('/inventario');
+                    $this->redirectWithSuccess('/inventario', "Ítem actualizado exitosamente");
+                    return;
                 } else {
-                    throw new Exception("Error al actualizar el ítem");
+                    throw new RuntimeException($this->inventarioModel->getLastError() ?: "Error al actualizar el ítem");
                 }
                 
-            } catch (Exception $e) {
+            } catch (Throwable $e) {   // ✅ FIX: Throwable
                 $_SESSION['error'] = "Error: " . $e->getMessage();
                 $_SESSION['old'] = $_POST;
                 $this->redirect('/inventario/editar/' . $id);
+                return;
             }
         }
         
@@ -382,7 +374,7 @@ class InventarioController extends Controller {
      * URL: /inventario/eliminar/{id}
      */
     public function eliminar($id) {
-        header('Content-Type: application/json');
+        header('Content-Type: application/json; charset=utf-8');
         header('Cache-Control: no-cache, must-revalidate');
         
         if (!$this->authHelper->isLoggedIn()) {
@@ -450,10 +442,11 @@ class InventarioController extends Controller {
                 ]);
             }
             
-        } catch (Exception $e) {
+        } catch (Throwable $e) {   // ✅ FIX: Throwable
+            error_log("Error en eliminar inventario: " . $e->getMessage());
             echo json_encode([
                 'success' => false,
-                'message' => 'Error: ' . $e->getMessage()
+                'message' => 'Error al procesar la solicitud'
             ]);
         }
         exit;
@@ -464,7 +457,7 @@ class InventarioController extends Controller {
      * URL: /inventario/buscar
      */
     public function buscar() {
-        header('Content-Type: application/json');
+        header('Content-Type: application/json; charset=utf-8');
         
         if (!isset($_SESSION['usuario_id'])) {
             echo json_encode([]);
@@ -482,7 +475,7 @@ class InventarioController extends Controller {
             $resultados = $this->inventarioModel->buscar($term);
             echo json_encode($resultados);
             
-        } catch (Exception $e) {
+        } catch (Throwable $e) {   // ✅ FIX: Throwable
             error_log("Error en buscar inventario: " . $e->getMessage());
             echo json_encode([]);
         }
@@ -497,8 +490,7 @@ class InventarioController extends Controller {
         $id = (int)$id;
         
         if ($id <= 0) {
-            $_SESSION['error'] = 'ID de producto inválido';
-            $this->redirect('/inventario');
+            $this->redirectWithError('/inventario', 'ID de producto inválido');
             return;
         }
         
@@ -506,17 +498,15 @@ class InventarioController extends Controller {
             $producto = $this->inventarioModel->obtenerPorId($id);
             
             if (!$producto) {
-                $_SESSION['error'] = 'Producto no encontrado';
-                $this->redirect('/inventario');
+                $this->redirectWithError('/inventario', 'Producto no encontrado');
                 return;
             }
             
             $movimientos = $this->inventarioModel->obtenerMovimientosPorProducto($id);
             
-        } catch (Exception $e) {
+        } catch (Throwable $e) {   // ✅ FIX: Throwable
             error_log("Error en detalle inventario: " . $e->getMessage());
-            $_SESSION['error'] = 'Error al cargar el detalle del producto';
-            $this->redirect('/inventario');
+            $this->redirectWithError('/inventario', 'Error al cargar el detalle del producto');
             return;
         }
         
@@ -531,7 +521,7 @@ class InventarioController extends Controller {
      * URL: /inventario/api/detalle/{id}
      */
     public function apiDetalle($id) {
-        header('Content-Type: application/json');
+        header('Content-Type: application/json; charset=utf-8');
         
         if (!isset($_SESSION['usuario_id'])) {
             echo json_encode(['error' => 'No autorizado']);
@@ -553,9 +543,9 @@ class InventarioController extends Controller {
                 echo json_encode(['error' => 'Ítem no encontrado']);
             }
             
-        } catch (Exception $e) {
+        } catch (Throwable $e) {   // ✅ FIX: Throwable
             error_log("Error en apiDetalle inventario: " . $e->getMessage());
-            echo json_encode(['error' => $e->getMessage()]);
+            echo json_encode(['error' => 'Error al procesar la solicitud']);
         }
         exit;
     }
@@ -565,31 +555,44 @@ class InventarioController extends Controller {
      * URL: /almacen/top_productos
      */
     public function topProductos() {
-        header('Content-Type: application/json');
+        header('Content-Type: application/json; charset=utf-8');
         
         if (!isset($_SESSION['usuario_id'])) {
             echo json_encode(['error' => 'No autorizado']);
             exit;
         }
         
-        if (!in_array($_SESSION['rol'] ?? '', ['almacen', 'admin'])) {
+        if (!in_array($_SESSION['rol'] ?? '', ['almacen', 'admin'], true)) {
             echo json_encode(['error' => 'No tienes permisos']);
             exit;
         }
 
-        $limite = isset($_GET['limite']) ? (int)$_GET['limite'] : 10;
-        $productos = $this->inventarioModel->obtenerTopProductosMasMovidos($limite);
-        
-        $stmt = $this->db->query("SELECT COUNT(DISTINCT inventario_id) as total_productos_movidos FROM inventario_movimientos WHERE fecha >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)");
-        $total_movidos = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        echo json_encode([
-            'success' => true,
-            'productos' => $productos,
-            'total_productos_movidos' => $total_movidos['total_productos_movidos'] ?? 0,
-            'total_mostrados' => count($productos),
-            'periodo' => 30
-        ]);
+        try {
+            $limite = isset($_GET['limite']) ? (int)$_GET['limite'] : 10;
+            $productos = $this->inventarioModel->obtenerTopProductosMasMovidos($limite);
+            
+            $stmt = $this->db->query("SELECT COUNT(DISTINCT inventario_id) as total_productos_movidos FROM inventario_movimientos WHERE fecha >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)");
+            $total_movidos = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            echo json_encode([
+                'success' => true,
+                'productos' => $productos,
+                'total_productos_movidos' => $total_movidos['total_productos_movidos'] ?? 0,
+                'total_mostrados' => count($productos),
+                'periodo' => 30
+            ]);
+            
+        } catch (Throwable $e) {   // ✅ FIX: Throwable
+            error_log("Error en topProductos: " . $e->getMessage());
+            echo json_encode([
+                'success' => false,
+                'error' => 'Error al procesar la solicitud',
+                'productos' => [],
+                'total_productos_movidos' => 0,
+                'total_mostrados' => 0,
+                'periodo' => 30
+            ]);
+        }
         exit;
     }
 
@@ -597,8 +600,6 @@ class InventarioController extends Controller {
      * Redirigir a inventario (para almacen/inventario)
      */
     public function inventario() {
-        header('Location: /proyecto/inventario');
-        exit;
+        $this->redirect('/inventario');
     }
 }
-?>

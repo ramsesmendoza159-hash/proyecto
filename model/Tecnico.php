@@ -1,11 +1,14 @@
 <?php
 // model/Tecnico.php
 // Modelo de Técnicos
-// ✅ FIX 1: eliminar() valida que no tenga órdenes asignadas
+// ✅ FIX 1: eliminar() valida que no tenga órdenes ni asignaciones
 // ✅ FIX 2: actualizar() acepta 'password' o 'password_hash' (consistencia con crear())
 // ✅ FIX 3: obtenerEstadisticas() incluye total_ordenes
 // ✅ FIX 4: agregado cambiarPassword() que hashea internamente
 // ✅ FIX 5: catch (Throwable) en vez de Exception
+// ✅ FIX 6: trim() en nombres y validaciones de longitud
+// ✅ FIX 7: validar que el ID exista antes del UPDATE
+// ✅ FIX 8: bindValue explícito con PARAM_INT en LIMIT/OFFSET
 
 require_once __DIR__ . '/../config/database.php';
 
@@ -64,11 +67,14 @@ class Tecnico {
 
     public function obtenerPorId($id) {
         try {
+            $id = (int)$id;
+            if ($id <= 0) return null;
+
             $sql = "SELECT id, nombre, email, telefono, especialidad, tarifa, estado,
                            fecha_creacion, fecha_actualizacion
                     FROM tecnicos WHERE id = ?";
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([(int)$id]);
+            $stmt->execute([$id]);
             return $stmt->fetch(PDO::FETCH_ASSOC);
 
         } catch (PDOException $e) {
@@ -109,17 +115,23 @@ class Tecnico {
     /**
      * Crea un nuevo técnico.
      * Acepta 'password' (hashea) o 'password_hash' (ya hasheado).
-     *
-     * @param array $datos
-     * @return int|false ID del técnico o false si falla
+     * ✅ FIX: valida trim() y longitud de nombre
      */
     public function crear($datos) {
         try {
-            if (empty($datos['nombre'])) {
+            // ✅ FIX: validar trim() y longitud
+            $nombre = trim($datos['nombre'] ?? '');
+            if (empty($nombre)) {
                 error_log("Tecnico::crear - Nombre vacío");
                 return false;
             }
-            if (empty($datos['email'])) {
+            if (mb_strlen($nombre) < 3 || mb_strlen($nombre) > 100) {
+                error_log("Tecnico::crear - Nombre fuera de rango (3-100)");
+                return false;
+            }
+
+            $email = trim($datos['email'] ?? '');
+            if (empty($email)) {
                 error_log("Tecnico::crear - Email vacío");
                 return false;
             }
@@ -136,8 +148,8 @@ class Tecnico {
             }
 
             // Verificar email duplicado
-            if ($this->emailExiste($datos['email'])) {
-                error_log("Tecnico::crear - Email ya registrado: " . $datos['email']);
+            if ($this->emailExiste($email)) {
+                error_log("Tecnico::crear - Email ya registrado");
                 return false;
             }
 
@@ -148,11 +160,11 @@ class Tecnico {
 
             $stmt = $this->db->prepare($sql);
             $result = $stmt->execute([
-                $datos['nombre'],
-                $datos['email'],
-                $datos['telefono'] ?? null,
-                $datos['especialidad'] ?? null,
-                $datos['tarifa'] ?? 0,
+                $nombre,
+                $email,
+                trim($datos['telefono'] ?? '') ?: null,
+                trim($datos['especialidad'] ?? '') ?: null,
+                (float)($datos['tarifa'] ?? 0),
                 $passwordHash,
                 $datos['estado'] ?? 'activo'
             ]);
@@ -175,25 +187,40 @@ class Tecnico {
 
     /**
      * Actualiza un técnico.
-     * ✅ FIX 2: acepta 'password' o 'password_hash' (consistencia con crear()).
+     * ✅ FIX 2: acepta 'password' o 'password_hash'
+     * ✅ FIX 7: valida que el ID exista
      */
     public function actualizar($id, $datos) {
         try {
             $id = (int)$id;
+            if ($id <= 0) {
+                error_log("Tecnico::actualizar - ID inválido");
+                return false;
+            }
+
             $tecnico = $this->obtenerPorId($id);
             if (!$tecnico) {
                 error_log("Tecnico::actualizar - Técnico no encontrado: $id");
                 return false;
             }
 
-            if (!empty($datos['email']) && $datos['email'] !== $tecnico['email']) {
-                if ($this->emailExiste($datos['email'], $id)) {
-                    error_log("Tecnico::actualizar - Email ya registrado: " . $datos['email']);
+            // Validar email duplicado si cambia
+            $email = trim($datos['email'] ?? $tecnico['email']);
+            if ($email !== $tecnico['email']) {
+                if ($this->emailExiste($email, $id)) {
+                    error_log("Tecnico::actualizar - Email ya registrado");
                     return false;
                 }
             }
 
-            // ✅ FIX 2: acepta password_hash directo o password en texto plano
+            // Validar nombre
+            $nombre = trim($datos['nombre'] ?? $tecnico['nombre']);
+            if (empty($nombre) || mb_strlen($nombre) < 3 || mb_strlen($nombre) > 100) {
+                error_log("Tecnico::actualizar - Nombre inválido");
+                return false;
+            }
+
+            // ✅ Acepta password_hash directo o password en texto plano
             $passwordHash = null;
             if (!empty($datos['password_hash'])) {
                 $passwordHash = $datos['password_hash'];
@@ -215,11 +242,11 @@ class Tecnico {
 
                 $stmt = $this->db->prepare($sql);
                 return $stmt->execute([
-                    $datos['nombre'] ?? $tecnico['nombre'],
-                    $datos['email'] ?? $tecnico['email'],
-                    $datos['telefono'] ?? $tecnico['telefono'],
-                    $datos['especialidad'] ?? $tecnico['especialidad'],
-                    $datos['tarifa'] ?? $tecnico['tarifa'],
+                    $nombre,
+                    $email,
+                    trim($datos['telefono'] ?? $tecnico['telefono'] ?? '') ?: null,
+                    trim($datos['especialidad'] ?? $tecnico['especialidad'] ?? '') ?: null,
+                    isset($datos['tarifa']) ? (float)$datos['tarifa'] : $tecnico['tarifa'],
                     $passwordHash,
                     $datos['estado'] ?? $tecnico['estado'],
                     $id
@@ -239,11 +266,11 @@ class Tecnico {
 
             $stmt = $this->db->prepare($sql);
             return $stmt->execute([
-                $datos['nombre'] ?? $tecnico['nombre'],
-                $datos['email'] ?? $tecnico['email'],
-                $datos['telefono'] ?? $tecnico['telefono'],
-                $datos['especialidad'] ?? $tecnico['especialidad'],
-                $datos['tarifa'] ?? $tecnico['tarifa'],
+                $nombre,
+                $email,
+                trim($datos['telefono'] ?? $tecnico['telefono'] ?? '') ?: null,
+                trim($datos['especialidad'] ?? $tecnico['especialidad'] ?? '') ?: null,
+                isset($datos['tarifa']) ? (float)$datos['tarifa'] : $tecnico['tarifa'],
                 $datos['estado'] ?? $tecnico['estado'],
                 $id
             ]);
@@ -270,12 +297,11 @@ class Tecnico {
     }
 
     /**
-     * ✅ FIX 4: cambia la contraseña hasheando internamente.
-     * Más ergonómico que actualizarPassword().
+     * Cambia la contraseña hasheando internamente.
      */
     public function cambiarPassword($id, $password_plano) {
         try {
-            if (empty($password_plano)) {
+            if (empty($password_plano) || strlen($password_plano) < 6) {
                 return false;
             }
             $hash = password_hash($password_plano, PASSWORD_DEFAULT);
@@ -288,6 +314,12 @@ class Tecnico {
 
     public function cambiarEstado($id, $estado) {
         try {
+            // ✅ Validar whitelist
+            if (!in_array($estado, ['activo', 'inactivo'], true)) {
+                error_log("Tecnico::cambiarEstado - Estado inválido: $estado");
+                return false;
+            }
+
             $sql = "UPDATE tecnicos SET 
                         estado = ?,
                         fecha_actualizacion = NOW()
@@ -307,31 +339,53 @@ class Tecnico {
 
     /**
      * Elimina un técnico.
-     * ✅ FIX 1: valida que no tenga órdenes asignadas antes de eliminar.
+     * ✅ Valida que no tenga órdenes ni asignaciones adicionales.
      */
     public function eliminar($id) {
         try {
             $id = (int)$id;
 
-            // ✅ FIX 1: validar órdenes asignadas
+            // Validar órdenes asignadas
             $sqlCheck = "SELECT COUNT(*) as total FROM ordenes_mantenimiento WHERE tecnico_id = ?";
             $stmtCheck = $this->db->prepare($sqlCheck);
             $stmtCheck->execute([$id]);
             $result = $stmtCheck->fetch(PDO::FETCH_ASSOC);
 
             if (($result['total'] ?? 0) > 0) {
-                error_log("Tecnico::eliminar - Técnico ID $id tiene " . $result['total'] . " órdenes asignadas");
+                error_log("Tecnico::eliminar - Técnico ID $id tiene órdenes asignadas");
                 return false;
             }
 
-            // Validar también técnicos adicionales
+            // Validar técnicos adicionales
             $sqlCheck2 = "SELECT COUNT(*) as total FROM ordenes_tecnicos WHERE tecnico_id = ?";
             $stmtCheck2 = $this->db->prepare($sqlCheck2);
             $stmtCheck2->execute([$id]);
             $result2 = $stmtCheck2->fetch(PDO::FETCH_ASSOC);
 
             if (($result2['total'] ?? 0) > 0) {
-                error_log("Tecnico::eliminar - Técnico ID $id tiene " . $result2['total'] . " asignaciones adicionales");
+                error_log("Tecnico::eliminar - Técnico ID $id tiene asignaciones adicionales");
+                return false;
+            }
+
+            // Validar tareas preventivas asignadas
+            $sqlCheck3 = "SELECT COUNT(*) as total FROM equipos_mantenimiento_plan WHERE tecnico_asignado_id = ?";
+            $stmtCheck3 = $this->db->prepare($sqlCheck3);
+            $stmtCheck3->execute([$id]);
+            $result3 = $stmtCheck3->fetch(PDO::FETCH_ASSOC);
+
+            if (($result3['total'] ?? 0) > 0) {
+                error_log("Tecnico::eliminar - Técnico ID $id tiene tareas preventivas asignadas");
+                return false;
+            }
+
+            // Validar ejecuciones de checklist
+            $sqlCheck4 = "SELECT COUNT(*) as total FROM mantenimiento_checklist_ejecucion WHERE tecnico_id = ?";
+            $stmtCheck4 = $this->db->prepare($sqlCheck4);
+            $stmtCheck4->execute([$id]);
+            $result4 = $stmtCheck4->fetch(PDO::FETCH_ASSOC);
+
+            if (($result4['total'] ?? 0) > 0) {
+                error_log("Tecnico::eliminar - Técnico ID $id tiene ejecuciones de checklist");
                 return false;
             }
 
@@ -373,9 +427,6 @@ class Tecnico {
     // ESTADÍSTICAS
     // ==========================================
 
-    /**
-     * ✅ FIX 3: incluye total_ordenes (antes lo calculaba el controlador).
-     */
     public function obtenerEstadisticas() {
         try {
             $sql = "SELECT 
@@ -389,7 +440,7 @@ class Tecnico {
             $stmt->execute();
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            // ✅ FIX 3: contar órdenes únicas asignadas a técnicos
+            // Contar órdenes únicas asignadas a técnicos
             $sqlOrdenes = "SELECT COUNT(DISTINCT id) as total_ordenes 
                            FROM ordenes_mantenimiento 
                            WHERE tecnico_id IS NOT NULL";
@@ -499,6 +550,9 @@ class Tecnico {
     // CON ÓRDENES
     // ==========================================
 
+    /**
+     * ✅ FIX 8: bindValue explícito con PARAM_INT
+     */
     public function obtenerTodosConOrdenes($limit = null, $offset = null) {
         try {
             $sql = "SELECT t.*, COUNT(om.id) as total_ordenes 
@@ -510,8 +564,8 @@ class Tecnico {
             if ($limit !== null && $offset !== null) {
                 $sql .= " LIMIT :limit OFFSET :offset";
                 $stmt = $this->db->prepare($sql);
-                $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
-                $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+                $stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
+                $stmt->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
                 $stmt->execute();
             } else {
                 $stmt = $this->db->prepare($sql);
@@ -542,7 +596,7 @@ class Tecnico {
                     ORDER BY completadas DESC, eficiencia DESC
                     LIMIT :limite";
             $stmt = $this->db->prepare($sql);
-            $stmt->bindParam(':limite', $limite, PDO::PARAM_INT);
+            $stmt->bindValue(':limite', (int)$limite, PDO::PARAM_INT);
             $stmt->execute();
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
@@ -569,13 +623,14 @@ class Tecnico {
             if ($limit !== null && $offset !== null) {
                 $sql .= " LIMIT :limit OFFSET :offset";
                 $stmt = $this->db->prepare($sql);
-                $stmt->bindParam(':tecnico_id', $tecnicoId, PDO::PARAM_INT);
-                $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
-                $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+                $stmt->bindValue(':tecnico_id', (int)$tecnicoId, PDO::PARAM_INT);
+                $stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
+                $stmt->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
                 $stmt->execute();
             } else {
                 $stmt = $this->db->prepare($sql);
-                $stmt->execute([':tecnico_id' => $tecnicoId]);
+                $stmt->bindValue(':tecnico_id', (int)$tecnicoId, PDO::PARAM_INT);
+                $stmt->execute();
             }
 
             return $stmt->fetchAll(PDO::FETCH_ASSOC);

@@ -1,6 +1,11 @@
 <?php
 // controller/DashboardController.php
 // VERSIÓN CORREGIDA - CON RUTAS DE NUEVOS ROLES
+// ✅ FIX: catch (Exception) → catch (Throwable) en getStats()
+// ✅ FIX: catch (PDOException) → catch (Throwable) en getUsuariosStats()
+// ✅ FIX: try/catch en adminDashboard()
+// ✅ FIX: uso consistente de redirect() con rutas relativas
+// ✅ FIX: comentarios de trazabilidad
 
 require_once __DIR__ . '/../helpers/Controller.php';
 require_once __DIR__ . '/../config/database.php';
@@ -60,23 +65,49 @@ class DashboardController extends Controller {
     }
     
     private function adminDashboard() {
-        require_once __DIR__ . '/../model/OrdenTrabajo.php';
-        require_once __DIR__ . '/../model/Tecnico.php';
-        require_once __DIR__ . '/../model/Supervisor.php';
-        require_once __DIR__ . '/../model/PlantasModel.php';
-        
-        $ordenModel = new OrdenTrabajo();
-        $tecnicoModel = new Tecnico();
-        $supervisorModel = new Supervisor();
-        $plantasModel = new PlantasModel();
-        
-        $estadisticas_ordenes = $ordenModel->obtenerEstadisticas();
-        $estadisticas_tecnicos = $tecnicoModel->obtenerEstadisticas();
-        $estadisticas_supervisores = $supervisorModel->obtenerEstadisticas();
-        $statsUsuarios = $this->getUsuariosStats();
-        $total_plantas = $plantasModel->obtenerTotal();
-        $total_gastado = $ordenModel->obtenerTotalGastado();
-        $ordenes_recientes = $ordenModel->obtenerTodos([], 5, 0);
+        try {
+            require_once __DIR__ . '/../model/OrdenTrabajo.php';
+            require_once __DIR__ . '/../model/Tecnico.php';
+            require_once __DIR__ . '/../model/Supervisor.php';
+            require_once __DIR__ . '/../model/PlantasModel.php';
+            
+            $ordenModel = new OrdenTrabajo();
+            $tecnicoModel = new Tecnico();
+            $supervisorModel = new Supervisor();
+            $plantasModel = new PlantasModel();
+            
+            $estadisticas_ordenes = $ordenModel->obtenerEstadisticas();
+            $estadisticas_tecnicos = $tecnicoModel->obtenerEstadisticas();
+            $estadisticas_supervisores = $supervisorModel->obtenerEstadisticas();
+            $statsUsuarios = $this->getUsuariosStats();
+            $total_plantas = $plantasModel->obtenerTotal();
+            $total_gastado = $ordenModel->obtenerTotalGastado();
+            $ordenes_recientes = $ordenModel->obtenerTodos([], 5, 0);
+            
+        } catch (Throwable $e) {
+            error_log("Error en adminDashboard: " . $e->getMessage());
+            
+            // Valores por defecto si falla algo
+            $estadisticas_ordenes = [
+                'total' => 0, 'pendientes' => 0, 'en_proceso' => 0,
+                'cerradas' => 0, 'canceladas' => 0, 'aprobadas' => 0,
+                'ejecutadas' => 0, 'rechazadas' => 0, 'devueltas' => 0
+            ];
+            $estadisticas_tecnicos = [
+                'total' => 0, 'activos' => 0, 'inactivos' => 0,
+                'especialidades' => 0, 'tarifa_promedio' => 0, 'total_ordenes' => 0
+            ];
+            $estadisticas_supervisores = [
+                'total' => 0, 'activos' => 0, 'inactivos' => 0,
+                'areas' => 0, 'total_ordenes' => 0
+            ];
+            $statsUsuarios = ['total' => 0, 'activos' => 0, 'inactivos' => 0];
+            $total_plantas = 0;
+            $total_gastado = 0;
+            $ordenes_recientes = [];
+            
+            $_SESSION['error'] = 'Error al cargar algunas estadísticas del dashboard';
+        }
         
         $titulo = 'Dashboard - Administrador';
         $seccion = 'dashboard';
@@ -101,7 +132,7 @@ class DashboardController extends Controller {
                 'activos' => (int)($result['activos'] ?? 0),
                 'inactivos' => (int)($result['inactivos'] ?? 0)
             ];
-        } catch (PDOException $e) {
+        } catch (Throwable $e) {   // ✅ FIX: Throwable
             error_log("Error en getUsuariosStats: " . $e->getMessage());
             return ['total' => 0, 'activos' => 0, 'inactivos' => 0];
         }
@@ -111,6 +142,7 @@ class DashboardController extends Controller {
         try {
             if (!$this->authHelper->isLoggedIn()) {
                 $this->jsonResponse(['error' => 'No autenticado'], 401);
+                return;
             }
             
             require_once __DIR__ . '/../model/OrdenTrabajo.php';
@@ -142,11 +174,11 @@ class DashboardController extends Controller {
                 'data' => $data
             ]);
             
-        } catch (Exception $e) {
+        } catch (Throwable $e) {   // ✅ FIX: Throwable
             error_log("Error en getStats: " . $e->getMessage());
             $this->jsonResponse([
                 'success' => false,
-                'error' => $e->getMessage()
+                'error' => 'Error al procesar la solicitud'
             ], 500);
         }
     }

@@ -1,11 +1,11 @@
 <?php
 // controller/SupervisionController.php
 // VERSIÓN COMPLETA CORREGIDA - TABLA 'supervisiones'
-// ✅ FIX: Reemplazado TecnicosModel (eliminado) por Tecnico
-// ✅ NUEVO: Método eliminar() agregado para completar el CRUD
-// ✅ FIX: catch (Throwable) en vez de Exception
-// ✅ FIX: redirect() con rutas relativas (el helper agrega /proyecto)
-// ✅ FIX: exit; después de cada redirect()
+// ✅ FIX CRÍTICO: index() normaliza estado con strtoupper() (los contadores antes daban 0)
+// ✅ FIX: transacciones en actualizar(), aprobar(), rechazar() con rollBack protegido
+// ✅ FIX: catch (Throwable) en vez de Exception (ya estaba correcto)
+// ✅ FIX: redirect() con rutas relativas
+// ✅ FIX: exit después de cada redirect() (Controller::redirect ya hace exit)
 
 require_once __DIR__ . '/../helpers/Controller.php';
 require_once __DIR__ . '/../config/database.php';
@@ -26,7 +26,6 @@ class SupervisionController extends Controller {
 
         if (!$this->authHelper->isLoggedIn()) {
             $this->redirect('/auth/login');
-            exit;
         }
 
         if (!$this->authHelper->isAdmin() &&
@@ -34,7 +33,6 @@ class SupervisionController extends Controller {
             !$this->authHelper->isConsultor()) {
             $_SESSION['error'] = 'No tienes permisos para acceder a esta sección';
             $this->redirect('/dashboard');
-            exit;
         }
 
         $this->db = Database::getInstance()->getConnection();
@@ -76,14 +74,15 @@ class SupervisionController extends Controller {
             $stmt->execute();
             $supervisiones = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+            // ✅ FIX CRÍTICO: normalizar estado con strtoupper()
+            // Los datos en BD están como 'APROBADA', 'PENDIENTE', 'RECHAZADA'
             $estadisticas = [
                 'total'      => count($supervisiones),
-                'pendientes' => count(array_filter($supervisiones, fn($s) => ($s['estado'] ?? '') === 'pendiente')),
-                'aprobadas'  => count(array_filter($supervisiones, fn($s) => ($s['estado'] ?? '') === 'aprobada')),
-                'rechazadas' => count(array_filter($supervisiones, fn($s) => ($s['estado'] ?? '') === 'rechazada')),
+                'pendientes' => count(array_filter($supervisiones, fn($s) => strtoupper($s['estado'] ?? '') === 'PENDIENTE')),
+                'aprobadas'  => count(array_filter($supervisiones, fn($s) => strtoupper($s['estado'] ?? '') === 'APROBADA')),
+                'rechazadas' => count(array_filter($supervisiones, fn($s) => strtoupper($s['estado'] ?? '') === 'RECHAZADA')),
             ];
 
-            // ✅ FIX: Usar Tecnico (el modelo actual) en lugar de TecnicosModel (eliminado)
             $tecnicos = $this->tecnicoModel->obtenerTodos(['estado' => 'activo']);
 
         } catch (Throwable $e) {
@@ -105,9 +104,8 @@ class SupervisionController extends Controller {
     public function ver($id) {
         $id = (int)$id;
         if ($id <= 0) {
-            $_SESSION['error'] = 'ID de supervisión inválido';
-            $this->redirect('/supervision');
-            exit;
+            $this->redirectWithError('/supervision', 'ID de supervisión inválido');
+            return;
         }
 
         try {
@@ -129,16 +127,14 @@ class SupervisionController extends Controller {
             $supervision = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$supervision) {
-                $_SESSION['error'] = 'Supervisión no encontrada';
-                $this->redirect('/supervision');
-                exit;
+                $this->redirectWithError('/supervision', 'Supervisión no encontrada');
+                return;
             }
 
         } catch (Throwable $e) {
             error_log("Error en SupervisionController::ver - " . $e->getMessage());
-            $_SESSION['error'] = 'Error al cargar la supervisión';
-            $this->redirect('/supervision');
-            exit;
+            $this->redirectWithError('/supervision', 'Error al cargar la supervisión');
+            return;
         }
 
         $this->view('supervision/ver', ['supervision' => $supervision]);
@@ -150,16 +146,14 @@ class SupervisionController extends Controller {
 
     public function editar($id) {
         if ($this->esConsultor()) {
-            $_SESSION['error'] = 'No tienes permisos para editar supervisiones';
-            $this->redirect('/supervision');
-            exit;
+            $this->redirectWithError('/supervision', 'No tienes permisos para editar supervisiones');
+            return;
         }
 
         $id = (int)$id;
         if ($id <= 0) {
-            $_SESSION['error'] = 'ID de supervisión inválido';
-            $this->redirect('/supervision');
-            exit;
+            $this->redirectWithError('/supervision', 'ID de supervisión inválido');
+            return;
         }
 
         try {
@@ -175,9 +169,8 @@ class SupervisionController extends Controller {
             $supervision = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$supervision) {
-                $_SESSION['error'] = 'Supervisión no encontrada';
-                $this->redirect('/supervision');
-                exit;
+                $this->redirectWithError('/supervision', 'Supervisión no encontrada');
+                return;
             }
 
             $ordenes       = $this->ordenModel->obtenerTodos();
@@ -185,9 +178,8 @@ class SupervisionController extends Controller {
 
         } catch (Throwable $e) {
             error_log("Error en SupervisionController::editar - " . $e->getMessage());
-            $_SESSION['error'] = 'Error al cargar la supervisión';
-            $this->redirect('/supervision');
-            exit;
+            $this->redirectWithError('/supervision', 'Error al cargar la supervisión');
+            return;
         }
 
         $this->view('supervision/editar', [
@@ -198,30 +190,27 @@ class SupervisionController extends Controller {
     }
 
     // ==========================================
-    // ACTUALIZAR
+    // ACTUALIZAR (con transacción)
     // ==========================================
 
     public function actualizar($id) {
         if ($this->esConsultor()) {
-            $_SESSION['error'] = 'No tienes permisos para actualizar supervisiones';
-            $this->redirect('/supervision');
-            exit;
+            $this->redirectWithError('/supervision', 'No tienes permisos para actualizar supervisiones');
+            return;
         }
 
         $this->requirePost();
 
         $token = $this->post('csrf_token', '');
         if (!SecurityHelper::verifyCSRFToken($token)) {
-            $_SESSION['error'] = 'Token de seguridad inválido';
-            $this->redirect('/supervision');
-            exit;
+            $this->redirectWithError('/supervision', 'Token de seguridad inválido');
+            return;
         }
 
         $id = (int)$id;
         if ($id <= 0) {
-            $_SESSION['error'] = 'ID de supervisión inválido';
-            $this->redirect('/supervision');
-            exit;
+            $this->redirectWithError('/supervision', 'ID de supervisión inválido');
+            return;
         }
 
         $calificacion  = (int)$this->post('calificacion', 0);
@@ -239,7 +228,16 @@ class SupervisionController extends Controller {
             $fecha_supervision = null;
         }
 
+        // ✅ Validar estado contra whitelist
+        $estados_validos = ['pendiente', 'aprobada', 'rechazada', 'PENDIENTE', 'APROBADA', 'RECHAZADA'];
+        if (!in_array($estado, $estados_validos, true)) {
+            $this->redirectWithError('/supervision/ver/' . $id, 'Estado inválido');
+            return;
+        }
+
         try {
+            $this->db->beginTransaction();
+
             $sql = "UPDATE supervisiones SET 
                         orden_id = ?,
                         supervisor_id = ?,
@@ -273,52 +271,55 @@ class SupervisionController extends Controller {
                 $stmtOrden->execute([$nuevoEstado, $orden_id]);
             }
 
+            $this->db->commit();
+
             if ($resultado) {
-                $_SESSION['mensaje'] = 'Supervisión actualizada correctamente';
-                $_SESSION['mensaje_tipo'] = 'success';
+                $this->redirectWithSuccess('/supervision/ver/' . $id, 'Supervisión actualizada correctamente');
+                return;
             } else {
-                $_SESSION['error'] = 'Error al actualizar la supervisión';
+                $this->redirectWithError('/supervision/ver/' . $id, 'Error al actualizar la supervisión');
+                return;
             }
 
         } catch (Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             error_log("Error en SupervisionController::actualizar - " . $e->getMessage());
-            $_SESSION['error'] = 'Error al actualizar la supervisión: ' . $e->getMessage();
+            $this->redirectWithError('/supervision/ver/' . $id, 'Error al actualizar la supervisión');
+            return;
         }
-
-        $this->redirect('/supervision/ver/' . $id);
-        exit;
     }
 
     // ==========================================
-    // APROBAR
+    // APROBAR (con transacción)
     // ==========================================
 
     public function aprobar($id) {
         if ($this->esConsultor()) {
-            $_SESSION['error'] = 'No tienes permisos para aprobar';
-            $this->redirect('/supervision');
-            exit;
+            $this->redirectWithError('/supervision', 'No tienes permisos para aprobar');
+            return;
         }
 
         $this->requirePost();
 
         $token = $this->post('csrf_token', '');
         if (!SecurityHelper::verifyCSRFToken($token)) {
-            $_SESSION['error'] = 'Token de seguridad inválido';
-            $this->redirect('/supervision');
-            exit;
+            $this->redirectWithError('/supervision', 'Token de seguridad inválido');
+            return;
         }
 
         $id = (int)$id;
         if ($id <= 0) {
-            $_SESSION['error'] = 'ID de supervisión inválido';
-            $this->redirect('/supervision');
-            exit;
+            $this->redirectWithError('/supervision', 'ID de supervisión inválido');
+            return;
         }
 
         $observaciones = trim($this->post('observaciones_aprobacion', 'Aprobada por supervisor'));
 
         try {
+            $this->db->beginTransaction();
+
             $sqlGet = "SELECT orden_id FROM supervisiones WHERE id = ?";
             $stmtGet = $this->db->prepare($sqlGet);
             $stmtGet->execute([$id]);
@@ -326,7 +327,7 @@ class SupervisionController extends Controller {
             $orden_id = $result['orden_id'] ?? null;
 
             $sql = "UPDATE supervisiones SET 
-                        estado = 'aprobada',
+                        estado = 'APROBADA',
                         observaciones = ?,
                         fecha_actualizacion = NOW()
                     WHERE id = ?";
@@ -342,52 +343,52 @@ class SupervisionController extends Controller {
                 $stmtOrden->execute([$orden_id]);
             }
 
+            $this->db->commit();
+
             if ($resultado) {
-                $_SESSION['mensaje'] = 'Orden aprobada correctamente';
-                $_SESSION['mensaje_tipo'] = 'success';
+                $this->redirectWithSuccess('/supervision', 'Orden aprobada correctamente');
             } else {
-                $_SESSION['error'] = 'Error al aprobar la orden';
+                $this->redirectWithError('/supervision', 'Error al aprobar la orden');
             }
 
         } catch (Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             error_log("Error en SupervisionController::aprobar - " . $e->getMessage());
-            $_SESSION['error'] = 'Error al aprobar la orden';
+            $this->redirectWithError('/supervision', 'Error al aprobar la orden');
         }
-
-        $this->redirect('/supervision');
-        exit;
     }
 
     // ==========================================
-    // RECHAZAR
+    // RECHAZAR (con transacción)
     // ==========================================
 
     public function rechazar($id) {
         if ($this->esConsultor()) {
-            $_SESSION['error'] = 'No tienes permisos para rechazar';
-            $this->redirect('/supervision');
-            exit;
+            $this->redirectWithError('/supervision', 'No tienes permisos para rechazar');
+            return;
         }
 
         $this->requirePost();
 
         $token = $this->post('csrf_token', '');
         if (!SecurityHelper::verifyCSRFToken($token)) {
-            $_SESSION['error'] = 'Token de seguridad inválido';
-            $this->redirect('/supervision');
-            exit;
+            $this->redirectWithError('/supervision', 'Token de seguridad inválido');
+            return;
         }
 
         $id = (int)$id;
         if ($id <= 0) {
-            $_SESSION['error'] = 'ID de supervisión inválido';
-            $this->redirect('/supervision');
-            exit;
+            $this->redirectWithError('/supervision', 'ID de supervisión inválido');
+            return;
         }
 
         $motivo = trim($this->post('motivo_rechazo', 'Rechazada por supervisor'));
 
         try {
+            $this->db->beginTransaction();
+
             $sqlGet = "SELECT orden_id FROM supervisiones WHERE id = ?";
             $stmtGet = $this->db->prepare($sqlGet);
             $stmtGet->execute([$id]);
@@ -395,7 +396,7 @@ class SupervisionController extends Controller {
             $orden_id = $result['orden_id'] ?? null;
 
             $sql = "UPDATE supervisiones SET 
-                        estado = 'rechazada',
+                        estado = 'RECHAZADA',
                         observaciones = ?,
                         fecha_actualizacion = NOW()
                     WHERE id = ?";
@@ -411,20 +412,21 @@ class SupervisionController extends Controller {
                 $stmtOrden->execute([$orden_id]);
             }
 
+            $this->db->commit();
+
             if ($resultado) {
-                $_SESSION['mensaje'] = 'Orden rechazada correctamente';
-                $_SESSION['mensaje_tipo'] = 'success';
+                $this->redirectWithSuccess('/supervision', 'Orden rechazada correctamente');
             } else {
-                $_SESSION['error'] = 'Error al rechazar la orden';
+                $this->redirectWithError('/supervision', 'Error al rechazar la orden');
             }
 
         } catch (Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             error_log("Error en SupervisionController::rechazar - " . $e->getMessage());
-            $_SESSION['error'] = 'Error al rechazar la orden';
+            $this->redirectWithError('/supervision', 'Error al rechazar la orden');
         }
-
-        $this->redirect('/supervision');
-        exit;
     }
 
     // ==========================================
@@ -433,46 +435,39 @@ class SupervisionController extends Controller {
 
     public function eliminar($id) {
         if (!$this->authHelper->isAdmin()) {
-            $_SESSION['error'] = 'Solo administradores pueden eliminar supervisiones';
-            $this->redirect('/supervision');
-            exit;
+            $this->redirectWithError('/supervision', 'Solo administradores pueden eliminar supervisiones');
+            return;
         }
 
         $this->requirePost();
 
         $token = $this->post('csrf_token', '');
         if (!SecurityHelper::verifyCSRFToken($token)) {
-            $_SESSION['error'] = 'Token de seguridad inválido';
-            $this->redirect('/supervision');
-            exit;
+            $this->redirectWithError('/supervision', 'Token de seguridad inválido');
+            return;
         }
 
         $id = (int)$id;
         if ($id <= 0) {
-            $_SESSION['error'] = 'ID de supervisión inválido';
-            $this->redirect('/supervision');
-            exit;
+            $this->redirectWithError('/supervision', 'ID de supervisión inválido');
+            return;
         }
 
         try {
-            // Verificar que existe
             $sqlCheck = "SELECT id FROM supervisiones WHERE id = ?";
             $stmtCheck = $this->db->prepare($sqlCheck);
             $stmtCheck->execute([$id]);
 
             if (!$stmtCheck->fetch()) {
-                $_SESSION['error'] = 'Supervisión no encontrada';
-                $this->redirect('/supervision');
-                exit;
+                $this->redirectWithError('/supervision', 'Supervisión no encontrada');
+                return;
             }
 
-            // Eliminar
             $sql = "DELETE FROM supervisiones WHERE id = ?";
             $stmt = $this->db->prepare($sql);
             $resultado = $stmt->execute([$id]);
 
             if ($resultado) {
-                // Auditoría
                 try {
                     require_once __DIR__ . '/../model/AuditoriaModel.php';
                     $auditoria = new AuditoriaModel();
@@ -485,36 +480,29 @@ class SupervisionController extends Controller {
                         $id
                     );
                 } catch (Throwable $e) {
-                    error_log("Error auditoría: " . $e->getMessage());
+                    error_log("Error auditoría eliminar supervision: " . $e->getMessage());
                 }
 
-                $_SESSION['mensaje'] = 'Supervisión eliminada correctamente';
-                $_SESSION['mensaje_tipo'] = 'success';
+                $this->redirectWithSuccess('/supervision', 'Supervisión eliminada correctamente');
             } else {
-                $_SESSION['error'] = 'Error al eliminar la supervisión';
+                $this->redirectWithError('/supervision', 'Error al eliminar la supervisión');
             }
 
         } catch (Throwable $e) {
             error_log("Error en SupervisionController::eliminar - " . $e->getMessage());
-            $_SESSION['error'] = 'Error al eliminar la supervisión: ' . $e->getMessage();
+            $this->redirectWithError('/supervision', 'Error al eliminar la supervisión');
         }
-
-        $this->redirect('/supervision');
-        exit;
     }
 
     // ==========================================
     // APIs JSON
     // ==========================================
 
-    /**
-     * Obtener datos de una orden
-     * URL: /supervision/orden/{id}
-     */
     public function orden($id) {
         $id = (int)$id;
         if ($id <= 0) {
             $this->jsonResponse(['error' => 'ID inválido'], 400);
+            return;
         }
 
         try {
@@ -531,14 +519,10 @@ class SupervisionController extends Controller {
 
         } catch (Throwable $e) {
             error_log("Error en SupervisionController::orden - " . $e->getMessage());
-            $this->jsonResponse(['error' => $e->getMessage()], 500);
+            $this->jsonResponse(['error' => 'Error al procesar la solicitud'], 500);
         }
     }
 
-    /**
-     * Listar todas las órdenes
-     * URL: /supervision/ordenes
-     */
     public function ordenes() {
         try {
             $ordenes = $this->ordenModel->obtenerTodos();
@@ -549,10 +533,6 @@ class SupervisionController extends Controller {
         }
     }
 
-    /**
-     * Listar supervisores activos
-     * URL: /supervision/supervisores
-     */
     public function supervisores() {
         try {
             $supervisores = $this->supervisorModel->obtenerTodos(['estado' => 'activo']);
@@ -574,8 +554,8 @@ class SupervisionController extends Controller {
             $sql = "SELECT 
                         DATE_FORMAT(s.fecha_creacion, '%Y-%m') as mes,
                         COUNT(*) as total,
-                        SUM(CASE WHEN s.estado = 'aprobada'  THEN 1 ELSE 0 END) as aprobadas,
-                        SUM(CASE WHEN s.estado = 'rechazada' THEN 1 ELSE 0 END) as rechazadas,
+                        SUM(CASE WHEN UPPER(s.estado) = 'APROBADA'  THEN 1 ELSE 0 END) as aprobadas,
+                        SUM(CASE WHEN UPPER(s.estado) = 'RECHAZADA' THEN 1 ELSE 0 END) as rechazadas,
                         AVG(s.calificacion) as promedio_calificacion
                     FROM supervisiones s
                     GROUP BY DATE_FORMAT(s.fecha_creacion, '%Y-%m')

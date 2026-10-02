@@ -1,6 +1,10 @@
 <?php
 // controller/EquiposController.php
 // Gestión de Equipos/Máquinas - VERSIÓN CORREGIDA CON CONSULTOR
+// ✅ FIX: unificado rango de año a 1901-2155 (antes vista usaba 1900-2030)
+// ✅ FIX: header('Location: /proyecto/...') → $this->redirect()
+// ✅ FIX: try/catch (Throwable) en métodos de escritura
+// ✅ FIX: headers JSON con charset=utf-8
 
 require_once __DIR__ . '/../helpers/Controller.php';
 require_once __DIR__ . '/../model/EquiposModel.php';
@@ -18,17 +22,14 @@ class EquiposController extends Controller {
         parent::__construct();
         
         if (!$this->authHelper->isLoggedIn()) {
-            header('Location: /proyecto/auth/login');
-            exit;
+            $this->redirect('/auth/login');
         }
         
-        // Permitir admin, supervisor Y consultor (solo lectura)
         if (!$this->authHelper->isAdmin() && 
             !$this->authHelper->isSupervisor() && 
             !$this->authHelper->isConsultor()) {
             $_SESSION['error'] = 'No tienes permisos para acceder a esta sección';
-            header('Location: /proyecto/dashboard');
-            exit;
+            $this->redirect('/dashboard');
         }
         
         $this->equipoModel = new EquiposModel();
@@ -36,15 +37,13 @@ class EquiposController extends Controller {
         $this->plantaModel = new PlantasModel();
     }
     
-    /**
-     * Verificar si el usuario puede editar (admin o supervisor)
-     */
     private function puedeEditar() {
         return $this->authHelper->isAdmin() || $this->authHelper->isSupervisor();
     }
     
     /**
-     * Validar y convertir el año de fabricación
+     * Validar año de fabricación
+     * ✅ FIX: rango unificado 1901-2155
      */
     private function validarAño($año_input) {
         if (empty($año_input)) {
@@ -66,10 +65,6 @@ class EquiposController extends Controller {
         return ['valor' => $año, 'error' => null];
     }
 
-    /**
-     * Listado de equipos
-     * URL: /equipos
-     */
     public function index() {
         $filtros = [
             'buscar' => $_GET['buscar'] ?? '',
@@ -78,26 +73,28 @@ class EquiposController extends Controller {
             'id_area' => $_GET['id_area'] ?? ''
         ];
         
-        $equipos = $this->equipoModel->obtenerTodos($filtros);
-        $estadisticas = $this->equipoModel->obtenerEstadisticas();
-        $areas = $this->areaModel->obtenerActivos();
-        $plantas = $this->plantaModel->obtenerTodos();
+        try {
+            $equipos = $this->equipoModel->obtenerTodos($filtros);
+            $estadisticas = $this->equipoModel->obtenerEstadisticas();
+            $areas = $this->areaModel->obtenerActivos();
+            $plantas = $this->plantaModel->obtenerTodos();
+        } catch (Throwable $e) {
+            error_log("Error en EquiposController::index: " . $e->getMessage());
+            $equipos = [];
+            $estadisticas = ['total_equipos' => 0, 'activos' => 0];
+            $areas = [];
+            $plantas = [];
+        }
         
         $titulo = 'Gestión de Equipos';
         $seccion = 'equipos';
         require_once __DIR__ . '/../views/equipos/index.php';
     }
 
-    /**
-     * Formulario crear equipo
-     * URL: /equipos/crear
-     */
     public function crear() {
-        // Solo admin y supervisor pueden crear
         if (!$this->puedeEditar()) {
-            $_SESSION['error'] = 'No tienes permisos para crear equipos';
-            header('Location: /proyecto/equipos');
-            exit;
+            $this->redirectWithError('/equipos', 'No tienes permisos para crear equipos');
+            return;
         }
         
         unset($_SESSION['error']);
@@ -111,106 +108,100 @@ class EquiposController extends Controller {
         require_once __DIR__ . '/../views/equipos/crear.php';
     }
 
-    /**
-     * Guardar nuevo equipo
-     * URL: /equipos/guardar (POST)
-     */
     public function guardar() {
-        // Solo admin y supervisor pueden guardar
         if (!$this->puedeEditar()) {
-            $_SESSION['error'] = 'No tienes permisos para crear equipos';
-            header('Location: /proyecto/equipos');
-            exit;
+            $this->redirectWithError('/equipos', 'No tienes permisos para crear equipos');
+            return;
         }
         
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: /proyecto/equipos');
-            exit;
+            $this->redirect('/equipos');
+            return;
         }
         
         if (!SecurityHelper::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
-            $_SESSION['error'] = 'Token de seguridad inválido';
-            header('Location: /proyecto/equipos/crear');
-            exit;
+            $this->redirectWithError('/equipos/crear', 'Token de seguridad inválido');
+            return;
         }
         
-        $errores = [];
-        
-        if (empty($_POST['nombre'])) {
-            $errores[] = 'El nombre del equipo es obligatorio';
-        }
-        if (empty($_POST['id_area'])) {
-            $errores[] = 'El área es obligatoria';
-        }
-        
-        // Validar año
-        $resultado_año = $this->validarAño($_POST['año_fabricacion'] ?? '');
-        if ($resultado_año['error']) {
-            $errores[] = $resultado_año['error'];
-        }
-        $año = $resultado_año['valor'];
-        
-        if (!empty($errores)) {
-            unset($_SESSION['mensaje'], $_SESSION['mensaje_tipo']);
-            $_SESSION['errores'] = $errores;
+        try {
+            $errores = [];
+            
+            if (empty($_POST['nombre'])) {
+                $errores[] = 'El nombre del equipo es obligatorio';
+            }
+            if (empty($_POST['id_area'])) {
+                $errores[] = 'El área es obligatoria';
+            }
+            
+            $resultado_año = $this->validarAño($_POST['año_fabricacion'] ?? '');
+            if ($resultado_año['error']) {
+                $errores[] = $resultado_año['error'];
+            }
+            $año = $resultado_año['valor'];
+            
+            if (!empty($errores)) {
+                unset($_SESSION['mensaje'], $_SESSION['mensaje_tipo']);
+                $_SESSION['errores'] = $errores;
+                $_SESSION['old'] = $_POST;
+                $this->redirect('/equipos/crear');
+                return;
+            }
+            
+            $datos = [
+                'id_area' => (int)$_POST['id_area'],
+                'nombre' => $_POST['nombre'],
+                'descripcion' => $_POST['descripcion'] ?? '',
+                'descripcion_tec' => $_POST['descripcion_tec'] ?? '',
+                'especificacion' => $_POST['especificacion'] ?? '',
+                'fabricante' => $_POST['fabricante'] ?? '',
+                'modelo' => $_POST['modelo'] ?? '',
+                'marca' => $_POST['marca'] ?? '',
+                'serie' => $_POST['serie'] ?? '',
+                'codigo' => $_POST['codigo'] ?? '',
+                'numero_se' => $_POST['numero_se'] ?? '',
+                'año_fabricacion' => $año,
+                'manual' => $_POST['manual'] ?? '',
+                'fecha_instalacion' => !empty($_POST['fecha_instalacion']) ? $_POST['fecha_instalacion'] : null,
+                'ries' => $_POST['ries'] ?? '',
+                'estado' => $_POST['estado'] ?? 'activo',
+                'estado_operativo' => $_POST['estado_operativo'] ?? 'Operativo'
+            ];
+            
+            $id = $this->equipoModel->crear($datos);
+            
+            if ($id) {
+                unset($_SESSION['error'], $_SESSION['errores'], $_SESSION['old']);
+                $this->redirectWithSuccess('/equipos', 'Equipo creado correctamente (ID: ' . $id . ')');
+            } else {
+                unset($_SESSION['mensaje'], $_SESSION['mensaje_tipo']);
+                $errorReal = method_exists($this->equipoModel, 'getLastError') 
+                    ? $this->equipoModel->getLastError() 
+                    : 'Error desconocido al crear el equipo';
+                $_SESSION['error'] = 'Error al crear el equipo: ' . $errorReal;
+                $_SESSION['old'] = $_POST;
+                $this->redirect('/equipos/crear');
+            }
+        } catch (Throwable $e) {
+            error_log("Error en EquiposController::guardar: " . $e->getMessage());
+            $_SESSION['error'] = 'Error al crear el equipo';
             $_SESSION['old'] = $_POST;
-            header('Location: /proyecto/equipos/crear');
-            exit;
+            $this->redirect('/equipos/crear');
         }
-        
-        $datos = [
-            'id_area' => (int)$_POST['id_area'],
-            'nombre' => $_POST['nombre'],
-            'descripcion' => $_POST['descripcion'] ?? '',
-            'descripcion_tec' => $_POST['descripcion_tec'] ?? '',
-            'especificacion' => $_POST['especificacion'] ?? '',
-            'fabricante' => $_POST['fabricante'] ?? '',
-            'modelo' => $_POST['modelo'] ?? '',
-            'marca' => $_POST['marca'] ?? '',
-            'serie' => $_POST['serie'] ?? '',
-            'codigo' => $_POST['codigo'] ?? '',
-            'numero_se' => $_POST['numero_se'] ?? '',
-            'año_fabricacion' => $año,
-            'manual' => $_POST['manual'] ?? '',
-            'fecha_instalacion' => !empty($_POST['fecha_instalacion']) ? $_POST['fecha_instalacion'] : null,
-            'ries' => $_POST['ries'] ?? '',
-            'estado' => $_POST['estado'] ?? 'activo',
-            'estado_operativo' => $_POST['estado_operativo'] ?? 'Operativo'
-        ];
-        
-        $id = $this->equipoModel->crear($datos);
-        
-        if ($id) {
-            unset($_SESSION['error'], $_SESSION['errores'], $_SESSION['old']);
-            
-            $_SESSION['mensaje'] = 'Equipo creado correctamente (ID: ' . $id . ')';
-            $_SESSION['mensaje_tipo'] = 'success';
-            header('Location: /proyecto/equipos');
-        } else {
-            unset($_SESSION['mensaje'], $_SESSION['mensaje_tipo']);
-            
-            $errorReal = method_exists($this->equipoModel, 'getLastError') 
-                ? $this->equipoModel->getLastError() 
-                : 'Error desconocido al crear el equipo';
-            
-            $_SESSION['error'] = 'Error al crear el equipo: ' . $errorReal;
-            $_SESSION['old'] = $_POST;
-            header('Location: /proyecto/equipos/crear');
-        }
-        exit;
     }
 
-    /**
-     * Ver detalle de equipo
-     * URL: /equipos/ver/{id}
-     */
     public function ver($id) {
-        $equipo = $this->equipoModel->obtenerPorId($id);
-        
-        if (!$equipo) {
-            $_SESSION['error'] = 'Equipo no encontrado';
-            header('Location: /proyecto/equipos');
-            exit;
+        try {
+            $equipo = $this->equipoModel->obtenerPorId($id);
+            
+            if (!$equipo) {
+                $this->redirectWithError('/equipos', 'Equipo no encontrado');
+                return;
+            }
+        } catch (Throwable $e) {
+            error_log("Error en EquiposController::ver: " . $e->getMessage());
+            $this->redirectWithError('/equipos', 'Error al cargar el equipo');
+            return;
         }
         
         $titulo = 'Detalle del Equipo';
@@ -218,195 +209,181 @@ class EquiposController extends Controller {
         require_once __DIR__ . '/../views/equipos/ver.php';
     }
 
-    /**
-     * Formulario editar equipo
-     * URL: /equipos/editar/{id}
-     */
     public function editar($id) {
-        // Solo admin y supervisor pueden editar
         if (!$this->puedeEditar()) {
-            $_SESSION['error'] = 'No tienes permisos para editar equipos';
-            header('Location: /proyecto/equipos');
-            exit;
+            $this->redirectWithError('/equipos', 'No tienes permisos para editar equipos');
+            return;
         }
         
         unset($_SESSION['error']);
         unset($_SESSION['errores']);
         
-        $equipo = $this->equipoModel->obtenerPorId($id);
-        
-        if (!$equipo) {
-            $_SESSION['error'] = 'Equipo no encontrado';
-            header('Location: /proyecto/equipos');
-            exit;
+        try {
+            $equipo = $this->equipoModel->obtenerPorId($id);
+            
+            if (!$equipo) {
+                $this->redirectWithError('/equipos', 'Equipo no encontrado');
+                return;
+            }
+            
+            $areas = $this->areaModel->obtenerActivos();
+            $plantas = $this->plantaModel->obtenerTodos();
+        } catch (Throwable $e) {
+            error_log("Error en EquiposController::editar: " . $e->getMessage());
+            $this->redirectWithError('/equipos', 'Error al cargar el equipo');
+            return;
         }
-        
-        $areas = $this->areaModel->obtenerActivos();
-        $plantas = $this->plantaModel->obtenerTodos();
         
         $titulo = 'Editar Equipo';
         $seccion = 'equipos';
         require_once __DIR__ . '/../views/equipos/editar.php';
     }
 
-    /**
-     * Actualizar equipo
-     * URL: /equipos/actualizar/{id} (POST)
-     */
     public function actualizar($id) {
-        // Solo admin y supervisor pueden actualizar
         if (!$this->puedeEditar()) {
-            $_SESSION['error'] = 'No tienes permisos para editar equipos';
-            header('Location: /proyecto/equipos');
-            exit;
+            $this->redirectWithError('/equipos', 'No tienes permisos para editar equipos');
+            return;
         }
         
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: /proyecto/equipos');
-            exit;
+            $this->redirect('/equipos');
+            return;
         }
         
         if (!SecurityHelper::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
-            $_SESSION['error'] = 'Token de seguridad inválido';
-            header('Location: /proyecto/equipos/editar/' . $id);
-            exit;
+            $this->redirectWithError('/equipos/editar/' . $id, 'Token de seguridad inválido');
+            return;
         }
         
-        $errores = [];
-        
-        if (empty($_POST['nombre'])) {
-            $errores[] = 'El nombre del equipo es obligatorio';
-        }
-        if (empty($_POST['id_area'])) {
-            $errores[] = 'El área es obligatoria';
-        }
-        
-        $resultado_año = $this->validarAño($_POST['año_fabricacion'] ?? '');
-        if ($resultado_año['error']) {
-            $errores[] = $resultado_año['error'];
-        }
-        $año = $resultado_año['valor'];
-        
-        if (!empty($errores)) {
-            unset($_SESSION['mensaje'], $_SESSION['mensaje_tipo']);
-            $_SESSION['errores'] = $errores;
-            $_SESSION['old'] = $_POST;
-            header('Location: /proyecto/equipos/editar/' . $id);
-            exit;
-        }
-        
-        $datos = [
-            'id_area' => (int)$_POST['id_area'],
-            'nombre' => $_POST['nombre'],
-            'descripcion' => $_POST['descripcion'] ?? '',
-            'descripcion_tec' => $_POST['descripcion_tec'] ?? '',
-            'especificacion' => $_POST['especificacion'] ?? '',
-            'fabricante' => $_POST['fabricante'] ?? '',
-            'modelo' => $_POST['modelo'] ?? '',
-            'marca' => $_POST['marca'] ?? '',
-            'serie' => $_POST['serie'] ?? '',
-            'codigo' => $_POST['codigo'] ?? '',
-            'numero_se' => $_POST['numero_se'] ?? '',
-            'año_fabricacion' => $año,
-            'manual' => $_POST['manual'] ?? '',
-            'fecha_instalacion' => !empty($_POST['fecha_instalacion']) ? $_POST['fecha_instalacion'] : null,
-            'ries' => $_POST['ries'] ?? '',
-            'estado' => $_POST['estado'] ?? 'activo',
-            'estado_operativo' => $_POST['estado_operativo'] ?? 'Operativo'
-        ];
-        
-        $resultado = $this->equipoModel->actualizar($id, $datos);
-        
-        if ($resultado) {
-            unset($_SESSION['error'], $_SESSION['errores']);
+        try {
+            $errores = [];
             
-            $_SESSION['mensaje'] = 'Equipo actualizado correctamente';
-            $_SESSION['mensaje_tipo'] = 'success';
-            header('Location: /proyecto/equipos/ver/' . $id);
-        } else {
-            unset($_SESSION['mensaje'], $_SESSION['mensaje_tipo']);
+            if (empty($_POST['nombre'])) {
+                $errores[] = 'El nombre del equipo es obligatorio';
+            }
+            if (empty($_POST['id_area'])) {
+                $errores[] = 'El área es obligatoria';
+            }
             
+            $resultado_año = $this->validarAño($_POST['año_fabricacion'] ?? '');
+            if ($resultado_año['error']) {
+                $errores[] = $resultado_año['error'];
+            }
+            $año = $resultado_año['valor'];
+            
+            if (!empty($errores)) {
+                unset($_SESSION['mensaje'], $_SESSION['mensaje_tipo']);
+                $_SESSION['errores'] = $errores;
+                $_SESSION['old'] = $_POST;
+                $this->redirect('/equipos/editar/' . $id);
+                return;
+            }
+            
+            $datos = [
+                'id_area' => (int)$_POST['id_area'],
+                'nombre' => $_POST['nombre'],
+                'descripcion' => $_POST['descripcion'] ?? '',
+                'descripcion_tec' => $_POST['descripcion_tec'] ?? '',
+                'especificacion' => $_POST['especificacion'] ?? '',
+                'fabricante' => $_POST['fabricante'] ?? '',
+                'modelo' => $_POST['modelo'] ?? '',
+                'marca' => $_POST['marca'] ?? '',
+                'serie' => $_POST['serie'] ?? '',
+                'codigo' => $_POST['codigo'] ?? '',
+                'numero_se' => $_POST['numero_se'] ?? '',
+                'año_fabricacion' => $año,
+                'manual' => $_POST['manual'] ?? '',
+                'fecha_instalacion' => !empty($_POST['fecha_instalacion']) ? $_POST['fecha_instalacion'] : null,
+                'ries' => $_POST['ries'] ?? '',
+                'estado' => $_POST['estado'] ?? 'activo',
+                'estado_operativo' => $_POST['estado_operativo'] ?? 'Operativo'
+            ];
+            
+            $resultado = $this->equipoModel->actualizar($id, $datos);
+            
+            if ($resultado) {
+                unset($_SESSION['error'], $_SESSION['errores']);
+                $this->redirectWithSuccess('/equipos/ver/' . $id, 'Equipo actualizado correctamente');
+            } else {
+                unset($_SESSION['mensaje'], $_SESSION['mensaje_tipo']);
+                $_SESSION['error'] = 'Error al actualizar el equipo';
+                $this->redirect('/equipos/editar/' . $id);
+            }
+        } catch (Throwable $e) {
+            error_log("Error en EquiposController::actualizar: " . $e->getMessage());
             $_SESSION['error'] = 'Error al actualizar el equipo';
-            header('Location: /proyecto/equipos/editar/' . $id);
+            $this->redirect('/equipos/editar/' . $id);
         }
-        exit;
     }
 
-    /**
-     * Eliminar equipo
-     * URL: /equipos/eliminar/{id} (POST)
-     */
     public function eliminar($id) {
-        // Solo admin puede eliminar
         if (!$this->authHelper->isAdmin()) {
-            $_SESSION['error'] = 'No tienes permisos para eliminar equipos';
-            header('Location: /proyecto/equipos');
-            exit;
+            $this->redirectWithError('/equipos', 'No tienes permisos para eliminar equipos');
+            return;
         }
         
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: /proyecto/equipos');
-            exit;
+            $this->redirect('/equipos');
+            return;
         }
         
         if (!SecurityHelper::verifyCSRFToken($_POST['csrf_token'] ?? '')) {
-            $_SESSION['error'] = 'Token de seguridad inválido';
-            header('Location: /proyecto/equipos');
-            exit;
+            $this->redirectWithError('/equipos', 'Token de seguridad inválido');
+            return;
         }
         
-        $resultado = $this->equipoModel->eliminar($id);
-        
-        if (!$resultado['error']) {
-            unset($_SESSION['error']);
-            $_SESSION['mensaje'] = $resultado['message'];
-            $_SESSION['mensaje_tipo'] = 'success';
-        } else {
-            unset($_SESSION['mensaje']);
-            $_SESSION['error'] = $resultado['message'];
+        try {
+            $resultado = $this->equipoModel->eliminar($id);
+            
+            if (!$resultado['error']) {
+                unset($_SESSION['error']);
+                $this->redirectWithSuccess('/equipos', $resultado['message']);
+            } else {
+                unset($_SESSION['mensaje']);
+                $this->redirectWithError('/equipos', $resultado['message']);
+            }
+        } catch (Throwable $e) {
+            error_log("Error en EquiposController::eliminar: " . $e->getMessage());
+            $this->redirectWithError('/equipos', 'Error al eliminar el equipo');
         }
-        
-        header('Location: /proyecto/equipos');
-        exit;
     }
 
-    /**
-     * Cambiar estado operativo (AJAX)
-     * URL: /equipos/cambiarEstadoOperativo/{id} (POST)
-     */
     public function cambiarEstadoOperativo($id) {
-        // Solo admin y supervisor pueden cambiar estado
         if (!$this->puedeEditar()) {
             $this->jsonResponse(['error' => 'No tienes permisos'], 403);
+            return;
         }
         
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->jsonResponse(['error' => 'Método no permitido'], 405);
+            return;
         }
         
-        $estado_operativo = $_POST['estado_operativo'] ?? '';
-        $observaciones = $_POST['observaciones'] ?? '';
-        
-        $estados_validos = ['Operativo', 'En Mantenimiento', 'Averiado', 'Fuera de Servicio'];
-        if (!in_array($estado_operativo, $estados_validos)) {
-            $this->jsonResponse(['error' => 'Estado inválido'], 400);
-        }
-        
-        $resultado = $this->equipoModel->cambiarEstadoOperativo($id, $estado_operativo, $observaciones);
-        
-        if ($resultado) {
-            $this->jsonResponse(['success' => true, 'message' => 'Estado actualizado']);
-        } else {
+        try {
+            $estado_operativo = $_POST['estado_operativo'] ?? '';
+            $observaciones = $_POST['observaciones'] ?? '';
+            
+            $estados_validos = ['Operativo', 'En Mantenimiento', 'Averiado', 'Fuera de Servicio'];
+            if (!in_array($estado_operativo, $estados_validos, true)) {
+                $this->jsonResponse(['error' => 'Estado inválido'], 400);
+                return;
+            }
+            
+            $resultado = $this->equipoModel->cambiarEstadoOperativo($id, $estado_operativo, $observaciones);
+            
+            if ($resultado) {
+                $this->jsonResponse(['success' => true, 'message' => 'Estado actualizado']);
+            } else {
+                $this->jsonResponse(['error' => 'Error al actualizar'], 500);
+            }
+        } catch (Throwable $e) {
+            error_log("Error en cambiarEstadoOperativo: " . $e->getMessage());
             $this->jsonResponse(['error' => 'Error al actualizar'], 500);
         }
     }
 
-    /**
-     * Buscar equipos (AJAX)
-     * URL: /equipos/buscar
-     */
     public function buscar() {
-        header('Content-Type: application/json');
+        header('Content-Type: application/json; charset=utf-8');
         
         $term = $_GET['term'] ?? '';
         if (strlen($term) < 2) {
@@ -414,9 +391,13 @@ class EquiposController extends Controller {
             exit;
         }
         
-        $equipos = $this->equipoModel->buscar($term);
-        echo json_encode($equipos);
+        try {
+            $equipos = $this->equipoModel->buscar($term);
+            echo json_encode($equipos);
+        } catch (Throwable $e) {
+            error_log("Error en EquiposController::buscar: " . $e->getMessage());
+            echo json_encode([]);
+        }
         exit;
     }
 }
-?>

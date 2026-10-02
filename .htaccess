@@ -1,8 +1,9 @@
 # .htaccess - Configuración de Apache para el proyecto
 # Ubicación: C:\xampp\htdocs\proyecto\.htaccess
-# VERSIÓN CORREGIDA
+# ✅ FIX: reorganizado y consistente con index.php
 # ✅ FIX: eliminada regla duplicada de /checklists/ver/{id}
-#         (queda solo la que apunta a checklistEjecucion)
+# ✅ FIX: agregado bloqueo de composer.json, package.json, README, etc.
+# ✅ FIX: agregado bloqueo de cron/
 
 RewriteEngine On
 RewriteBase /proyecto/
@@ -15,14 +16,21 @@ Options -Indexes
 # ==========================================
 # BLOQUEAR ARCHIVOS SENSIBLES
 # ==========================================
-<FilesMatch "\.(env|log|sql|md|lock|bak|old|swp|ini|conf|yml|yaml|dist|example)$">
+<FilesMatch "\.(env|log|sql|md|lock|bak|old|swp|ini|conf|yml|yaml|dist|example|json)$">
+    Require all denied
+</FilesMatch>
+
+# ==========================================
+# BLOQUEAR ARCHIVOS ESPECÍFICOS
+# ==========================================
+<FilesMatch "^(composer\.json|composer\.lock|package\.json|package-lock\.json|README\.md|CHANGELOG\.md|LICENSE|\.env.*)$">
     Require all denied
 </FilesMatch>
 
 # ==========================================
 # BLOQUEAR ACCESO A CARPETAS INTERNAS
 # ==========================================
-RewriteRule ^(config|model|controller|helpers|logs|\.git|\.env|vendor|node_modules)(/|$) - [F,L]
+RewriteRule ^(config|model|controller|helpers|logs|cron|\.git|\.env|vendor|node_modules)(/|$) - [F,L]
 
 # ==========================================
 # BLOQUEAR ACCESO A .htaccess y .git
@@ -58,6 +66,13 @@ RewriteRule ^auth/logout$ index.php?controller=auth&action=logout [QSA,L]
 # DASHBOARD
 # ==========================================
 RewriteRule ^dashboard$ index.php?controller=dashboard&action=index [QSA,L]
+RewriteRule ^admin/dashboard$ index.php?controller=admin&action=dashboard [QSA,L]
+
+# ==========================================
+# API
+# ==========================================
+RewriteRule ^api/ordenes/dashboard$ index.php?controller=orden&action=apiDashboard [QSA,L]
+RewriteRule ^api/dashboard/stats$ index.php?controller=dashboard&action=getStats [QSA,L]
 
 # ==========================================
 # ÓRDENES
@@ -78,12 +93,6 @@ RewriteRule ^ordenes/devolver$ index.php?controller=orden&action=devolver [QSA,L
 RewriteRule ^ordenes/aprobarDevolucion$ index.php?controller=orden&action=aprobarDevolucion [QSA,L]
 RewriteRule ^ordenes/devoluciones$ index.php?controller=orden&action=devoluciones [QSA,L]
 RewriteRule ^ordenes/verificar-firma/([0-9]+)$ index.php?controller=orden&action=verificarFirma&id=$1 [QSA,L]
-
-# ==========================================
-# API
-# ==========================================
-RewriteRule ^api/ordenes/dashboard$ index.php?controller=orden&action=apiDashboard [QSA,L]
-RewriteRule ^api/dashboard/stats$ index.php?controller=dashboard&action=getStats [QSA,L]
 
 # ==========================================
 # TÉCNICOS
@@ -206,13 +215,9 @@ RewriteRule ^monitoreo/api/registros-dia$ index.php?controller=monitoreo&action=
 # ==========================================
 # CHECKLISTS
 # ==========================================
+# NOTA: Solo rutas que ChecklistController y ChecklistEjecucionController SOPORTAN.
+# NO incluir rutas a métodos inexistentes (crear, guardar, editar, actualizar, eliminar).
 RewriteRule ^checklists$ index.php?controller=checklist&action=index [QSA,L]
-RewriteRule ^checklists/crear$ index.php?controller=checklist&action=crear [QSA,L]
-RewriteRule ^checklists/guardar$ index.php?controller=checklist&action=guardar [QSA,L]
-RewriteRule ^checklists/editar/([0-9]+)$ index.php?controller=checklist&action=editar&id=$1 [QSA,L]
-RewriteRule ^checklists/actualizar/([0-9]+)$ index.php?controller=checklist&action=actualizar&id=$1 [QSA,L]
-RewriteRule ^checklists/eliminar/([0-9]+)$ index.php?controller=checklist&action=eliminar&id=$1 [QSA,L]
-
 RewriteRule ^checklists/mis-checklists$ index.php?controller=checklistEjecucion&action=misChecklists [QSA,L]
 RewriteRule ^checklists/iniciar/([0-9]+)$ index.php?controller=checklistEjecucion&action=iniciar&id=$1 [QSA,L]
 RewriteRule ^checklists/llenar/([0-9]+)$ index.php?controller=checklistEjecucion&action=llenar&id=$1 [QSA,L]
@@ -224,7 +229,6 @@ RewriteRule ^checklists/rechazar$ index.php?controller=checklistEjecucion&action
 RewriteRule ^checklists/historial$ index.php?controller=checklistEjecucion&action=historial [QSA,L]
 RewriteRule ^checklists/reporte/([0-9]+)$ index.php?controller=checklistEjecucion&action=reporte&id=$1 [QSA,L]
 RewriteRule ^checklists/exportar$ index.php?controller=checklistEjecucion&action=exportar [QSA,L]
-# ✅ FIX: regla única para /checklists/ver/{id} → checklistEjecucion
 RewriteRule ^checklists/ver/([0-9]+)$ index.php?controller=checklistEjecucion&action=ver&id=$1 [QSA,L]
 
 # ==========================================

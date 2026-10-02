@@ -1,7 +1,11 @@
 <?php
 // controller/ReporteFinancieroController.php
 // VERSIÓN COMPLETA CORREGIDA - CON PERMISOS PARA CONSULTOR
-// ✅ FIX CRÍTICO: Se agregaron JOINs con plantas y areas (columnas nombre_planta y nombre_area NO existen en ordenes_mantenimiento)
+// ✅ FIX CRÍTICO: JOINs con plantas y areas (columnas nombre_planta y nombre_area NO existen en ordenes_mantenimiento)
+// ✅ FIX: catch (Exception/PDOException) → catch (Throwable) en TODOS los métodos (6 ocurrencias)
+// ✅ FIX: NO exponer $e->getMessage() al usuario en index()
+// ✅ FIX: comparación de fechas con timestamps en vez de strings
+// ✅ FIX: uso consistente de redirect() con rutas relativas
 
 require_once __DIR__ . '/../helpers/Controller.php';
 require_once __DIR__ . '/../config/database.php';
@@ -48,12 +52,18 @@ class ReporteFinancieroController extends Controller {
         $fechaInicio = $_GET['fecha_inicio'] ?? date('Y-m-01');
         $fechaFin = $_GET['fecha_fin'] ?? date('Y-m-t');
         
-        if (!strtotime($fechaInicio) || !strtotime($fechaFin)) {
+        // ✅ FIX: comparación con timestamps en vez de strings
+        $tsInicio = strtotime($fechaInicio);
+        $tsFin = strtotime($fechaFin);
+        
+        if ($tsInicio === false || $tsFin === false) {
             $fechaInicio = date('Y-m-01');
             $fechaFin = date('Y-m-t');
+            $tsInicio = strtotime($fechaInicio);
+            $tsFin = strtotime($fechaFin);
         }
         
-        if ($fechaInicio > $fechaFin) {
+        if ($tsInicio > $tsFin) {
             $temp = $fechaInicio;
             $fechaInicio = $fechaFin;
             $fechaFin = $temp;
@@ -66,9 +76,10 @@ class ReporteFinancieroController extends Controller {
             $costos_por_mes = $this->obtenerCostosPorMes();
             $evolucion_mensual = $this->obtenerEvolucionMensual();
             
-        } catch (Exception $e) {
+        } catch (Throwable $e) {   // ✅ FIX: Throwable
             error_log("Error en reporte financiero: " . $e->getMessage());
-            $_SESSION['error'] = 'Error al cargar los datos financieros: ' . $e->getMessage();
+            // ✅ FIX: NO exponer detalles al usuario
+            $_SESSION['error'] = 'Error al cargar los datos financieros';
         }
         
         $seccion = 'financieros';
@@ -107,7 +118,7 @@ class ReporteFinancieroController extends Controller {
                 'total_horas' => round((float)($result['total_horas'] ?? 0), 1)
             ];
             
-        } catch (PDOException $e) {
+        } catch (Throwable $e) {   // ✅ FIX: Throwable
             error_log("Error en obtenerEstadisticasFinancieras: " . $e->getMessage());
             return [
                 'total_ordenes' => 0, 'total_costos' => 0, 'total_repuestos' => 0,
@@ -140,7 +151,7 @@ class ReporteFinancieroController extends Controller {
             $stmt->execute([$fechaInicio . ' 00:00:00', $fechaFin . ' 23:59:59']);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
             
-        } catch (PDOException $e) {
+        } catch (Throwable $e) {   // ✅ FIX: Throwable
             error_log("Error en obtenerCostosPorPlanta: " . $e->getMessage());
             return [];
         }
@@ -170,7 +181,7 @@ class ReporteFinancieroController extends Controller {
             $stmt->execute([$fechaInicio . ' 00:00:00', $fechaFin . ' 23:59:59']);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
             
-        } catch (PDOException $e) {
+        } catch (Throwable $e) {   // ✅ FIX: Throwable
             error_log("Error en obtenerCostosPorTecnico: " . $e->getMessage());
             return [];
         }
@@ -199,7 +210,7 @@ class ReporteFinancieroController extends Controller {
             $stmt->execute([$anio]);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
             
-        } catch (PDOException $e) {
+        } catch (Throwable $e) {   // ✅ FIX: Throwable
             error_log("Error en obtenerCostosPorMes: " . $e->getMessage());
             return [];
         }
@@ -229,7 +240,7 @@ class ReporteFinancieroController extends Controller {
             $stmt->execute([$anio]);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
             
-        } catch (PDOException $e) {
+        } catch (Throwable $e) {   // ✅ FIX: Throwable
             error_log("Error en obtenerEvolucionMensual: " . $e->getMessage());
             return [];
         }
@@ -238,15 +249,17 @@ class ReporteFinancieroController extends Controller {
     /**
      * Exportar reporte a CSV
      * ✅ FIX: JOIN con plantas y areas
+     * ✅ FIX: validación de fechas con timestamps
      */
     public function exportar() {
         $fechaInicio = $_GET['fecha_inicio'] ?? date('Y-m-01');
         $fechaFin = $_GET['fecha_fin'] ?? date('Y-m-t');
         $tipo = $_GET['tipo'] ?? 'detallado';
         
-        if (!strtotime($fechaInicio) || !strtotime($fechaFin)) {
-            $_SESSION['error'] = 'Fechas inválidas';
-            $this->redirect('/reportes/financieros');
+        // ✅ FIX: validación de fechas con timestamps
+        if (strtotime($fechaInicio) === false || strtotime($fechaFin) === false) {
+            $this->redirectWithError('/reportes/financieros', 'Fechas inválidas');
+            return;
         }
         
         header('Content-Type: text/csv; charset=utf-8');
@@ -261,39 +274,43 @@ class ReporteFinancieroController extends Controller {
                 'Horas', 'Costo Repuestos', 'Costo Mano Obra', 'Costo Total', 'Estado'
             ]);
             
-            // ✅ FIX: JOIN con plantas y areas
-            $sql = "SELECT 
-                        o.id, o.num_om, o.titulo, o.horas_trabajadas, 
-                        o.costo_repuestos, o.costo_mano_obra, o.costo_total, o.status,
-                        t.nombre as tecnico_nombre,
-                        p.nombre_planta,
-                        a.nombre_area
-                    FROM ordenes_mantenimiento o
-                    LEFT JOIN tecnicos t ON o.tecnico_id = t.id
-                    LEFT JOIN plantas p ON o.id_planta = p.id_planta
-                    LEFT JOIN areas a ON o.id_area = a.id_area
-                    WHERE o.status IN ('CERRADA', 'APROBADA', 'EJECUTADA')
-                    AND o.fecha_creacion BETWEEN ? AND ?
-                    ORDER BY o.fecha_creacion DESC";
-            
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$fechaInicio . ' 00:00:00', $fechaFin . ' 23:59:59']);
-            $ordenes = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            
-            foreach ($ordenes as $orden) {
-                fputcsv($output, [
-                    $orden['id'] ?? '',
-                    $orden['num_om'] ?? '',
-                    $orden['titulo'] ?? '',
-                    $orden['nombre_planta'] ?? '',
-                    $orden['nombre_area'] ?? '',
-                    $orden['tecnico_nombre'] ?? '',
-                    $orden['horas_trabajadas'] ?? 0,
-                    $orden['costo_repuestos'] ?? 0,
-                    $orden['costo_mano_obra'] ?? 0,
-                    $orden['costo_total'] ?? 0,
-                    $orden['status'] ?? ''
-                ]);
+            try {
+                // ✅ FIX: JOIN con plantas y areas
+                $sql = "SELECT 
+                            o.id, o.num_om, o.titulo, o.horas_trabajadas, 
+                            o.costo_repuestos, o.costo_mano_obra, o.costo_total, o.status,
+                            t.nombre as tecnico_nombre,
+                            p.nombre_planta,
+                            a.nombre_area
+                        FROM ordenes_mantenimiento o
+                        LEFT JOIN tecnicos t ON o.tecnico_id = t.id
+                        LEFT JOIN plantas p ON o.id_planta = p.id_planta
+                        LEFT JOIN areas a ON o.id_area = a.id_area
+                        WHERE o.status IN ('CERRADA', 'APROBADA', 'EJECUTADA')
+                        AND o.fecha_creacion BETWEEN ? AND ?
+                        ORDER BY o.fecha_creacion DESC";
+                
+                $stmt = $this->db->prepare($sql);
+                $stmt->execute([$fechaInicio . ' 00:00:00', $fechaFin . ' 23:59:59']);
+                $ordenes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                foreach ($ordenes as $orden) {
+                    fputcsv($output, [
+                        $orden['id'] ?? '',
+                        $orden['num_om'] ?? '',
+                        $orden['titulo'] ?? '',
+                        $orden['nombre_planta'] ?? '',
+                        $orden['nombre_area'] ?? '',
+                        $orden['tecnico_nombre'] ?? '',
+                        $orden['horas_trabajadas'] ?? 0,
+                        $orden['costo_repuestos'] ?? 0,
+                        $orden['costo_mano_obra'] ?? 0,
+                        $orden['costo_total'] ?? 0,
+                        $orden['status'] ?? ''
+                    ]);
+                }
+            } catch (Throwable $e) {
+                error_log("Error al exportar detallado: " . $e->getMessage());
             }
         } else {
             $stats = $this->obtenerEstadisticasFinancieras($fechaInicio, $fechaFin);
@@ -315,4 +332,3 @@ class ReporteFinancieroController extends Controller {
         exit;
     }
 }
-?>
