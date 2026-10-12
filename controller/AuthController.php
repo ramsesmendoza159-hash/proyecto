@@ -1,7 +1,11 @@
 <?php
 // controller/AuthController.php
 // Controlador de autenticación - CON AUDITORÍA, AUTO-CREACIÓN DE MONITOREO Y CHECKLISTS
-// ✅ NUEVO: Auto-creación de registros del día en checklist_registros
+// ✅ FIX: session_regenerate_id() ANTES de setear $_SESSION (evita pérdida de datos)
+// ✅ FIX: NO escapar $_SESSION['nombre'] al guardar (doble-escape al mostrar)
+// ✅ FIX: NO escapar $_SESSION['email'] al guardar
+// ✅ FIX: method_exists() reemplazado por validación directa (SecurityHelper siempre existe)
+// ✅ FIX: comentarios de trazabilidad
 
 require_once __DIR__ . '/../model/UsuariosModel.php';
 require_once __DIR__ . '/../model/AuditoriaModel.php';
@@ -45,13 +49,12 @@ class AuthController {
             exit;
         }
 
-        if (method_exists('SecurityHelper', 'verifyCSRFToken')) {
-            $token = $_POST['csrf_token'] ?? '';
-            if (!SecurityHelper::verifyCSRFToken($token)) {
-                $_SESSION['error'] = 'Token de seguridad inválido. Por favor, recarga la página.';
-                header('Location: /proyecto/login');
-                exit;
-            }
+        // ✅ FIX: SecurityHelper siempre existe, no hace falta method_exists()
+        $token = $_POST['csrf_token'] ?? '';
+        if (!SecurityHelper::verifyCSRFToken($token)) {
+            $_SESSION['error'] = 'Token de seguridad inválido. Por favor, recarga la página.';
+            header('Location: /proyecto/login');
+            exit;
         }
 
         $email = trim($_POST['email'] ?? '');
@@ -94,9 +97,13 @@ class AuthController {
                     error_log("Error al registrar auditoría de login: " . $e->getMessage());
                 }
 
+                // ✅ FIX: session_regenerate_id() ANTES de setear $_SESSION
+                session_regenerate_id(true);
+
+                // ✅ FIX: NO escapar al guardar (evita doble-escape al mostrar en vistas)
                 $_SESSION['usuario_id'] = $usuario['id'];
-                $_SESSION['nombre']     = htmlspecialchars($usuario['nombre'] ?? 'Usuario', ENT_QUOTES, 'UTF-8');
-                $_SESSION['email']      = htmlspecialchars($usuario['email'] ?? '', ENT_QUOTES, 'UTF-8');
+                $_SESSION['nombre']     = $usuario['nombre'] ?? 'Usuario';
+                $_SESSION['email']      = $usuario['email'] ?? '';
                 $_SESSION['rol']        = $usuario['rol'] ?? 'usuario';
                 $_SESSION['login_time'] = time();
 
@@ -108,8 +115,6 @@ class AuthController {
                 } catch (Throwable $e) {
                     error_log("Error al actualizar ultima_conexion: " . $e->getMessage());
                 }
-
-                session_regenerate_id(true);
 
                 // ==========================================
                 // AUTO-CREAR REGISTROS DE MONITOREO DEL DÍA

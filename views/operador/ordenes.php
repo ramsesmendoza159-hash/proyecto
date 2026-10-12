@@ -1,9 +1,6 @@
 <?php
 // views/operador/ordenes.php
-// Mis Órdenes - Operador - VERSIÓN ESTANDARIZADA
-// ✅ FIX: contenedor de acciones usa .table-actions + btn-icon
-// ✅ FIX: botones de header con btn-header-action
-// ✅ FIX NUEVO: botón "Estadísticas" agregado (acceso directo al dashboard de admin)
+// Mis Órdenes - Operador - VERSIÓN CORREGIDA
 
 if (!isset($seccion)) {
     $seccion = 'operador';
@@ -16,6 +13,8 @@ if (!isset($ordenes)) {
 }
 
 $rol = $_SESSION['rol'] ?? 'usuario';
+$puede_eliminar = ($rol === 'admin');
+$puede_editar   = in_array($rol, ['admin', 'operador'], true);
 
 include_once __DIR__ . '/../layouts/header.php';
 ?>
@@ -24,8 +23,8 @@ include_once __DIR__ . '/../layouts/header.php';
 
     <!-- Mensajes -->
     <?php if (isset($_SESSION['mensaje']) && !empty($_SESSION['mensaje'])): ?>
-        <div class="alert alert-<?php echo $_SESSION['mensaje_tipo'] ?? 'success'; ?> alert-dismissible fade show">
-            <i class="fas fa-check-circle me-2"></i> <?php echo htmlspecialchars($_SESSION['mensaje']); ?>
+        <div class="alert alert-<?= $_SESSION['mensaje_tipo'] ?? 'success' ?> alert-dismissible fade show">
+            <i class="fas fa-check-circle me-2"></i> <?= htmlspecialchars($_SESSION['mensaje']) ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
         <?php unset($_SESSION['mensaje'], $_SESSION['mensaje_tipo']); ?>
@@ -33,12 +32,13 @@ include_once __DIR__ . '/../layouts/header.php';
 
     <?php if (isset($_SESSION['error']) && !empty($_SESSION['error'])): ?>
         <div class="alert alert-danger alert-dismissible fade show">
-            <i class="fas fa-exclamation-circle me-2"></i> <?php echo htmlspecialchars($_SESSION['error']); ?>
+            <i class="fas fa-exclamation-circle me-2"></i> <?= htmlspecialchars($_SESSION['error']) ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
         <?php unset($_SESSION['error']); ?>
     <?php endif; ?>
 
+    <!-- Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h4 class="mb-1 fw-bold">
@@ -61,6 +61,7 @@ include_once __DIR__ . '/../layouts/header.php';
         </div>
     </div>
 
+    <!-- Tabla -->
     <div class="card border-0">
         <div class="card-body">
             <div class="table-responsive">
@@ -86,76 +87,74 @@ include_once __DIR__ . '/../layouts/header.php';
                                 </td>
                             </tr>
                         <?php else: ?>
-                            <?php foreach ($ordenes as $orden): ?>
+                            <?php foreach ($ordenes as $orden):
+                                $estado = $orden['status'] ?? 'PENDIENTE';
+                                $estadoColor = match($estado) {
+                                    'PENDIENTE'  => 'warning',
+                                    'EN_PROCESO' => 'info',
+                                    'EJECUTADA'  => 'primary',
+                                    'CERRADA', 'APROBADA' => 'success',
+                                    'CANCELADA', 'RECHAZADA' => 'danger',
+                                    default      => 'secondary'
+                                };
+                                $prioridad = $orden['prioridad'] ?? 'Media';
+                                $prioridadColor = match($prioridad) {
+                                    'Baja'    => 'success',
+                                    'Media'   => 'info',
+                                    'Alta'    => 'warning',
+                                    'Urgente' => 'danger',
+                                    default   => 'secondary'
+                                };
+                            ?>
                                 <tr>
-                                    <td><span class="fw-semibold">#<?php echo $orden['id']; ?></span></td>
-                                    <td><?php echo htmlspecialchars($orden['titulo'] ?? 'Sin título'); ?></td>
-                                    <td><?php echo htmlspecialchars($orden['nombre_area'] ?? 'N/A'); ?></td>
-                                    <td><?php echo htmlspecialchars($orden['tecnico_nombre'] ?? 'Sin asignar'); ?></td>
+                                    <td><span class="fw-semibold">#<?= (int)$orden['id'] ?></span></td>
+                                    <td><?= htmlspecialchars($orden['titulo'] ?? 'Sin título') ?></td>
+                                    <td><?= htmlspecialchars($orden['nombre_area'] ?? 'N/A') ?></td>
+                                    <td><?= htmlspecialchars($orden['tecnico_nombre'] ?? 'Sin asignar') ?></td>
                                     <td>
-                                        <?php
-                                        $estadoColor = match($orden['status'] ?? 'PENDIENTE') {
-                                            'PENDIENTE' => 'warning',
-                                            'EN_PROCESO' => 'info',
-                                            'EJECUTADA' => 'primary',
-                                            'CERRADA' => 'success',
-                                            'APROBADA' => 'success',
-                                            'CANCELADA' => 'danger',
-                                            'RECHAZADA' => 'danger',
-                                            default => 'secondary'
-                                        };
-                                        ?>
-                                        <span class="badge-status bg-<?php echo $estadoColor; ?> bg-opacity-10 text-<?php echo $estadoColor; ?>">
+                                        <span class="badge-status bg-<?= $estadoColor ?> bg-opacity-10 text-<?= $estadoColor ?>">
                                             <i class="fas fa-circle me-1" style="font-size:6px;"></i>
-                                            <?php echo $orden['status'] ?? 'PENDIENTE'; ?>
+                                            <?= htmlspecialchars($estado) ?>
                                         </span>
                                     </td>
                                     <td>
-                                        <?php
-                                        $prioridadColor = match($orden['prioridad'] ?? 'Media') {
-                                            'Baja' => 'success',
-                                            'Media' => 'info',
-                                            'Alta' => 'warning',
-                                            'Urgente' => 'danger',
-                                            default => 'secondary'
-                                        };
-                                        ?>
-                                        <span class="badge bg-<?php echo $prioridadColor; ?> bg-opacity-10 text-<?php echo $prioridadColor; ?>">
-                                            <?php echo $orden['prioridad'] ?? 'Media'; ?>
+                                        <span class="badge bg-<?= $prioridadColor ?> bg-opacity-10 text-<?= $prioridadColor ?>">
+                                            <?= htmlspecialchars($prioridad) ?>
                                         </span>
                                     </td>
-                                    <td><small><?php echo date('d/m/Y', strtotime($orden['fecha_creacion'] ?? 'now')); ?></small></td>
+                                    <td><small><?= date('d/m/Y', strtotime($orden['fecha_creacion'] ?? 'now')) ?></small></td>
                                     <td>
                                         <div class="table-actions">
-                                            <a href="/proyecto/ordenes/ver/<?php echo $orden['id']; ?>" 
-                                               class="btn btn-sm btn-outline-info btn-icon" 
+                                            <a href="/proyecto/ordenes/ver/<?= (int)$orden['id'] ?>"
+                                               class="btn btn-sm btn-outline-info btn-icon"
                                                title="Ver"
                                                aria-label="Ver orden">
                                                 <i class="fas fa-eye"></i>
                                             </a>
-                                            
-                                            <?php if (($orden['status'] ?? '') === 'PENDIENTE'): ?>
-                                                <a href="/proyecto/ordenes/editar/<?php echo $orden['id']; ?>" 
-                                                   class="btn btn-sm btn-outline-warning btn-icon" 
+
+                                            <?php if ($puede_editar && $estado === 'PENDIENTE'): ?>
+                                                <a href="/proyecto/ordenes/editar/<?= (int)$orden['id'] ?>"
+                                                   class="btn btn-sm btn-outline-warning btn-icon"
                                                    title="Editar"
                                                    aria-label="Editar orden">
                                                     <i class="fas fa-edit"></i>
                                                 </a>
                                             <?php endif; ?>
-                                            
-                                            <?php if (in_array($orden['status'] ?? '', ['EN_PROCESO', 'EJECUTADA'])): ?>
-                                                <a href="/proyecto/ordenes/cerrar/<?php echo $orden['id']; ?>" 
-                                                   class="btn btn-sm btn-outline-success btn-icon" 
+
+                                            <?php if (in_array($estado, ['EN_PROCESO', 'EJECUTADA'], true)): ?>
+                                                <a href="/proyecto/ordenes/cerrar/<?= (int)$orden['id'] ?>"
+                                                   class="btn btn-sm btn-outline-success btn-icon"
                                                    title="Cerrar"
                                                    aria-label="Cerrar orden">
                                                     <i class="fas fa-check-circle"></i>
                                                 </a>
                                             <?php endif; ?>
-                                            
-                                            <?php if (($orden['status'] ?? '') === 'PENDIENTE'): ?>
-                                                <button type="button" 
-                                                        class="btn btn-sm btn-outline-danger btn-icon" 
-                                                        onclick="confirmarEliminar(<?php echo $orden['id']; ?>, '<?php echo htmlspecialchars($orden['num_om'] ?? '', ENT_QUOTES, 'UTF-8'); ?>')" 
+
+                                            <?php /* ✅ FIX: botón Eliminar solo para admin */ ?>
+                                            <?php if ($puede_eliminar && $estado === 'PENDIENTE'): ?>
+                                                <button type="button"
+                                                        class="btn btn-sm btn-outline-danger btn-icon"
+                                                        onclick="confirmarEliminar(<?= (int)$orden['id'] ?>, '<?= htmlspecialchars($orden['num_om'] ?? '', ENT_QUOTES, 'UTF-8') ?>')"
                                                         title="Eliminar"
                                                         aria-label="Eliminar orden">
                                                     <i class="fas fa-trash"></i>
@@ -170,7 +169,7 @@ include_once __DIR__ . '/../layouts/header.php';
                 </table>
             </div>
             <div class="mt-3 text-muted small">
-                <i class="fas fa-list me-1"></i> Mostrando <?php echo count($ordenes); ?> orden(es)
+                <i class="fas fa-list me-1"></i> Mostrando <?= count($ordenes) ?> orden(es)
             </div>
         </div>
     </div>
@@ -178,10 +177,7 @@ include_once __DIR__ . '/../layouts/header.php';
 </div>
 
 <style>
-.card {
-    border-radius: 16px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
-}
+.card { border-radius: 16px; box-shadow: 0 2px 12px var(--shadow-color); }
 .badge-status {
     padding: 4px 12px;
     border-radius: 20px;

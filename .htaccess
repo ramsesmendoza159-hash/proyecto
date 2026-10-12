@@ -4,6 +4,7 @@
 # ✅ FIX: eliminada regla duplicada de /checklists/ver/{id}
 # ✅ FIX: agregado bloqueo de composer.json, package.json, README, etc.
 # ✅ FIX: agregado bloqueo de cron/
+# ✅ NUEVO: rutas /checklists/asignar, /checklists/asignar/guardar y /checklists/omitir
 
 RewriteEngine On
 RewriteBase /proyecto/
@@ -218,11 +219,14 @@ RewriteRule ^monitoreo/api/registros-dia$ index.php?controller=monitoreo&action=
 # NOTA: Solo rutas que ChecklistController y ChecklistEjecucionController SOPORTAN.
 # NO incluir rutas a métodos inexistentes (crear, guardar, editar, actualizar, eliminar).
 RewriteRule ^checklists$ index.php?controller=checklist&action=index [QSA,L]
+RewriteRule ^checklists/asignar$ index.php?controller=checklistEjecucion&action=asignar [QSA,L]
+RewriteRule ^checklists/asignar/guardar$ index.php?controller=checklistEjecucion&action=guardarAsignacion [QSA,L]
 RewriteRule ^checklists/mis-checklists$ index.php?controller=checklistEjecucion&action=misChecklists [QSA,L]
 RewriteRule ^checklists/iniciar/([0-9]+)$ index.php?controller=checklistEjecucion&action=iniciar&id=$1 [QSA,L]
 RewriteRule ^checklists/llenar/([0-9]+)$ index.php?controller=checklistEjecucion&action=llenar&id=$1 [QSA,L]
 RewriteRule ^checklists/guardar-lectura$ index.php?controller=checklistEjecucion&action=guardarLectura [QSA,L]
 RewriteRule ^checklists/cerrar/([0-9]+)$ index.php?controller=checklistEjecucion&action=cerrar&id=$1 [QSA,L]
+RewriteRule ^checklists/omitir$ index.php?controller=checklistEjecucion&action=omitir [QSA,L]
 RewriteRule ^checklists/firmar/([0-9]+)$ index.php?controller=checklistEjecucion&action=firmar&id=$1 [QSA,L]
 RewriteRule ^checklists/procesar-firma$ index.php?controller=checklistEjecucion&action=procesarFirma [QSA,L]
 RewriteRule ^checklists/rechazar$ index.php?controller=checklistEjecucion&action=rechazar [QSA,L]

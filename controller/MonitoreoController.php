@@ -1,9 +1,6 @@
 <?php
 // controller/MonitoreoController.php
 // Controlador del módulo de Monitoreo de Equipos (MTTO R007 y sucesivos)
-// ✅ Roles: admin, supervisor, operador, tecnico
-// ✅ Operador/tecnico solo ven y editan su turno
-// ✅ Admin/supervisor pueden ver todo y firmar como jefe de operación
 
 require_once __DIR__ . '/../helpers/Controller.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
@@ -20,6 +17,7 @@ class MonitoreoController extends Controller {
 
         if (!$this->authHelper->isLoggedIn()) {
             $this->redirect('/auth/login');
+            return;
         }
 
         $rol = $this->authHelper->getRole();
@@ -27,39 +25,44 @@ class MonitoreoController extends Controller {
         if (!in_array($rol, $rolesPermitidos, true)) {
             $_SESSION['error'] = 'No tienes permisos para acceder a esta sección';
             $this->redirect('/dashboard');
+            return;
         }
 
-        $this->model = new MonitoreoModel();
-        $this->db = Database::getInstance()->getConnection();
+        try {
+            $this->model = new MonitoreoModel();
+            $this->db = Database::getInstance()->getConnection();
+        } catch (Throwable $e) {
+            error_log("Error al instanciar modelos en MonitoreoController: " . $e->getMessage());
+            $this->redirectWithError('/dashboard', 'Error al cargar el módulo');
+            return;
+        }
     }
 
     private function esAdminOSupervisor() {
-        return $this->authHelper->isAdmin() || $this->authHelper->isSupervisor();
+        $rol = $this->authHelper->getRole();
+        return in_array($rol, ['admin', 'supervisor'], true);
     }
 
     private function esOperadorOTecnico() {
-        return $this->authHelper->isOperador() || $this->authHelper->isTecnico();
+        $rol = $this->authHelper->getRole();
+        return in_array($rol, ['operador', 'tecnico'], true);
     }
 
     // ==========================================
     // LISTADO DE RUTAS
     // ==========================================
 
-    /**
-     * URL: /monitoreo
-     * Lista de rutas. Admin/supervisor ven todas. Operador/tecnico ven solo las suyas.
-     */
     public function index() {
         try {
             $filtros = [
-                'buscar' => $this->get('buscar', ''),
-                'activo' => 1
+                'buscar' => trim((string)$this->get('buscar', '')),
+                'activo' => 1,
             ];
             $rutas = $this->model->obtenerTodas($filtros);
 
             $stats_global = $this->model->obtenerEstadisticas([
                 'fecha_desde' => date('Y-m-01'),
-                'fecha_hasta' => date('Y-m-t')
+                'fecha_hasta' => date('Y-m-t'),
             ]);
 
             $hoy = date('Y-m-d');
@@ -83,14 +86,11 @@ class MonitoreoController extends Controller {
     // MIS RUTAS (operador/tecnico)
     // ==========================================
 
-    /**
-     * URL: /monitoreo/mis-rutas
-     * El operador ve las rutas que le corresponden y puede iniciar su turno.
-     */
     public function misRutas() {
         if (!$this->esOperadorOTecnico() && !$this->esAdminOSupervisor()) {
             $_SESSION['error'] = 'No tienes permisos';
             $this->redirect('/dashboard');
+            return;
         }
 
         try {
@@ -99,7 +99,6 @@ class MonitoreoController extends Controller {
 
             $rutas = $this->model->obtenerTodas(['activo' => 1]);
 
-            // Para cada ruta, buscar el registro del turno actual (o de la fecha dada)
             foreach ($rutas as &$ruta) {
                 $ruta['registro_actual'] = $this->model->obtenerRegistroPorRutaFechaTurno(
                     $ruta['id'], $fecha, $turno_actual
@@ -124,20 +123,18 @@ class MonitoreoController extends Controller {
     // INICIAR / RETOMAR REGISTRO
     // ==========================================
 
-    /**
-     * URL: /monitoreo/iniciar/{ruta_id}
-     * Crea (o recupera) el registro del turno actual para la ruta indicada.
-     */
     public function iniciar($ruta_id) {
         if (!$this->esOperadorOTecnico() && !$this->esAdminOSupervisor()) {
             $_SESSION['error'] = 'No tienes permisos';
             $this->redirect('/dashboard');
+            return;
         }
 
         $ruta_id = (int)$ruta_id;
         if ($ruta_id <= 0) {
             $_SESSION['error'] = 'Ruta inválida';
             $this->redirect('/monitoreo/mis-rutas');
+            return;
         }
 
         $fecha = $this->get('fecha', date('Y-m-d'));
@@ -152,15 +149,18 @@ class MonitoreoController extends Controller {
             );
 
             if (!$registro) {
-                throw new Exception($this->model->getLastError() ?: 'No se pudo iniciar el registro');
+                throw new \RuntimeException($this->model->getLastError() ?: 'No se pudo iniciar el registro');
             }
 
             $this->redirect('/monitoreo/llenar/' . $registro['id']);
+            return;
 
         } catch (Throwable $e) {
             error_log("Error en MonitoreoController::iniciar: " . $e->getMessage());
-            $_SESSION['error'] = 'Error: ' . $e->getMessage();
+            // ✅ NO exponer $e->getMessage()
+            $_SESSION['error'] = 'No se pudo iniciar el registro. Intenta nuevamente.';
             $this->redirect('/monitoreo/mis-rutas');
+            return;
         }
     }
 
@@ -168,15 +168,12 @@ class MonitoreoController extends Controller {
     // LLENAR GRILLA
     // ==========================================
 
-    /**
-     * URL: /monitoreo/llenar/{registro_id}
-     * Muestra la grilla de llenado. El operador solo edita las horas de su turno.
-     */
     public function llenar($registro_id) {
         $registro_id = (int)$registro_id;
         if ($registro_id <= 0) {
             $_SESSION['error'] = 'Registro inválido';
             $this->redirect('/monitoreo');
+            return;
         }
 
         try {
@@ -184,23 +181,20 @@ class MonitoreoController extends Controller {
             if (!$registro) {
                 $_SESSION['error'] = 'Registro no encontrado';
                 $this->redirect('/monitoreo');
+                return;
             }
 
-            // Verificar permisos: operador/tecnico solo su turno
             $rol = $this->authHelper->getRole();
             $puede_editar = false;
 
             if ($this->esAdminOSupervisor()) {
                 $puede_editar = ($registro['estado'] === 'BORRADOR');
             } else {
-                // operador/tecnico
                 if ($registro['estado'] === 'BORRADOR') {
-                    // Solo si es su turno
                     $puede_editar = true;
                 }
             }
 
-            // Organizar lecturas en matriz [id_equipo][hora] => valor
             $matriz = [];
             foreach ($registro['lecturas'] as $lec) {
                 $matriz[$lec['id_equipo']][$lec['hora']] = $lec;
@@ -211,6 +205,7 @@ class MonitoreoController extends Controller {
             error_log("Error en MonitoreoController::llenar: " . $e->getMessage());
             $_SESSION['error'] = 'Error al cargar el registro';
             $this->redirect('/monitoreo');
+            return;
         }
 
         $titulo = 'Llenar: ' . $registro['ruta_nombre'];
@@ -223,10 +218,6 @@ class MonitoreoController extends Controller {
     // GUARDAR LECTURA (AJAX)
     // ==========================================
 
-    /**
-     * URL: /monitoreo/guardar-lectura (POST)
-     * Guarda una celda individual.
-     */
     public function guardarLectura() {
         header('Content-Type: application/json; charset=utf-8');
 
@@ -248,9 +239,9 @@ class MonitoreoController extends Controller {
 
         $registro_id = (int)($_POST['registro_id'] ?? 0);
         $id_equipo = (int)($_POST['id_equipo'] ?? 0);
-        $hora = trim($_POST['hora'] ?? '');
+        $hora = trim((string)($_POST['hora'] ?? ''));
         $valor = $_POST['valor'] ?? null;
-        $observacion = trim($_POST['observacion'] ?? '');
+        $observacion = trim((string)($_POST['observacion'] ?? ''));
 
         if ($registro_id <= 0 || $id_equipo <= 0 || empty($hora)) {
             echo json_encode(['success' => false, 'mensaje' => 'Datos incompletos']);
@@ -275,7 +266,7 @@ class MonitoreoController extends Controller {
             if (!$resultado) {
                 echo json_encode([
                     'success' => false,
-                    'mensaje' => $this->model->getLastError() ?: 'Error al guardar'
+                    'mensaje' => $this->model->getLastError() ?: 'Error al guardar',
                 ]);
                 exit;
             }
@@ -283,12 +274,13 @@ class MonitoreoController extends Controller {
             echo json_encode([
                 'success' => true,
                 'nivel_alerta' => $resultado['nivel_alerta'],
-                'fuera_de_rango' => $resultado['fuera_de_rango']
+                'fuera_de_rango' => $resultado['fuera_de_rango'],
             ]);
 
         } catch (Throwable $e) {
             error_log("Error en MonitoreoController::guardarLectura: " . $e->getMessage());
-            echo json_encode(['success' => false, 'mensaje' => 'Error: ' . $e->getMessage()]);
+            // ✅ NO exponer $e->getMessage()
+            echo json_encode(['success' => false, 'mensaje' => 'Error al procesar la solicitud']);
         }
         exit;
     }
@@ -297,14 +289,11 @@ class MonitoreoController extends Controller {
     // CERRAR TURNO
     // ==========================================
 
-    /**
-     * URL: /monitoreo/cerrar/{registro_id} (POST)
-     * Valida que las lecturas estén completas y cambia el estado a CERRADO.
-     */
     public function cerrar($registro_id) {
         if (!$this->esOperadorOTecnico() && !$this->esAdminOSupervisor()) {
             $_SESSION['error'] = 'No tienes permisos';
             $this->redirect('/dashboard');
+            return;
         }
 
         $this->requirePost();
@@ -313,19 +302,21 @@ class MonitoreoController extends Controller {
         if (!SecurityHelper::verifyCSRFToken($token)) {
             $_SESSION['error'] = 'Token de seguridad inválido';
             $this->redirect('/monitoreo/llenar/' . $registro_id);
+            return;
         }
 
         $registro_id = (int)$registro_id;
         if ($registro_id <= 0) {
             $_SESSION['error'] = 'Registro inválido';
             $this->redirect('/monitoreo');
+            return;
         }
 
         try {
             $resultado = $this->model->cerrarRegistro($registro_id, $this->authHelper->getUserId());
 
             if (!$resultado) {
-                throw new Exception($this->model->getLastError() ?: 'No se pudo cerrar el registro');
+                throw new \RuntimeException($this->model->getLastError() ?: 'No se pudo cerrar el registro');
             }
 
             try {
@@ -343,11 +334,14 @@ class MonitoreoController extends Controller {
             }
 
             $this->redirectWithSuccess('/monitoreo/firmar/' . $registro_id, 'Registro cerrado. Ahora firmá tu turno.');
+            return;
 
         } catch (Throwable $e) {
             error_log("Error en MonitoreoController::cerrar: " . $e->getMessage());
-            $_SESSION['error'] = 'Error: ' . $e->getMessage();
+            // ✅ NO exponer $e->getMessage()
+            $_SESSION['error'] = 'Error al cerrar el registro. Intenta nuevamente.';
             $this->redirect('/monitoreo/llenar/' . $registro_id);
+            return;
         }
     }
 
@@ -355,15 +349,12 @@ class MonitoreoController extends Controller {
     // FIRMAS
     // ==========================================
 
-    /**
-     * URL: /monitoreo/firmar/{registro_id}
-     * Muestra el panel de firmas del registro.
-     */
     public function firmar($registro_id) {
         $registro_id = (int)$registro_id;
         if ($registro_id <= 0) {
             $_SESSION['error'] = 'Registro inválido';
             $this->redirect('/monitoreo');
+            return;
         }
 
         try {
@@ -371,6 +362,7 @@ class MonitoreoController extends Controller {
             if (!$registro) {
                 $_SESSION['error'] = 'Registro no encontrado';
                 $this->redirect('/monitoreo');
+                return;
             }
 
             $paso_actual = $this->model->obtenerPasoActual($registro_id);
@@ -385,6 +377,7 @@ class MonitoreoController extends Controller {
             error_log("Error en MonitoreoController::firmar: " . $e->getMessage());
             $_SESSION['error'] = 'Error al cargar el registro';
             $this->redirect('/monitoreo');
+            return;
         }
 
         $titulo = 'Firmar Registro';
@@ -393,16 +386,13 @@ class MonitoreoController extends Controller {
         require_once __DIR__ . '/../views/monitoreo/firmar.php';
     }
 
-    /**
-     * URL: /monitoreo/procesar-firma (POST)
-     * Registra la firma del paso actual.
-     */
     public function procesarFirma() {
         $this->requirePost();
 
         $token = $this->post('csrf_token', '');
         if (!SecurityHelper::verifyCSRFToken($token)) {
             $this->redirectWithError('/monitoreo', 'Token de seguridad inválido');
+            return;
         }
 
         $registro_id = (int)$this->post('registro_id', 0);
@@ -412,89 +402,105 @@ class MonitoreoController extends Controller {
 
         if ($registro_id <= 0 || $paso_id <= 0) {
             $this->redirectWithError('/monitoreo', 'Datos incompletos');
+            return;
         }
 
-        // Validar que sea el paso actual y del rol correcto
-        $paso_actual = $this->model->obtenerPasoActual($registro_id);
-        $rol_actual = $this->authHelper->getRole();
+        try {
+            $paso_actual = $this->model->obtenerPasoActual($registro_id);
+            $rol_actual = $this->authHelper->getRole();
 
-        if (!$paso_actual) {
-            $this->redirectWithError('/monitoreo/firmar/' . $registro_id, 'No hay pasos pendientes');
-        }
-        if ((int)$paso_actual['id'] !== $paso_id) {
-            $this->redirectWithError('/monitoreo/firmar/' . $registro_id, 'Este paso ya no está disponible');
-        }
-        if ($paso_actual['rol_firmante'] !== $rol_actual) {
-            $this->redirectWithError('/monitoreo/firmar/' . $registro_id, 'No tienes el rol requerido para este paso');
-        }
-
-        $resultado = $this->model->firmar(
-            $registro_id,
-            $paso_id,
-            $this->authHelper->getUserId(),
-            $_SESSION['nombre'] ?? 'Usuario',
-            $firma_svg,
-            $comentario
-        );
-
-        if ($resultado['success']) {
-            try {
-                $auditoria = new AuditoriaModel();
-                $auditoria->registrar(
-                    $this->authHelper->getUserId(),
-                    $_SESSION['nombre'] ?? 'Usuario',
-                    $rol_actual,
-                    'firmar_monitoreo',
-                    'monitoreo_firmas',
-                    $paso_id,
-                    null,
-                    ['registro_id' => $registro_id, 'paso' => $paso_actual['paso']]
-                );
-            } catch (Throwable $e) {
-                error_log("Error auditoría firma: " . $e->getMessage());
+            if (!$paso_actual) {
+                $this->redirectWithError('/monitoreo/firmar/' . $registro_id, 'No hay pasos pendientes');
+                return;
+            }
+            if ((int)$paso_actual['id'] !== $paso_id) {
+                $this->redirectWithError('/monitoreo/firmar/' . $registro_id, 'Este paso ya no está disponible');
+                return;
+            }
+            if ($paso_actual['rol_firmante'] !== $rol_actual) {
+                $this->redirectWithError('/monitoreo/firmar/' . $registro_id, 'No tienes el rol requerido para este paso');
+                return;
             }
 
-            $msg = $resultado['completada']
-                ? '¡Firmas completadas! El registro está aprobado.'
-                : 'Firma registrada. Siguiente paso: ' . ($resultado['siguiente_paso'] ?? 'N/A');
+            $resultado = $this->model->firmar(
+                $registro_id,
+                $paso_id,
+                $this->authHelper->getUserId(),
+                $_SESSION['nombre'] ?? 'Usuario',
+                $firma_svg,
+                $comentario
+            );
 
-            $this->redirectWithSuccess('/monitoreo/ver/' . $registro_id, $msg);
-        } else {
-            $this->redirectWithError('/monitoreo/firmar/' . $registro_id, $resultado['mensaje']);
+            if ($resultado['success']) {
+                try {
+                    $auditoria = new AuditoriaModel();
+                    $auditoria->registrar(
+                        $this->authHelper->getUserId(),
+                        $_SESSION['nombre'] ?? 'Usuario',
+                        $rol_actual,
+                        'firmar_monitoreo',
+                        'monitoreo_firmas',
+                        $paso_id,
+                        null,
+                        ['registro_id' => $registro_id, 'paso' => $paso_actual['paso']]
+                    );
+                } catch (Throwable $e) {
+                    error_log("Error auditoría firma: " . $e->getMessage());
+                }
+
+                $msg = $resultado['completada']
+                    ? '¡Firmas completadas! El registro está aprobado.'
+                    : 'Firma registrada. Siguiente paso: ' . ($resultado['siguiente_paso'] ?? 'N/A');
+
+                $this->redirectWithSuccess('/monitoreo/ver/' . $registro_id, $msg);
+                return;
+            } else {
+                $this->redirectWithError('/monitoreo/firmar/' . $registro_id, $resultado['mensaje']);
+                return;
+            }
+
+        } catch (Throwable $e) {
+            error_log("Error en MonitoreoController::procesarFirma: " . $e->getMessage());
+            $this->redirectWithError('/monitoreo/firmar/' . $registro_id, 'Error al procesar la firma');
+            return;
         }
     }
 
-    /**
-     * URL: /monitoreo/rechazar (POST)
-     */
     public function rechazar() {
         $this->requirePost();
 
         $token = $this->post('csrf_token', '');
         if (!SecurityHelper::verifyCSRFToken($token)) {
             $this->redirectWithError('/monitoreo', 'Token de seguridad inválido');
+            return;
         }
 
         $registro_id = (int)$this->post('registro_id', 0);
         $paso_id = (int)$this->post('paso_id', 0);
-        $motivo = trim($this->post('motivo', ''));
+        $motivo = trim((string)$this->post('motivo', ''));
 
         if (empty($motivo)) {
             $this->redirectWithError('/monitoreo/firmar/' . $registro_id, 'Debes indicar el motivo');
+            return;
         }
 
-        $resultado = $this->model->rechazar(
-            $registro_id,
-            $paso_id,
-            $this->authHelper->getUserId(),
-            $_SESSION['nombre'] ?? 'Usuario',
-            $motivo
-        );
+        try {
+            $resultado = $this->model->rechazar(
+                $registro_id,
+                $paso_id,
+                $this->authHelper->getUserId(),
+                $_SESSION['nombre'] ?? 'Usuario',
+                $motivo
+            );
 
-        if ($resultado['success']) {
-            $this->redirectWithWarning('/monitoreo/ver/' . $registro_id, 'Registro rechazado');
-        } else {
-            $this->redirectWithError('/monitoreo/firmar/' . $registro_id, $resultado['mensaje']);
+            if ($resultado['success']) {
+                $this->redirectWithWarning('/monitoreo/ver/' . $registro_id, 'Registro rechazado');
+            } else {
+                $this->redirectWithError('/monitoreo/firmar/' . $registro_id, $resultado['mensaje']);
+            }
+        } catch (Throwable $e) {
+            error_log("Error en MonitoreoController::rechazar: " . $e->getMessage());
+            $this->redirectWithError('/monitoreo/firmar/' . $registro_id, 'Error al rechazar');
         }
     }
 
@@ -502,15 +508,12 @@ class MonitoreoController extends Controller {
     // VER / HISTORIAL
     // ==========================================
 
-    /**
-     * URL: /monitoreo/ver/{registro_id}
-     * Ver un registro cerrado.
-     */
     public function ver($registro_id) {
         $registro_id = (int)$registro_id;
         if ($registro_id <= 0) {
             $_SESSION['error'] = 'Registro inválido';
             $this->redirect('/monitoreo');
+            return;
         }
 
         try {
@@ -518,6 +521,7 @@ class MonitoreoController extends Controller {
             if (!$registro) {
                 $_SESSION['error'] = 'Registro no encontrado';
                 $this->redirect('/monitoreo');
+                return;
             }
 
             $matriz = [];
@@ -530,6 +534,7 @@ class MonitoreoController extends Controller {
             error_log("Error en MonitoreoController::ver: " . $e->getMessage());
             $_SESSION['error'] = 'Error al cargar el registro';
             $this->redirect('/monitoreo');
+            return;
         }
 
         $titulo = 'Registro: ' . $registro['ruta_nombre'];
@@ -538,9 +543,6 @@ class MonitoreoController extends Controller {
         require_once __DIR__ . '/../views/monitoreo/ver.php';
     }
 
-    /**
-     * URL: /monitoreo/historial
-     */
     public function historial() {
         try {
             $filtros = [
@@ -548,7 +550,7 @@ class MonitoreoController extends Controller {
                 'fecha_desde' => $this->get('fecha_desde', date('Y-m-01')),
                 'fecha_hasta' => $this->get('fecha_hasta', date('Y-m-d')),
                 'turno' => $this->get('turno', ''),
-                'estado' => $this->get('estado', '')
+                'estado' => $this->get('estado', ''),
             ];
 
             $registros = $this->model->obtenerRegistros($filtros);
@@ -570,16 +572,14 @@ class MonitoreoController extends Controller {
     }
 
     // ==========================================
-    // CONFIGURACIÓN DE RUTAS (admin/supervisor)
+    // CONFIGURACIÓN DE RUTAS
     // ==========================================
 
-    /**
-     * URL: /monitoreo/crear
-     */
     public function crear() {
         if (!$this->esAdminOSupervisor()) {
             $_SESSION['error'] = 'No tienes permisos';
             $this->redirect('/monitoreo');
+            return;
         }
 
         $titulo = 'Nueva Ruta de Monitoreo';
@@ -591,36 +591,41 @@ class MonitoreoController extends Controller {
         require_once __DIR__ . '/../views/monitoreo/ruta_form.php';
     }
 
-    /**
-     * URL: /monitoreo/editar/{id}
-     */
     public function editar($id) {
         if (!$this->esAdminOSupervisor()) {
             $_SESSION['error'] = 'No tienes permisos';
             $this->redirect('/monitoreo');
+            return;
         }
 
-        $ruta = $this->model->obtenerPorId((int)$id);
-        if (!$ruta) {
-            $_SESSION['error'] = 'Ruta no encontrada';
+        try {
+            $ruta = $this->model->obtenerPorId((int)$id);
+            if (!$ruta) {
+                $_SESSION['error'] = 'Ruta no encontrada';
+                $this->redirect('/monitoreo');
+                return;
+            }
+
+            $equipos_disponibles = $this->obtenerEquiposDisponibles();
+            $todos_horarios = $this->generarHorariosEstandar();
+        } catch (Throwable $e) {
+            error_log("Error en MonitoreoController::editar: " . $e->getMessage());
+            $_SESSION['error'] = 'Error al cargar la ruta';
             $this->redirect('/monitoreo');
+            return;
         }
 
         $titulo = 'Editar Ruta';
         $seccion = 'monitoreo';
-        $equipos_disponibles = $this->obtenerEquiposDisponibles();
-        $todos_horarios = $this->generarHorariosEstandar();
 
         require_once __DIR__ . '/../views/monitoreo/ruta_form.php';
     }
 
-    /**
-     * URL: /monitoreo/guardar-ruta (POST)
-     */
     public function guardarRuta() {
         if (!$this->esAdminOSupervisor()) {
             $_SESSION['error'] = 'No tienes permisos';
             $this->redirect('/monitoreo');
+            return;
         }
 
         $this->requirePost();
@@ -628,29 +633,31 @@ class MonitoreoController extends Controller {
         $token = $this->post('csrf_token', '');
         if (!SecurityHelper::verifyCSRFToken($token)) {
             $this->redirectWithError('/monitoreo/crear', 'Token inválido');
+            return;
         }
 
         $datos = [
-            'codigo' => trim($this->post('codigo', '')),
-            'nombre' => trim($this->post('nombre', '')),
-            'descripcion' => trim($this->post('descripcion', '')),
+            'codigo' => trim((string)$this->post('codigo', '')),
+            'nombre' => trim((string)$this->post('nombre', '')),
+            'descripcion' => trim((string)$this->post('descripcion', '')),
             'tipo_valor' => $this->post('tipo_valor', 'porcentaje'),
             'unidad_medida' => $this->post('unidad_medida', '%'),
             'frecuencia_horas' => (int)$this->post('frecuencia_horas', 2),
             'valor_min_global' => $this->post('valor_min_global', null),
             'valor_max_global' => $this->post('valor_max_global', null),
             'valor_objetivo_relleno' => $this->post('valor_objetivo_relleno', null),
-            'activo' => 1
+            'activo' => 1,
         ];
 
         if (empty($datos['codigo']) || empty($datos['nombre'])) {
             $this->redirectWithError('/monitoreo/crear', 'Código y nombre son obligatorios');
+            return;
         }
 
         try {
             $id = $this->model->crear($datos);
             if (!$id) {
-                throw new Exception($this->model->getLastError() ?: 'Error al crear la ruta');
+                throw new \RuntimeException($this->model->getLastError() ?: 'Error al crear la ruta');
             }
 
             try {
@@ -670,20 +677,21 @@ class MonitoreoController extends Controller {
             }
 
             $this->redirectWithSuccess('/monitoreo', 'Ruta creada correctamente');
+            return;
 
         } catch (Throwable $e) {
             error_log("Error en MonitoreoController::guardarRuta: " . $e->getMessage());
-            $this->redirectWithError('/monitoreo/crear', 'Error: ' . $e->getMessage());
+            // ✅ NO exponer $e->getMessage()
+            $this->redirectWithError('/monitoreo/crear', 'Error al crear la ruta. Intenta nuevamente.');
+            return;
         }
     }
 
-    /**
-     * URL: /monitoreo/actualizar-ruta/{id} (POST)
-     */
     public function actualizarRuta($id) {
         if (!$this->esAdminOSupervisor()) {
             $_SESSION['error'] = 'No tienes permisos';
             $this->redirect('/monitoreo');
+            return;
         }
 
         $this->requirePost();
@@ -691,41 +699,44 @@ class MonitoreoController extends Controller {
         $token = $this->post('csrf_token', '');
         if (!SecurityHelper::verifyCSRFToken($token)) {
             $this->redirectWithError('/monitoreo/editar/' . $id, 'Token inválido');
+            return;
         }
 
         $id = (int)$id;
         $datos = [
-            'nombre' => trim($this->post('nombre', '')),
-            'descripcion' => trim($this->post('descripcion', '')),
+            'nombre' => trim((string)$this->post('nombre', '')),
+            'descripcion' => trim((string)$this->post('descripcion', '')),
             'tipo_valor' => $this->post('tipo_valor', 'porcentaje'),
             'unidad_medida' => $this->post('unidad_medida', '%'),
             'frecuencia_horas' => (int)$this->post('frecuencia_horas', 2),
             'valor_min_global' => $this->post('valor_min_global', null),
             'valor_max_global' => $this->post('valor_max_global', null),
             'valor_objetivo_relleno' => $this->post('valor_objetivo_relleno', null),
-            'activo' => (int)$this->post('activo', 1)
+            'activo' => (int)$this->post('activo', 1),
         ];
 
         try {
             if (!$this->model->actualizar($id, $datos)) {
-                throw new Exception($this->model->getLastError() ?: 'Error al actualizar');
+                throw new \RuntimeException($this->model->getLastError() ?: 'Error al actualizar');
             }
 
             $this->redirectWithSuccess('/monitoreo', 'Ruta actualizada correctamente');
+            return;
 
         } catch (Throwable $e) {
             error_log("Error en MonitoreoController::actualizarRuta: " . $e->getMessage());
-            $this->redirectWithError('/monitoreo/editar/' . $id, 'Error: ' . $e->getMessage());
+            // ✅ NO exponer $e->getMessage()
+            $this->redirectWithError('/monitoreo/editar/' . $id, 'Error al actualizar la ruta. Intenta nuevamente.');
+            return;
         }
     }
 
-    /**
-     * URL: /monitoreo/eliminar-ruta/{id} (POST)
-     */
     public function eliminarRuta($id) {
-        if (!$this->authHelper->isAdmin()) {
+        $rol = $this->authHelper->getRole();
+        if ($rol !== 'admin') {
             $_SESSION['error'] = 'Solo administradores pueden eliminar rutas';
             $this->redirect('/monitoreo');
+            return;
         }
 
         $this->requirePost();
@@ -733,17 +744,21 @@ class MonitoreoController extends Controller {
         $token = $this->post('csrf_token', '');
         if (!SecurityHelper::verifyCSRFToken($token)) {
             $this->redirectWithError('/monitoreo', 'Token inválido');
+            return;
         }
 
         try {
             if (!$this->model->eliminar((int)$id)) {
-                throw new Exception($this->model->getLastError() ?: 'Error al eliminar');
+                throw new \RuntimeException($this->model->getLastError() ?: 'Error al eliminar');
             }
             $this->redirectWithSuccess('/monitoreo', 'Ruta eliminada');
+            return;
 
         } catch (Throwable $e) {
             error_log("Error en MonitoreoController::eliminarRuta: " . $e->getMessage());
-            $this->redirectWithError('/monitoreo', 'Error: ' . $e->getMessage());
+            // ✅ NO exponer $e->getMessage()
+            $this->redirectWithError('/monitoreo', 'Error al eliminar la ruta. Intenta nuevamente.');
+            return;
         }
     }
 
@@ -751,16 +766,13 @@ class MonitoreoController extends Controller {
     // REPORTE / EXPORTAR
     // ==========================================
 
-    /**
-     * URL: /monitoreo/reporte/{registro_id}
-     * Vista imprimible (formato papel).
-     */
     public function reporte($registro_id) {
         $registro_id = (int)$registro_id;
         $registro = $this->model->obtenerRegistro($registro_id);
         if (!$registro) {
             $_SESSION['error'] = 'Registro no encontrado';
             $this->redirect('/monitoreo');
+            return;
         }
 
         $matriz = [];
@@ -775,20 +787,18 @@ class MonitoreoController extends Controller {
         require_once __DIR__ . '/../views/monitoreo/reporte.php';
     }
 
-    /**
-     * URL: /monitoreo/exportar (GET)
-     */
     public function exportar() {
         if (!$this->esAdminOSupervisor()) {
             $_SESSION['error'] = 'No tienes permisos';
             $this->redirect('/monitoreo');
+            return;
         }
 
         $filtros = [
             'ruta_id' => $this->get('ruta_id', ''),
             'fecha_desde' => $this->get('fecha_desde', date('Y-m-01')),
             'fecha_hasta' => $this->get('fecha_hasta', date('Y-m-d')),
-            'turno' => $this->get('turno', '')
+            'turno' => $this->get('turno', ''),
         ];
 
         $registros = $this->model->obtenerRegistros($filtros);
@@ -808,7 +818,7 @@ class MonitoreoController extends Controller {
                 $r['operador_nombre'] ?? 'N/A',
                 $r['estado'],
                 $r['lecturas_completadas'] ?? 0,
-                $r['lecturas_fuera_rango'] ?? 0
+                $r['lecturas_fuera_rango'] ?? 0,
             ]);
         }
 
@@ -820,14 +830,17 @@ class MonitoreoController extends Controller {
     // APIs
     // ==========================================
 
-    /**
-     * URL: /monitoreo/api/alertas
-     */
     public function apiAlertas() {
         header('Content-Type: application/json; charset=utf-8');
 
         if (!$this->authHelper->isLoggedIn()) {
             echo json_encode(['success' => false, 'error' => 'No autorizado']);
+            exit;
+        }
+
+        // ✅ FIX: validar rol también
+        if (!$this->esAdminOSupervisor() && !$this->esOperadorOTecnico()) {
+            echo json_encode(['success' => false, 'error' => 'No tienes permisos']);
             exit;
         }
 
@@ -843,19 +856,22 @@ class MonitoreoController extends Controller {
 
         } catch (Throwable $e) {
             error_log("Error en MonitoreoController::apiAlertas: " . $e->getMessage());
-            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            // ✅ NO exponer $e->getMessage()
+            echo json_encode(['success' => false, 'error' => 'Error al procesar la solicitud']);
         }
         exit;
     }
 
-    /**
-     * URL: /monitoreo/api/lecturas-equipo/{id_equipo}
-     */
     public function apiLecturasEquipo($id_equipo) {
         header('Content-Type: application/json; charset=utf-8');
 
         if (!$this->authHelper->isLoggedIn()) {
             echo json_encode(['success' => false, 'error' => 'No autorizado']);
+            exit;
+        }
+
+        if (!$this->esAdminOSupervisor() && !$this->esOperadorOTecnico()) {
+            echo json_encode(['success' => false, 'error' => 'No tienes permisos']);
             exit;
         }
 
@@ -870,19 +886,21 @@ class MonitoreoController extends Controller {
 
         } catch (Throwable $e) {
             error_log("Error en MonitoreoController::apiLecturasEquipo: " . $e->getMessage());
-            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            echo json_encode(['success' => false, 'error' => 'Error al procesar la solicitud']);
         }
         exit;
     }
 
-    /**
-     * URL: /monitoreo/api/registros-dia
-     */
     public function apiRegistrosDia() {
         header('Content-Type: application/json; charset=utf-8');
 
         if (!$this->authHelper->isLoggedIn()) {
             echo json_encode(['success' => false, 'error' => 'No autorizado']);
+            exit;
+        }
+
+        if (!$this->esAdminOSupervisor() && !$this->esOperadorOTecnico()) {
+            echo json_encode(['success' => false, 'error' => 'No tienes permisos']);
             exit;
         }
 
@@ -894,7 +912,7 @@ class MonitoreoController extends Controller {
 
         } catch (Throwable $e) {
             error_log("Error en MonitoreoController::apiRegistrosDia: " . $e->getMessage());
-            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            echo json_encode(['success' => false, 'error' => 'Error al procesar la solicitud']);
         }
         exit;
     }
@@ -903,9 +921,6 @@ class MonitoreoController extends Controller {
     // UTILITARIOS
     // ==========================================
 
-    /**
-     * Detectar turno actual según la hora del servidor
-     */
     private function detectarTurnoActual() {
         $hora = (int)date('H');
         if ($hora >= 8 && $hora < 16) return 'DIA';
@@ -913,9 +928,6 @@ class MonitoreoController extends Controller {
         return 'NOCHE';
     }
 
-    /**
-     * Obtener lista de equipos disponibles para asignar a una ruta
-     */
     private function obtenerEquiposDisponibles() {
         try {
             $sql = "SELECT id_equipo, nombre_equipo, codigo, serie, estado_operativo
@@ -931,9 +943,6 @@ class MonitoreoController extends Controller {
         }
     }
 
-    /**
-     * Generar las 12 horas estándar (cada 2h)
-     */
     private function generarHorariosEstandar() {
         return [
             ['hora' => '08:00:00', 'turno' => 'DIA',   'label' => '8:00 AM'],

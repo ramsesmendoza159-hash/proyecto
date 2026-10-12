@@ -7,6 +7,7 @@
 // ✅ FIX: agregadas rutas faltantes (supervisor/revisar, inventario/list, etc.)
 // ✅ FIX: catch (Throwable) en vez de catch (Exception)
 // ✅ FIX: validación defensiva de controladores y métodos
+// ✅ NUEVO: rutas /checklists/asignar, /checklists/asignar/guardar y /checklists/omitir
 
 // ==========================================
 // CONFIGURACIÓN DE ERRORES
@@ -68,10 +69,6 @@ if (session_status() === PHP_SESSION_NONE) {
 spl_autoload_register(function ($class) {
     $class = ltrim($class, '\\');
 
-    // ==========================================
-    // MAPA EXPLÍCITO: clase → [directorio, archivo]
-    // Cubre TODAS las clases del proyecto.
-    // ==========================================
     $classMap = [
         // ========== CONFIG ==========
         'Database'                      => ['config',  'database.php'],
@@ -139,7 +136,6 @@ spl_autoload_register(function ($class) {
         'TecnicosController'            => ['controller', 'TecnicosController.php'],
     ];
 
-    // 1. Buscar en el mapa explícito
     if (isset($classMap[$class])) {
         [$dir, $file] = $classMap[$class];
         $path = __DIR__ . '/' . $dir . '/' . $file;
@@ -149,7 +145,6 @@ spl_autoload_register(function ($class) {
         }
     }
 
-    // 2. Fallback: buscar por convención en los directorios conocidos
     $paths = [
         __DIR__ . '/controller/',
         __DIR__ . '/model/',
@@ -211,8 +206,6 @@ if ($controller === '' || $controller === 'proyecto') {
         // ==========================================
         // ROUTE MAP — CONSISTENTE CON .htaccess
         // Formato: [regex, controller_key, action, [param_names]]
-        //
-        // ⚠️ REGLA: solo entradas para métodos que EXISTEN.
         // ==========================================
         $routeMap = [
             // ========== AUTENTICACIÓN ==========
@@ -407,13 +400,15 @@ if ($controller === '' || $controller === 'proyecto') {
             ['#^monitoreo/api/registros-dia$#',         'monitoreo', 'apiRegistrosDia', []],
 
             // ========== CHECKLISTS ==========
-            // ✅ Solo rutas que el ChecklistController y ChecklistEjecucionController tienen
             ['#^checklists$#',                          'checklist', 'index', []],
+            ['#^checklists/asignar$#',                  'checklistEjecucion', 'asignar', []],
+            ['#^checklists/asignar/guardar$#',          'checklistEjecucion', 'guardarAsignacion', []],
             ['#^checklists/mis-checklists$#',           'checklistEjecucion', 'misChecklists', []],
             ['#^checklists/iniciar/([0-9]+)$#',         'checklistEjecucion', 'iniciar', ['id']],
             ['#^checklists/llenar/([0-9]+)$#',          'checklistEjecucion', 'llenar', ['id']],
             ['#^checklists/guardar-lectura$#',          'checklistEjecucion', 'guardarLectura', []],
             ['#^checklists/cerrar/([0-9]+)$#',          'checklistEjecucion', 'cerrar', ['id']],
+            ['#^checklists/omitir$#',                   'checklistEjecucion', 'omitir', []],
             ['#^checklists/firmar/([0-9]+)$#',          'checklistEjecucion', 'firmar', ['id']],
             ['#^checklists/procesar-firma$#',           'checklistEjecucion', 'procesarFirma', []],
             ['#^checklists/rechazar$#',                 'checklistEjecucion', 'rechazar', []],
@@ -474,7 +469,6 @@ if ($controller === '' || $controller === 'proyecto') {
                 $controller = $ctrl;
                 $action = $act;
 
-                // Asignar parámetros según el orden en $paramNames
                 $params = [];
                 foreach ($paramNames as $index => $name) {
                     $params[$name] = $matches[$index + 1] ?? null;
@@ -488,7 +482,6 @@ if ($controller === '' || $controller === 'proyecto') {
             }
         }
 
-        // Fallback: parseo de segmentos si no matcheó ninguna ruta
         if (!$matched) {
             $segments = explode('/', $path);
             if (count($segments) >= 2) {
@@ -622,7 +615,6 @@ if (!method_exists($controllerObj, $action)) {
         exit;
     }
 
-    // Fallback: usar ErrorController si está disponible
     if (class_exists('ErrorController')) {
         $errorController = new ErrorController();
         if (method_exists($errorController, 'error404')) {

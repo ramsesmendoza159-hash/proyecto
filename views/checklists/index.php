@@ -2,11 +2,14 @@
 // views/checklists/index.php
 // Listado de tipos de checklist - VERSIÓN ESTANDARIZADA
 // ✅ FIX NUEVO: contenedor .table-actions + btn-icon + btn-header-action
+// ✅ FIX 11: botón "Asignar Checklist" para admin/operador
 
 if (!isset($seccion)) $seccion = 'checklists';
 if (!isset($titulo)) $titulo = 'Checklists Operativos';
 
 $tipos = $tipos ?? [];
+$rol = $_SESSION['rol'] ?? '';
+$puede_asignar = in_array($rol, ['admin', 'operador'], true);
 
 include_once __DIR__ . '/../layouts/header.php';
 ?>
@@ -22,9 +25,16 @@ include_once __DIR__ . '/../layouts/header.php';
                 <i class="fas fa-info-circle me-1"></i> Formularios de inspección periódica
             </p>
         </div>
-        <a href="/proyecto/checklists/mis-checklists" class="btn btn-primary btn-header-action">
-            <i class="fas fa-play-circle"></i> Mis Checklists
-        </a>
+        <div class="d-flex gap-2">
+            <?php if ($puede_asignar): ?>
+                <a href="/proyecto/checklists/asignar" class="btn btn-outline-primary btn-header-action">
+                    <i class="fas fa-user-plus"></i> Asignar Checklist
+                </a>
+            <?php endif; ?>
+            <a href="/proyecto/checklists/mis-checklists" class="btn btn-primary btn-header-action">
+                <i class="fas fa-play-circle"></i> Mis Checklists
+            </a>
+        </div>
     </div>
 
     <?php if (isset($_SESSION['mensaje'])): ?>
@@ -33,6 +43,14 @@ include_once __DIR__ . '/../layouts/header.php';
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
         <?php unset($_SESSION['mensaje'], $_SESSION['mensaje_tipo']); ?>
+    <?php endif; ?>
+
+    <?php if (isset($_SESSION['error'])): ?>
+        <div class="alert alert-danger alert-dismissible fade show">
+            <i class="fas fa-exclamation-circle me-2"></i> <?= htmlspecialchars($_SESSION['error']) ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <?php unset($_SESSION['error']); ?>
     <?php endif; ?>
 
     <div class="card border-0">

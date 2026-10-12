@@ -1,13 +1,13 @@
 <?php
 // views/monitoreo/reporte.php
 // Reporte imprimible - Formato MTTO R007
-// ✅ FIX: sanitizar firmas SVG (antes era XSS vulnerable)
+// ✅ FIX CRÍTICO: <script> movido dentro del <body> (antes estaba fuera)
+// ✅ FIX: SVGSanitizer aplicado
 
 if (!isset($registro) || !$registro) {
     die('Registro no disponible');
 }
 
-// ✅ Usar el helper centralizado
 require_once __DIR__ . '/../../helpers/SVGSanitizer.php';
 
 $equipos  = $registro['equipos'] ?? [];
@@ -31,13 +31,16 @@ $unidad   = $registro['unidad_medida'] ?? '%';
             @page { size: landscape; margin: 10mm; }
         }
         body { background: #fff; padding: 20px; font-family: Arial, sans-serif; }
-        .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px; }
-        .header-left { flex: 1; }
+        .header {
+            display: flex; justify-content: space-between; align-items: flex-start;
+            border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px;
+        }
+        .header-left   { flex: 1; }
         .header-center { flex: 2; text-align: center; }
-        .header-right { flex: 1; text-align: right; font-size: 0.9rem; }
+        .header-right  { flex: 1; text-align: right; font-size: 0.9rem; }
         .header h1 { font-size: 1.3rem; margin: 0; font-weight: bold; }
-        .header p { margin: 0; font-size: 0.85rem; }
-        .info-line { display: flex; gap: 20px; margin-bottom: 10px; font-size: 0.9rem; }
+        .header p  { margin: 0; font-size: 0.85rem; }
+        .info-line { display: flex; gap: 20px; margin-bottom: 10px; font-size: 0.9rem; flex-wrap: wrap; }
         .grilla-reporte { width: 100%; border-collapse: collapse; margin-top: 10px; }
         .grilla-reporte th, .grilla-reporte td {
             border: 1px solid #000;
@@ -47,10 +50,15 @@ $unidad   = $registro['unidad_medida'] ?? '%';
         }
         .grilla-reporte th { background: #f0f0f0; font-weight: bold; }
         .grilla-reporte td.equipo-cell { text-align: left; font-weight: bold; background: #fafafa; }
-        .valor-bajo { background: #fff3cd; }
+        .valor-bajo    { background: #fff3cd; }
         .valor-critico { background: #f8d7da; }
-        .firmas-section { margin-top: 25px; display: flex; justify-content: space-between; flex-wrap: wrap; }
-        .firma-box { border: 1px solid #000; padding: 8px 20px; text-align: center; min-width: 180px; margin-bottom: 10px; }
+        .firmas-section {
+            margin-top: 25px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 15px;
+        }
+        .firma-box {
+            border: 1px solid #000; padding: 8px 20px; text-align: center;
+            min-width: 180px; margin-bottom: 10px;
+        }
         .firma-box small { display: block; font-size: 0.7rem; color: #555; }
         .firma-svg-container { max-height: 60px; overflow: hidden; margin: 5px 0; }
         .firma-svg-container svg { max-height: 60px; max-width: 160px; }
@@ -87,8 +95,8 @@ $unidad   = $registro['unidad_medida'] ?? '%';
 
 <!-- Info general -->
 <div class="info-line">
-    <span><strong>Fecha:</strong> <?= date('d/m/Y', strtotime($registro['fecha'])) ?></span>
-    <span><strong>Turno:</strong> <?= htmlspecialchars($registro['turno']) ?></span>
+    <span><strong>Fecha:</strong>  <?= date('d/m/Y', strtotime($registro['fecha'])) ?></span>
+    <span><strong>Turno:</strong>  <?= htmlspecialchars($registro['turno']) ?></span>
     <span><strong>Operador:</strong> <?= htmlspecialchars($registro['operador_nombre'] ?? 'N/A') ?></span>
     <span><strong>Estado:</strong> <?= htmlspecialchars($registro['estado']) ?></span>
 </div>
@@ -107,15 +115,14 @@ $unidad   = $registro['unidad_medida'] ?? '%';
         <?php foreach ($equipos as $eq): ?>
             <tr>
                 <td class="equipo-cell"><?= htmlspecialchars($eq['nombre_equipo'] ?? '') ?></td>
-                <?php foreach ($horarios as $h): ?>
-                    <?php
+                <?php foreach ($horarios as $h):
                     $lec = $matriz[(int)$eq['id_equipo']][$h['hora']] ?? null;
                     $valor = $lec['valor'] ?? null;
                     $nivel = $lec['nivel_alerta'] ?? 'OK';
                     $cls = '';
-                    if ($nivel === 'BAJO') $cls = 'valor-bajo';
+                    if ($nivel === 'BAJO')    $cls = 'valor-bajo';
                     if ($nivel === 'CRITICO') $cls = 'valor-critico';
-                    ?>
+                ?>
                     <td class="<?= $cls ?>">
                         <?= $valor !== null ? htmlspecialchars($valor) : '' ?>
                     </td>
@@ -143,6 +150,15 @@ $unidad   = $registro['unidad_medida'] ?? '%';
         </div>
     <?php endforeach; ?>
 </div>
+
+<?php /* ✅ FIX: script movido DENTRO del body, antes de </body> */ ?>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(function() {
+            window.print();
+        }, 800);
+    });
+</script>
 
 </body>
 </html>

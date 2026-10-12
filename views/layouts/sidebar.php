@@ -1,11 +1,8 @@
 <?php
 // views/layouts/sidebar.php
 // VERSIÓN COMPLETA - CON ROLES DE FIRMAS SECUENCIALES, MONITOREO Y CHECKLISTS
-// ✅ Añadidos: ingeniero, calidad, seguridad
-// ✅ NUEVO: entrada "Monitoreo" para admin, supervisor, operador, tecnico
-// ✅ NUEVO: contador de pendientes+vencidos vía MonitoreoModel::contarPendientesDelDia()
-// ✅ NUEVO: entrada "Checklists" para admin, supervisor, tecnico, operador
-// ✅ FIX: Se eliminó el link "Calendario" del menú del técnico
+// ✅ FIX CRÍTICO: reemplazado contarTareasAsignadas() (método inexistente) por
+//    la lógica correcta basada en obtenerTareasAsignadas()
 
 $rol = $_SESSION['rol'] ?? 'usuario';
 $nombre = $_SESSION['nombre'] ?? 'Usuario';
@@ -153,10 +150,22 @@ if (in_array($rol, ['admin', 'supervisor', 'tecnico'])) {
                     $resumen_alertas = $mantModel->obtenerResumenAlertas();
                 }
 
+                // ✅ FIX CRÍTICO: contarTareasAsignadas() NO EXISTE.
+                // Usamos obtenerTareasAsignadas() y contamos manualmente.
                 if ($rol === 'tecnico') {
                     $tecnico_id = $mantModel->obtenerTecnicoIdByEmail($_SESSION['email'] ?? '');
                     if ($tecnico_id) {
-                        $tareas_tecnico = $mantModel->contarTareasAsignadas($tecnico_id);
+                        $tareas_lista = $mantModel->obtenerTareasAsignadas($tecnico_id);
+                        $total_t = 0;
+                        $vencidas_t = 0;
+                        foreach ($tareas_lista as $tarea_item) {
+                            $total_t++;
+                            $alerta = $tarea_item['estado_alerta'] ?? 'AL_DIA';
+                            if ($alerta === 'VENCIDO') {
+                                $vencidas_t++;
+                            }
+                        }
+                        $tareas_tecnico = ['total' => $total_t, 'vencidas' => $vencidas_t];
                     }
                 }
             }

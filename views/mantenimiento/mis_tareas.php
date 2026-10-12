@@ -1,8 +1,8 @@
 <?php
 // views/mantenimiento/mis_tareas.php
 // Listado de tareas asignadas al técnico
-// ✅ FIX: botones en outline-* según la regla
-// ✅ FIX NUEVO: contenedor .table-actions + btn-icon
+// ✅ FIX: 'codigo' → 'equipo_codigo' (columna real del modelo)
+// ✅ FIX: contenedor .table-actions + btn-icon + btn-header-action
 
 if (!isset($seccion)) $seccion = 'mis_tareas';
 if (!isset($titulo)) $titulo = 'Mis Mantenimientos';
@@ -15,6 +15,7 @@ include_once __DIR__ . '/../layouts/header.php';
 
 <div class="container-fluid px-0">
 
+    <!-- Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h4 class="mb-1 fw-bold">
@@ -29,9 +30,10 @@ include_once __DIR__ . '/../layouts/header.php';
         </a>
     </div>
 
+    <!-- Mensajes -->
     <?php if (isset($_SESSION['mensaje'])): ?>
         <div class="alert alert-<?= $_SESSION['mensaje_tipo'] ?? 'success' ?> alert-dismissible fade show">
-            <i class="fas fa-check-circle me-2"></i> <?= $_SESSION['mensaje'] ?>
+            <i class="fas fa-check-circle me-2"></i> <?= htmlspecialchars($_SESSION['mensaje']) ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
         <?php unset($_SESSION['mensaje'], $_SESSION['mensaje_tipo']); ?>
@@ -145,7 +147,10 @@ include_once __DIR__ . '/../layouts/header.php';
                                 <tr>
                                     <td>
                                         <div class="fw-semibold"><?= htmlspecialchars($tarea['nombre_equipo'] ?? 'N/A') ?></div>
-                                        <small class="text-muted"><?= htmlspecialchars($tarea['codigo'] ?? '') ?></small>
+                                        <?php /* ✅ FIX: campo correcto es 'equipo_codigo', no 'codigo' */ ?>
+                                        <small class="text-muted">
+                                            <?= htmlspecialchars($tarea['equipo_codigo'] ?? $tarea['codigo'] ?? '') ?>
+                                        </small>
                                     </td>
                                     <td>
                                         <div><?= htmlspecialchars($tarea['nombre_tarea'] ?? 'N/A') ?></div>
@@ -168,25 +173,25 @@ include_once __DIR__ . '/../layouts/header.php';
                                             <span class="fw-semibold <?= $tarea['horas_restantes'] <= 0 ? 'text-danger' : ($tarea['horas_restantes'] <= 100 ? 'text-warning' : 'text-success') ?>">
                                                 <?= number_format($tarea['horas_restantes']) ?> h
                                             </span>
-                                        <?php else: ?>-<?php endif; ?>
+                                        <?php else: ?>—<?php endif; ?>
                                     </td>
                                     <td>
                                         <?php if (isset($tarea['dias_restantes'])): ?>
                                             <span class="fw-semibold <?= $tarea['dias_restantes'] <= 0 ? 'text-danger' : ($tarea['dias_restantes'] <= 30 ? 'text-warning' : 'text-success') ?>">
                                                 <?= $tarea['dias_restantes'] ?> días
                                             </span>
-                                        <?php else: ?>-<?php endif; ?>
+                                        <?php else: ?>—<?php endif; ?>
                                     </td>
                                     <td>
                                         <div class="table-actions">
-                                            <a href="/proyecto/mantenimiento/ejecutar/<?= (int)$tarea['id'] ?>" 
+                                            <a href="/proyecto/mantenimiento/ejecutar/<?= (int)$tarea['id'] ?>"
                                                class="btn btn-sm btn-outline-success btn-icon"
                                                title="Ejecutar"
                                                aria-label="Ejecutar mantenimiento">
                                                 <i class="fas fa-play"></i>
                                             </a>
-                                            <a href="/proyecto/mantenimiento/equipo/<?= (int)$tarea['id_equipo'] ?>" 
-                                               class="btn btn-sm btn-outline-info btn-icon" 
+                                            <a href="/proyecto/mantenimiento/equipo/<?= (int)$tarea['id_equipo'] ?>"
+                                               class="btn btn-sm btn-outline-info btn-icon"
                                                title="Ver equipo"
                                                aria-label="Ver equipo">
                                                 <i class="fas fa-eye"></i>

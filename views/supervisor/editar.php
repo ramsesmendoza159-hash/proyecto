@@ -1,5 +1,5 @@
 <?php
-// views/supervisor/editar_supervision.php
+// views/supervisor/editar.php
 // Editar Supervisión - VERSIÓN CORREGIDA
 
 // Incluir helpers necesarios

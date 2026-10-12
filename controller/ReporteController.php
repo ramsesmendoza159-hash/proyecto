@@ -1,11 +1,6 @@
 <?php
 // controller/ReporteController.php
 // VERSIÓN CORREGIDA
-// ✅ FIX: catch (PDOException) → catch (Throwable) en métodos privados (6 ocurrencias)
-// ✅ FIX CRÍTICO: supervision() hacía JOIN con usuarios en vez de supervisores
-// ✅ FIX: métodos privados con manejo de errores consistente
-// ✅ FIX: tecnicosData() mantiene bindValue PARAM_INT para LIMIT/OFFSET
-
 require_once __DIR__ . '/../helpers/Controller.php';
 require_once __DIR__ . '/../model/OrdenTrabajo.php';
 require_once __DIR__ . '/../model/Tecnico.php';
@@ -26,32 +21,41 @@ class ReporteController extends Controller {
 
         if (!$this->authHelper->isLoggedIn()) {
             $this->redirect('/auth/login');
+            return;
         }
 
-        if (!$this->authHelper->isAdmin() && 
-            !$this->authHelper->isSupervisor() && 
-            !$this->authHelper->isConsultor()) {
+        // ✅ FIX 2: permisos via getRole()
+        $rol = $this->authHelper->getRole();
+        if (!in_array($rol, ['admin', 'supervisor', 'consultor'], true)) {
             $_SESSION['error'] = 'No tienes permisos para acceder a esta sección';
             $this->redirect('/dashboard');
+            return;
         }
 
-        $this->ordenModel = new OrdenTrabajo();
-        $this->tecnicoModel = new Tecnico();
-        $this->inventarioModel = new InventarioModel();
-        $this->db = Database::getInstance()->getConnection();
+        try {
+            $this->ordenModel = new OrdenTrabajo();
+            $this->tecnicoModel = new Tecnico();
+            $this->inventarioModel = new InventarioModel();
+            $this->db = Database::getInstance()->getConnection();
+        } catch (Throwable $e) {
+            error_log("Error al instanciar modelos en ReporteController: " . $e->getMessage());
+            $this->redirectWithError('/dashboard', 'Error al cargar el módulo');
+            return;
+        }
     }
 
     private function cargarTecnicos() {
         try {
             $stmt = $this->db->query("SELECT id, nombre FROM tecnicos WHERE estado = 'activo' ORDER BY nombre ASC");
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } catch (Throwable $e) {   // ✅ FIX: Throwable
+        } catch (Throwable $e) {
             error_log("Error al cargar técnicos: " . $e->getMessage());
             return [];
         }
     }
 
     public function index() {
+        // ✅ FIX 5: sanear fechas
         $fechaInicio = $_GET['fecha_inicio'] ?? date('Y-m-01');
         $fechaFin = $_GET['fecha_fin'] ?? date('Y-m-t');
 
@@ -66,7 +70,12 @@ class ReporteController extends Controller {
             $ordenes_por_estado = $this->getOrdenesPorEstado($fechaInicio, $fechaFin);
             $ordenes_por_prioridad = $this->getOrdenesPorPrioridad($fechaInicio, $fechaFin);
             $ordenes_por_tecnico = $this->getOrdenesPorTecnico($fechaInicio, $fechaFin);
-            $ordenes_por_planta = $this->ordenModel->obtenerCostosPorPlanta($fechaInicio, $fechaFin);
+
+            // ✅ FIX 4: verificar que el método existe antes de llamarlo
+            $ordenes_por_planta = method_exists($this->ordenModel, 'obtenerCostosPorPlanta')
+                ? $this->ordenModel->obtenerCostosPorPlanta($fechaInicio, $fechaFin)
+                : [];
+
             $costos_por_mes = $this->getCostosPorMes($fechaInicio, $fechaFin);
 
             $total = $stats['total'] ?? 0;
@@ -97,12 +106,13 @@ class ReporteController extends Controller {
 
     public function ordenes() {
         try {
+            // ✅ FIX 5: sanear filtros
             $filtros = [
-                'fecha_desde' => $_GET['fecha_desde'] ?? '',
-                'fecha_hasta' => $_GET['fecha_hasta'] ?? '',
-                'estado' => $_GET['estado'] ?? '',
-                'prioridad' => $_GET['prioridad'] ?? '',
-                'tecnico_id' => $_GET['tecnico_id'] ?? ''
+                'fecha_desde' => trim((string)($_GET['fecha_desde'] ?? '')),
+                'fecha_hasta' => trim((string)($_GET['fecha_hasta'] ?? '')),
+                'estado'      => trim((string)($_GET['estado'] ?? '')),
+                'prioridad'   => trim((string)($_GET['prioridad'] ?? '')),
+                'tecnico_id'  => !empty($_GET['tecnico_id']) ? (int)$_GET['tecnico_id'] : '',
             ];
 
             $ordenes = $this->ordenModel->obtenerTodos($filtros);
@@ -155,9 +165,6 @@ class ReporteController extends Controller {
         require_once __DIR__ . '/../views/reportes/tecnicos.php';
     }
 
-    /**
-     * ✅ FIX CRÍTICO: usa bindValue con PARAM_INT para LIMIT/OFFSET
-     */
     public function tecnicosData() {
         header('Content-Type: application/json; charset=utf-8');
 
@@ -166,7 +173,7 @@ class ReporteController extends Controller {
             $fechaFin = $_GET['fecha_fin'] ?? date('Y-m-t');
             $tecnicoId = !empty($_GET['tecnico_id']) ? (int)$_GET['tecnico_id'] : null;
             $page = max(1, (int)($_GET['page'] ?? 1));
-            $limit = max(1, min(100, (int)($_GET['limit'] ?? 10)));   // límite máx 100
+            $limit = max(1, min(100, (int)($_GET['limit'] ?? 10)));
             $offset = ($page - 1) * $limit;
 
             $sql = "SELECT 
@@ -216,10 +223,6 @@ class ReporteController extends Controller {
         exit;
     }
 
-    /**
-     * ✅ FIX CRÍTICO: JOIN con supervisores (no usuarios)
-     * supervisiones.supervisor_id → supervisores.id, NO usuarios.id
-     */
     public function supervision() {
         try {
             $sql = "SELECT s.*, 
@@ -274,10 +277,10 @@ class ReporteController extends Controller {
     public function inventario() {
         try {
             $filtros = [
-                'estado' => $_GET['estado'] ?? '',
-                'categoria' => $_GET['categoria'] ?? '',
-                'buscar' => $_GET['buscar'] ?? '',
-                'stock' => $_GET['stock'] ?? ''
+                'estado' => trim((string)($_GET['estado'] ?? '')),
+                'categoria' => trim((string)($_GET['categoria'] ?? '')),
+                'buscar' => trim((string)($_GET['buscar'] ?? '')),
+                'stock' => trim((string)($_GET['stock'] ?? '')),
             ];
 
             $items = $this->inventarioModel->obtenerTodos($filtros);
@@ -418,7 +421,7 @@ class ReporteController extends Controller {
     }
 
     // ==========================================
-    // MÉTODOS PRIVADOS (todos con Throwable)
+    // MÉTODOS PRIVADOS
     // ==========================================
 
     private function getOrdenesPorMes($fechaInicio, $fechaFin) {
@@ -439,7 +442,7 @@ class ReporteController extends Controller {
             ]);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        } catch (Throwable $e) {   // ✅ FIX: Throwable
+        } catch (Throwable $e) {
             error_log("Error en getOrdenesPorMes: " . $e->getMessage());
             return [];
         }
@@ -447,9 +450,7 @@ class ReporteController extends Controller {
 
     private function getOrdenesPorEstado($fechaInicio, $fechaFin) {
         try {
-            $sql = "SELECT 
-                        status,
-                        COUNT(*) as total
+            $sql = "SELECT status, COUNT(*) as total
                     FROM ordenes_mantenimiento 
                     WHERE fecha_creacion BETWEEN ? AND ?
                     GROUP BY status
@@ -462,7 +463,7 @@ class ReporteController extends Controller {
             ]);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        } catch (Throwable $e) {   // ✅ FIX: Throwable
+        } catch (Throwable $e) {
             error_log("Error en getOrdenesPorEstado: " . $e->getMessage());
             return [];
         }
@@ -470,9 +471,7 @@ class ReporteController extends Controller {
 
     private function getOrdenesPorPrioridad($fechaInicio, $fechaFin) {
         try {
-            $sql = "SELECT 
-                        prioridad,
-                        COUNT(*) as total
+            $sql = "SELECT prioridad, COUNT(*) as total
                     FROM ordenes_mantenimiento 
                     WHERE fecha_creacion BETWEEN ? AND ?
                     GROUP BY prioridad
@@ -492,7 +491,7 @@ class ReporteController extends Controller {
             ]);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        } catch (Throwable $e) {   // ✅ FIX: Throwable
+        } catch (Throwable $e) {
             error_log("Error en getOrdenesPorPrioridad: " . $e->getMessage());
             return [];
         }
@@ -518,7 +517,7 @@ class ReporteController extends Controller {
             ]);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        } catch (Throwable $e) {   // ✅ FIX: Throwable
+        } catch (Throwable $e) {
             error_log("Error en getOrdenesPorTecnico: " . $e->getMessage());
             return [];
         }
@@ -541,7 +540,7 @@ class ReporteController extends Controller {
             ]);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        } catch (Throwable $e) {   // ✅ FIX: Throwable
+        } catch (Throwable $e) {
             error_log("Error en getCostosPorMes: " . $e->getMessage());
             return [];
         }

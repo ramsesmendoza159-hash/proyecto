@@ -1,40 +1,42 @@
 <?php
 // controller/ReporteFinancieroController.php
 // VERSIÓN COMPLETA CORREGIDA - CON PERMISOS PARA CONSULTOR
-// ✅ FIX CRÍTICO: JOINs con plantas y areas (columnas nombre_planta y nombre_area NO existen en ordenes_mantenimiento)
-// ✅ FIX: catch (Exception/PDOException) → catch (Throwable) en TODOS los métodos (6 ocurrencias)
-// ✅ FIX: NO exponer $e->getMessage() al usuario en index()
-// ✅ FIX: comparación de fechas con timestamps en vez de strings
-// ✅ FIX: uso consistente de redirect() con rutas relativas
 
 require_once __DIR__ . '/../helpers/Controller.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../model/OrdenTrabajo.php';
 
 class ReporteFinancieroController extends Controller {
-    
+
     private $ordenModel;
     private $db;
-    
+
     public function __construct() {
         parent::__construct();
-        
+
         if (!$this->authHelper->isLoggedIn()) {
             $this->redirect('/auth/login');
+            return;
         }
-        
-        // ✅ PERMITIR consultor (solo lectura)
-        if (!$this->authHelper->isAdmin() && 
-            !$this->authHelper->isSupervisor() && 
-            !$this->authHelper->isConsultor()) {
+
+        // ✅ FIX 2: permisos via getRole()
+        $rol = $this->authHelper->getRole();
+        if (!in_array($rol, ['admin', 'supervisor', 'consultor'], true)) {
             $_SESSION['error'] = 'No tienes permisos para acceder a esta sección';
             $this->redirect('/dashboard');
+            return;
         }
-        
-        $this->ordenModel = new OrdenTrabajo();
-        $this->db = Database::getInstance()->getConnection();
+
+        try {
+            $this->ordenModel = new OrdenTrabajo();
+            $this->db = Database::getInstance()->getConnection();
+        } catch (Throwable $e) {
+            error_log("Error al instanciar modelos en ReporteFinancieroController: " . $e->getMessage());
+            $this->redirectWithError('/dashboard', 'Error al cargar el módulo');
+            return;
+        }
     }
-    
+
     /**
      * Página principal de reportes financieros
      */
@@ -48,48 +50,43 @@ class ReporteFinancieroController extends Controller {
         $costos_por_tecnico = [];
         $costos_por_mes = [];
         $evolucion_mensual = [];
-        
+
         $fechaInicio = $_GET['fecha_inicio'] ?? date('Y-m-01');
         $fechaFin = $_GET['fecha_fin'] ?? date('Y-m-t');
-        
-        // ✅ FIX: comparación con timestamps en vez de strings
+
         $tsInicio = strtotime($fechaInicio);
         $tsFin = strtotime($fechaFin);
-        
+
         if ($tsInicio === false || $tsFin === false) {
             $fechaInicio = date('Y-m-01');
             $fechaFin = date('Y-m-t');
             $tsInicio = strtotime($fechaInicio);
             $tsFin = strtotime($fechaFin);
         }
-        
+
         if ($tsInicio > $tsFin) {
             $temp = $fechaInicio;
             $fechaInicio = $fechaFin;
             $fechaFin = $temp;
         }
-        
+
         try {
             $stats = $this->obtenerEstadisticasFinancieras($fechaInicio, $fechaFin);
             $costos_por_planta = $this->obtenerCostosPorPlanta($fechaInicio, $fechaFin);
             $costos_por_tecnico = $this->obtenerCostosPorTecnico($fechaInicio, $fechaFin);
             $costos_por_mes = $this->obtenerCostosPorMes();
             $evolucion_mensual = $this->obtenerEvolucionMensual();
-            
-        } catch (Throwable $e) {   // ✅ FIX: Throwable
+
+        } catch (Throwable $e) {
             error_log("Error en reporte financiero: " . $e->getMessage());
-            // ✅ FIX: NO exponer detalles al usuario
             $_SESSION['error'] = 'Error al cargar los datos financieros';
         }
-        
+
         $seccion = 'financieros';
         $titulo = 'Reportes Financieros';
         require_once __DIR__ . '/../views/reportes/financieros.php';
     }
-    
-    /**
-     * Obtener estadísticas financieras
-     */
+
     private function obtenerEstadisticasFinancieras($fechaInicio, $fechaFin) {
         try {
             $sql = "SELECT 
@@ -103,11 +100,11 @@ class ReporteFinancieroController extends Controller {
                     FROM ordenes_mantenimiento
                     WHERE status IN ('CERRADA', 'APROBADA', 'EJECUTADA')
                     AND fecha_creacion BETWEEN ? AND ?";
-            
+
             $stmt = $this->db->prepare($sql);
             $stmt->execute([$fechaInicio . ' 00:00:00', $fechaFin . ' 23:59:59']);
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
-            
+
             return [
                 'total_ordenes' => (int)($result['total_ordenes'] ?? 0),
                 'total_costos' => (float)($result['total_costos'] ?? 0),
@@ -117,8 +114,8 @@ class ReporteFinancieroController extends Controller {
                 'promedio_horas' => round((float)($result['promedio_horas'] ?? 0), 1),
                 'total_horas' => round((float)($result['total_horas'] ?? 0), 1)
             ];
-            
-        } catch (Throwable $e) {   // ✅ FIX: Throwable
+
+        } catch (Throwable $e) {
             error_log("Error en obtenerEstadisticasFinancieras: " . $e->getMessage());
             return [
                 'total_ordenes' => 0, 'total_costos' => 0, 'total_repuestos' => 0,
@@ -126,11 +123,7 @@ class ReporteFinancieroController extends Controller {
             ];
         }
     }
-    
-    /**
-     * Obtener costos por planta
-     * ✅ FIX: JOIN con plantas (la columna nombre_planta NO existe en ordenes_mantenimiento)
-     */
+
     private function obtenerCostosPorPlanta($fechaInicio, $fechaFin) {
         try {
             $sql = "SELECT 
@@ -146,20 +139,17 @@ class ReporteFinancieroController extends Controller {
                     AND o.id_planta IS NOT NULL
                     GROUP BY o.id_planta
                     ORDER BY total_costos DESC";
-            
+
             $stmt = $this->db->prepare($sql);
             $stmt->execute([$fechaInicio . ' 00:00:00', $fechaFin . ' 23:59:59']);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
-            
-        } catch (Throwable $e) {   // ✅ FIX: Throwable
+
+        } catch (Throwable $e) {
             error_log("Error en obtenerCostosPorPlanta: " . $e->getMessage());
             return [];
         }
     }
-    
-    /**
-     * Obtener costos por técnico
-     */
+
     private function obtenerCostosPorTecnico($fechaInicio, $fechaFin) {
         try {
             $sql = "SELECT 
@@ -176,24 +166,21 @@ class ReporteFinancieroController extends Controller {
                     AND o.tecnico_id IS NOT NULL
                     GROUP BY o.tecnico_id
                     ORDER BY total_costos DESC";
-            
+
             $stmt = $this->db->prepare($sql);
             $stmt->execute([$fechaInicio . ' 00:00:00', $fechaFin . ' 23:59:59']);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
-            
-        } catch (Throwable $e) {   // ✅ FIX: Throwable
+
+        } catch (Throwable $e) {
             error_log("Error en obtenerCostosPorTecnico: " . $e->getMessage());
             return [];
         }
     }
-    
-    /**
-     * Obtener costos por mes
-     */
+
     private function obtenerCostosPorMes() {
         try {
             $anio = date('Y');
-            
+
             $sql = "SELECT 
                         DATE_FORMAT(fecha_creacion, '%Y-%m') as mes,
                         COUNT(*) as total_ordenes,
@@ -205,24 +192,21 @@ class ReporteFinancieroController extends Controller {
                     AND YEAR(fecha_creacion) = ?
                     GROUP BY DATE_FORMAT(fecha_creacion, '%Y-%m')
                     ORDER BY mes ASC";
-            
+
             $stmt = $this->db->prepare($sql);
             $stmt->execute([$anio]);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
-            
-        } catch (Throwable $e) {   // ✅ FIX: Throwable
+
+        } catch (Throwable $e) {
             error_log("Error en obtenerCostosPorMes: " . $e->getMessage());
             return [];
         }
     }
-    
-    /**
-     * Obtener evolución mensual para gráficos
-     */
+
     private function obtenerEvolucionMensual() {
         try {
             $anio = date('Y');
-            
+
             $sql = "SELECT 
                         DATE_FORMAT(fecha_creacion, '%b %Y') as mes_label,
                         DATE_FORMAT(fecha_creacion, '%Y-%m') as mes,
@@ -235,49 +219,47 @@ class ReporteFinancieroController extends Controller {
                     AND YEAR(fecha_creacion) = ?
                     GROUP BY DATE_FORMAT(fecha_creacion, '%Y-%m')
                     ORDER BY mes ASC";
-            
+
             $stmt = $this->db->prepare($sql);
             $stmt->execute([$anio]);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
-            
-        } catch (Throwable $e) {   // ✅ FIX: Throwable
+
+        } catch (Throwable $e) {
             error_log("Error en obtenerEvolucionMensual: " . $e->getMessage());
             return [];
         }
     }
-    
+
     /**
      * Exportar reporte a CSV
-     * ✅ FIX: JOIN con plantas y areas
-     * ✅ FIX: validación de fechas con timestamps
+     * ✅ FIX 4: sanitización de fechas
      */
     public function exportar() {
+        // ✅ FIX 4: sanitizar fechas
         $fechaInicio = $_GET['fecha_inicio'] ?? date('Y-m-01');
         $fechaFin = $_GET['fecha_fin'] ?? date('Y-m-t');
         $tipo = $_GET['tipo'] ?? 'detallado';
-        
-        // ✅ FIX: validación de fechas con timestamps
+
         if (strtotime($fechaInicio) === false || strtotime($fechaFin) === false) {
             $this->redirectWithError('/reportes/financieros', 'Fechas inválidas');
             return;
         }
-        
+
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename="reporte_financiero_' . date('Y-m-d') . '.csv"');
-        
+
         $output = fopen('php://output', 'w');
         fprintf($output, chr(0xEF) . chr(0xBB) . chr(0xBF));
-        
+
         if ($tipo === 'detallado') {
             fputcsv($output, [
-                'ID', 'N° OM', 'Título', 'Planta', 'Área', 'Técnico', 
+                'ID', 'N° OM', 'Título', 'Planta', 'Área', 'Técnico',
                 'Horas', 'Costo Repuestos', 'Costo Mano Obra', 'Costo Total', 'Estado'
             ]);
-            
+
             try {
-                // ✅ FIX: JOIN con plantas y areas
                 $sql = "SELECT 
-                            o.id, o.num_om, o.titulo, o.horas_trabajadas, 
+                            o.id, o.num_om, o.titulo, o.horas_trabajadas,
                             o.costo_repuestos, o.costo_mano_obra, o.costo_total, o.status,
                             t.nombre as tecnico_nombre,
                             p.nombre_planta,
@@ -289,11 +271,11 @@ class ReporteFinancieroController extends Controller {
                         WHERE o.status IN ('CERRADA', 'APROBADA', 'EJECUTADA')
                         AND o.fecha_creacion BETWEEN ? AND ?
                         ORDER BY o.fecha_creacion DESC";
-                
+
                 $stmt = $this->db->prepare($sql);
                 $stmt->execute([$fechaInicio . ' 00:00:00', $fechaFin . ' 23:59:59']);
                 $ordenes = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                
+
                 foreach ($ordenes as $orden) {
                     fputcsv($output, [
                         $orden['id'] ?? '',
@@ -327,7 +309,7 @@ class ReporteFinancieroController extends Controller {
             fputcsv($output, ['Total Horas', $stats['total_horas']]);
             fputcsv($output, ['Promedio Horas', $stats['promedio_horas']]);
         }
-        
+
         fclose($output);
         exit;
     }

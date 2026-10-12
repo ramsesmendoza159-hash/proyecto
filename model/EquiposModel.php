@@ -121,47 +121,33 @@ class EquiposModel
     public function crear($datos)
     {
         try {
-            // ✅ VALIDAR DATOS OBLIGATORIOS
             if (empty($datos['id_area'])) {
                 $this->lastError = "El ID del área es obligatorio";
-                error_log("❌ Error crear equipo: id_area vacío");
+                error_log(" Error crear equipo: id_area vacío");
                 return false;
             }
             
             if (empty($datos['nombre'])) {
                 $this->lastError = "El nombre es obligatorio";
-                error_log("❌ Error crear equipo: nombre vacío");
+                error_log(" Error crear equipo: nombre vacío");
                 return false;
             }
-            
-            // ✅ VERIFICAR QUE EL ÁREA EXISTA
+
             $sqlCheck = "SELECT id_area FROM areas WHERE id_area = ?";
             $stmtCheck = $this->db->prepare($sqlCheck);
             $stmtCheck->execute([$datos['id_area']]);
             if (!$stmtCheck->fetch()) {
                 $this->lastError = "El área seleccionada no existe (ID: {$datos['id_area']})";
-                error_log("❌ Error crear equipo: área {$datos['id_area']} no existe");
+                error_log(" Error crear equipo: área {$datos['id_area']} no existe");
                 return false;
             }
             
             $sql = "INSERT INTO equipos (
-                        id_area, 
-                        nombre_equipo, 
-                        descripcion, 
-                        descripcion_tec,
-                        especificacion,
-                        fabricante,
-                        modelo, 
-                        marca, 
-                        serie,
-                        codigo,
-                        numero_se,
-                        año_fabricacion,
-                        manual,
-                        fecha_instalacion,
-                        ries,
-                        estado,
-                        estado_operativo
+                        id_area,    nombre_equipo, descripcion, 
+                        descripcion_tec,   especificacion,   fabricante,
+                        modelo, marca, serie, codigo, numero_se,
+                        año_fabricacion,  manual,  fecha_instalacion,
+                        ries,  estado, estado_operativo
                     ) VALUES (
                         ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
                     )";
@@ -190,18 +176,18 @@ class EquiposModel
             
             if ($resultado) {
                 $id = $this->db->lastInsertId();
-                error_log("✅ Equipo creado con ID: $id");
+                error_log(" Equipo creado con ID: $id");
                 return $id;
             } else {
                 $errorInfo = $stmt->errorInfo();
                 $this->lastError = "Error SQL: " . ($errorInfo[2] ?? 'Desconocido');
-                error_log("❌ Error SQL al crear equipo: " . print_r($errorInfo, true));
+                error_log(" Error SQL al crear equipo: " . print_r($errorInfo, true));
                 return false;
             }
             
         } catch (PDOException $e) {
             $this->lastError = $e->getMessage();
-            error_log("❌ Excepción al crear equipo: " . $e->getMessage());
+            error_log(" Excepción al crear equipo: " . $e->getMessage());
             error_log("Stack trace: " . $e->getTraceAsString());
             return false;
         }

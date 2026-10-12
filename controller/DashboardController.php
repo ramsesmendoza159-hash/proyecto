@@ -1,93 +1,100 @@
 <?php
 // controller/DashboardController.php
-// VERSIÓN CORREGIDA - CON RUTAS DE NUEVOS ROLES
-// ✅ FIX: catch (Exception) → catch (Throwable) en getStats()
-// ✅ FIX: catch (PDOException) → catch (Throwable) en getUsuariosStats()
-// ✅ FIX: try/catch en adminDashboard()
-// ✅ FIX: uso consistente de redirect() con rutas relativas
-// ✅ FIX: comentarios de trazabilidad
-
+// Panel de redirección según rol + Dashboard admin
 require_once __DIR__ . '/../helpers/Controller.php';
 require_once __DIR__ . '/../config/database.php';
 
 class DashboardController extends Controller {
-    
+
     private $db;
 
     public function __construct() {
         parent::__construct();
-        
+
         if (!$this->authHelper->isLoggedIn()) {
             $_SESSION['error'] = 'Debes iniciar sesión para acceder al dashboard';
             $this->redirect('/auth/login');
+            return;
         }
-        
-        $this->db = Database::getInstance()->getConnection();
+
+        try {
+            $this->db = Database::getInstance()->getConnection();
+        } catch (Throwable $e) {
+            error_log("Error al conectar a la BD en DashboardController: " . $e->getMessage());
+            $this->redirectWithError('/auth/login', 'Error de conexión');
+            return;
+        }
     }
 
     public function index() {
         $rol = $this->authHelper->getRole();
-        
+
         switch ($rol) {
             case 'admin':
                 $this->adminDashboard();
                 break;
             case 'supervisor':
                 $this->redirect('/supervisor');
-                break;
+                return;
             case 'tecnico':
                 $this->redirect('/tecnico');
-                break;
+                return;
             case 'almacen':
                 $this->redirect('/almacen');
-                break;
+                return;
             case 'operador':
                 $this->redirect('/operador');
-                break;
+                return;
             case 'consultor':
                 $this->redirect('/consultor');
-                break;
-            // ✅ NUEVOS ROLES PARA FIRMAS
+                return;
             case 'ingeniero':
                 $this->redirect('/ingeniero');
-                break;
+                return;
             case 'calidad':
                 $this->redirect('/calidad');
-                break;
+                return;
             case 'seguridad':
                 $this->redirect('/seguridad');
-                break;
+                return;
             default:
                 $_SESSION['error'] = 'Rol de usuario no válido';
                 $this->redirect('/auth/login');
-                break;
+                return;
         }
     }
-    
+
     private function adminDashboard() {
         try {
             require_once __DIR__ . '/../model/OrdenTrabajo.php';
             require_once __DIR__ . '/../model/Tecnico.php';
             require_once __DIR__ . '/../model/Supervisor.php';
             require_once __DIR__ . '/../model/PlantasModel.php';
-            
+
             $ordenModel = new OrdenTrabajo();
             $tecnicoModel = new Tecnico();
             $supervisorModel = new Supervisor();
             $plantasModel = new PlantasModel();
-            
+
             $estadisticas_ordenes = $ordenModel->obtenerEstadisticas();
             $estadisticas_tecnicos = $tecnicoModel->obtenerEstadisticas();
             $estadisticas_supervisores = $supervisorModel->obtenerEstadisticas();
             $statsUsuarios = $this->getUsuariosStats();
-            $total_plantas = $plantasModel->obtenerTotal();
-            $total_gastado = $ordenModel->obtenerTotalGastado();
+
+            // ✅ FIX 3: fallback si los métodos no existen
+            $total_plantas = method_exists($plantasModel, 'obtenerTotal')
+                ? $plantasModel->obtenerTotal()
+                : 0;
+
+            $total_gastado = method_exists($ordenModel, 'obtenerTotalGastado')
+                ? $ordenModel->obtenerTotalGastado()
+                : 0;
+
             $ordenes_recientes = $ordenModel->obtenerTodos([], 5, 0);
-            
+
         } catch (Throwable $e) {
             error_log("Error en adminDashboard: " . $e->getMessage());
-            
-            // Valores por defecto si falla algo
+
             $estadisticas_ordenes = [
                 'total' => 0, 'pendientes' => 0, 'en_proceso' => 0,
                 'cerradas' => 0, 'canceladas' => 0, 'aprobadas' => 0,
@@ -105,20 +112,20 @@ class DashboardController extends Controller {
             $total_plantas = 0;
             $total_gastado = 0;
             $ordenes_recientes = [];
-            
+
             $_SESSION['error'] = 'Error al cargar algunas estadísticas del dashboard';
         }
-        
+
         $titulo = 'Dashboard - Administrador';
         $seccion = 'dashboard';
         $rol = 'admin';
-        
+
         require_once __DIR__ . '/../views/admin/dashboard.php';
     }
-    
+
     private function getUsuariosStats() {
         try {
-            $sql = "SELECT 
+            $sql = "SELECT
                         COUNT(*) as total,
                         SUM(CASE WHEN estado = 'activo' THEN 1 ELSE 0 END) as activos,
                         SUM(CASE WHEN estado = 'inactivo' THEN 1 ELSE 0 END) as inactivos
@@ -126,41 +133,50 @@ class DashboardController extends Controller {
             $stmt = $this->db->prepare($sql);
             $stmt->execute();
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
-            
+
             return [
                 'total' => (int)($result['total'] ?? 0),
                 'activos' => (int)($result['activos'] ?? 0),
                 'inactivos' => (int)($result['inactivos'] ?? 0)
             ];
-        } catch (Throwable $e) {   // ✅ FIX: Throwable
+        } catch (Throwable $e) {
             error_log("Error en getUsuariosStats: " . $e->getMessage());
             return ['total' => 0, 'activos' => 0, 'inactivos' => 0];
         }
     }
-    
+
+    /**
+     * API: estadísticas globales (usada por admin/dashboard.php via fetch)
+     * URL: /api/dashboard/stats
+     */
     public function getStats() {
+        header('Content-Type: application/json; charset=utf-8');
+
         try {
             if (!$this->authHelper->isLoggedIn()) {
-                $this->jsonResponse(['error' => 'No autenticado'], 401);
-                return;
+                echo json_encode(['success' => false, 'error' => 'No autenticado']);
+                exit;
             }
-            
+
             require_once __DIR__ . '/../model/OrdenTrabajo.php';
             require_once __DIR__ . '/../model/Tecnico.php';
             require_once __DIR__ . '/../model/Supervisor.php';
             require_once __DIR__ . '/../model/PlantasModel.php';
-            
+
             $ordenModel = new OrdenTrabajo();
             $tecnicoModel = new Tecnico();
             $supervisorModel = new Supervisor();
             $plantasModel = new PlantasModel();
-            
+
             $stats = $ordenModel->obtenerEstadisticas();
             $statsTecnicos = $tecnicoModel->obtenerEstadisticas();
             $statsSupervisores = $supervisorModel->obtenerEstadisticas();
             $statsUsuarios = $this->getUsuariosStats();
-            $total_plantas = $plantasModel->obtenerTotal();
-            
+
+            $total_plantas = method_exists($plantasModel, 'obtenerTotal')
+                ? $plantasModel->obtenerTotal()
+                : 0;
+
             $data = [
                 'ordenes' => $stats,
                 'tecnicos' => $statsTecnicos,
@@ -168,18 +184,20 @@ class DashboardController extends Controller {
                 'usuarios' => $statsUsuarios,
                 'plantas' => ['total' => $total_plantas]
             ];
-            
-            $this->jsonResponse([
+
+            echo json_encode([
                 'success' => true,
                 'data' => $data
             ]);
-            
-        } catch (Throwable $e) {   // ✅ FIX: Throwable
+            exit;
+
+        } catch (Throwable $e) {
             error_log("Error en getStats: " . $e->getMessage());
-            $this->jsonResponse([
+            echo json_encode([
                 'success' => false,
                 'error' => 'Error al procesar la solicitud'
-            ], 500);
+            ]);
+            exit;
         }
     }
 }

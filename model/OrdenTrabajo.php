@@ -1,15 +1,10 @@
 <?php
 // model/OrdenTrabajo.php
 // MODELO COMPLETO DE ÓRDENES DE MANTENIMIENTO
-// ✅ FIX 1: obtenerTodos() para supervisor ahora ve CERRADA + APROBADA + EJECUTADA
-// ✅ FIX 2: generarNumeroOM() usa transacción + SELECT ... FOR UPDATE (evita colisiones)
-// ✅ FIX 3: registrarDevolucion() solo permite CERRADA y EJECUTADA (no EN_PROCESO)
-// ✅ FIX 4: aprobarDevolucion() devuelve la orden a CERRADA (no APROBADA)
-// ✅ FIX 5: obtenerRepuestosDeOrden() y obtenerTecnicosDeOrden() usan LEFT JOIN
-// ✅ FIX 6: catch (Throwable) en vez de Exception
-// ✅ FIX 7: crear() ya NO calcula costo_total incorrectamente
-// ✅ FIX 8: cerrar() NO usa columna inexistente
-// ✅ FIX 9: obtenerTodos() usa subquery por email para técnicos (no usuario_id)
+// ✅ FIX 1: NUNCA expone $e->getMessage() al usuario (regla del proyecto #12)
+// ✅ FIX 2: obtenerTodos() filtra correctamente para rol operador
+// ✅ FIX 3: generarNumeroOM() con transacción + SELECT ... FOR UPDATE
+// ✅ FIX 4: catch (Throwable) en todos los métodos
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../helpers/FirmaHelper.php';
@@ -44,7 +39,7 @@ class OrdenTrabajo {
             $rol = $_SESSION['rol'] ?? 'usuario';
             $email = $_SESSION['email'] ?? '';
 
-            $sql = "SELECT o.*, 
+            $sql = "SELECT o.*,
                            t.nombre as tecnico_nombre,
                            s.nombre as supervisor_nombre,
                            p.nombre_planta,
@@ -61,12 +56,20 @@ class OrdenTrabajo {
                     WHERE 1=1";
             $params = [];
 
-            // ✅ FIX 1: supervisor ve CERRADA + APROBADA + EJECUTADA
+            // ✅ FIX: cada rol ve lo que le corresponde
             if ($rol === 'tecnico' && !empty($email)) {
                 $sql .= " AND o.tecnico_id = (SELECT id FROM tecnicos WHERE LOWER(email) = LOWER(?) LIMIT 1)";
                 $params[] = $email;
             } elseif ($rol === 'supervisor') {
                 $sql .= " AND o.status IN ('CERRADA', 'APROBADA', 'EJECUTADA')";
+            } elseif ($rol === 'operador') {
+                // ✅ FIX: operador solo ve las órdenes que él creó
+                $usuario_id = (int)($_SESSION['usuario_id'] ?? 0);
+                $sql .= " AND o.creado_por = ?";
+                $params[] = $usuario_id;
+            } elseif ($rol === 'consultor') {
+                // ✅ FIX: consultor solo lectura, sin filtros especiales
+                // (ya está protegido por el controller)
             }
 
             if (!empty($filtros['creado_por'])) {
@@ -128,7 +131,7 @@ class OrdenTrabajo {
                 return false;
             }
 
-            $sql = "SELECT o.*, 
+            $sql = "SELECT o.*,
                            t.nombre as tecnico_nombre,
                            t.especialidad as tecnico_especialidad,
                            t.tarifa as tecnico_tarifa,
@@ -172,8 +175,6 @@ class OrdenTrabajo {
             }
 
             $descripcion = $datos['descripcion_mantenimiento'] ?? $datos['descripcion'] ?? '';
-
-            // ✅ FIX 2: generar número OM de forma atómica
             $num_om = $datos['num_om'] ?? $this->generarNumeroOM();
 
             $sql = "INSERT INTO ordenes_mantenimiento (
@@ -234,8 +235,9 @@ class OrdenTrabajo {
             return false;
 
         } catch (PDOException $e) {
+            // ✅ FIX: NO exponer mensaje técnico
             error_log("Error en OrdenTrabajo::crear: " . $e->getMessage());
-            $_SESSION['error'] = 'Error al crear la orden: ' . $e->getMessage();
+            $_SESSION['error'] = 'Error al crear la orden. Verifica los datos e intenta nuevamente.';
             return false;
         }
     }
@@ -251,7 +253,7 @@ class OrdenTrabajo {
                 return false;
             }
 
-            $sql = "UPDATE ordenes_mantenimiento SET 
+            $sql = "UPDATE ordenes_mantenimiento SET
                         titulo = :titulo,
                         descripcion_mantenimiento = :descripcion_mantenimiento,
                         pasos = :pasos,
@@ -332,8 +334,9 @@ class OrdenTrabajo {
             return $resultado;
 
         } catch (PDOException $e) {
+            // ✅ FIX: NO exponer mensaje técnico
             error_log("Error en OrdenTrabajo::actualizar: " . $e->getMessage());
-            $_SESSION['error'] = 'Error al actualizar la orden: ' . $e->getMessage();
+            $_SESSION['error'] = 'Error al actualizar la orden. Verifica los datos e intenta nuevamente.';
             return false;
         }
     }
@@ -373,12 +376,10 @@ class OrdenTrabajo {
             $tarifa = (float)($datos['tarifa_tecnico'] ?? $orden['tarifa_tecnico'] ?? 0);
             $costo_repuestos = (float)($datos['costo_repuestos'] ?? $orden['costo_repuestos'] ?? 0);
 
-            // ✅ FIX: costo mano de obra solo del técnico principal
-            // Los técnicos adicionales son informativos
             $costo_mano_obra = $horas_trabajadas * $tarifa;
             $costo_total = $costo_repuestos + $costo_mano_obra;
 
-            $sql = "UPDATE ordenes_mantenimiento SET 
+            $sql = "UPDATE ordenes_mantenimiento SET
                         descripcion_realizada = :descripcion_realizada,
                         pasos_ejecutados = :pasos_ejecutados,
                         horas_trabajadas = :horas_trabajadas,
@@ -422,7 +423,7 @@ class OrdenTrabajo {
                 $firma = FirmaHelper::generarFirma($ordenActualizada);
 
                 if (!empty($firma)) {
-                    $sqlFirma = "UPDATE ordenes_mantenimiento SET 
+                    $sqlFirma = "UPDATE ordenes_mantenimiento SET
                                     firma_hash = :firma_hash,
                                     firma_creada_en = NOW(),
                                     firma_actualizada_en = NULL
@@ -440,8 +441,9 @@ class OrdenTrabajo {
             return true;
 
         } catch (PDOException $e) {
+            // ✅ FIX: NO exponer mensaje técnico
             error_log("Error en OrdenTrabajo::cerrar: " . $e->getMessage());
-            $_SESSION['error'] = 'Error al cerrar la orden: ' . $e->getMessage();
+            $_SESSION['error'] = 'Error al cerrar la orden. Intenta nuevamente.';
             return false;
         }
     }
@@ -461,8 +463,9 @@ class OrdenTrabajo {
             return FirmaHelper::verificarFirma($orden);
 
         } catch (Throwable $e) {
+            // ✅ FIX: NO exponer mensaje técnico
             error_log("Error en OrdenTrabajo::verificarFirma: " . $e->getMessage());
-            return ['valida' => false, 'mensaje' => 'Error: ' . $e->getMessage()];
+            return ['valida' => false, 'mensaje' => 'Error al verificar la firma'];
         }
     }
 
@@ -480,7 +483,7 @@ class OrdenTrabajo {
                 return false;
             }
 
-            $sql = "UPDATE ordenes_mantenimiento SET 
+            $sql = "UPDATE ordenes_mantenimiento SET
                         firma_hash = :firma_hash,
                         firma_actualizada_en = NOW()
                      WHERE id = :id";
@@ -524,7 +527,7 @@ class OrdenTrabajo {
                 return false;
             }
 
-            $sql = "UPDATE ordenes_mantenimiento SET 
+            $sql = "UPDATE ordenes_mantenimiento SET
                         status = :status,
                         observaciones_cierre = :observaciones,
                         fecha_actualizacion = NOW()
@@ -549,7 +552,7 @@ class OrdenTrabajo {
 
     public function obtenerPorEstado($estado) {
         try {
-            $sql = "SELECT o.*, 
+            $sql = "SELECT o.*,
                            t.nombre as tecnico_nombre,
                            p.nombre_planta,
                            a.nombre_area
@@ -570,7 +573,7 @@ class OrdenTrabajo {
 
     public function obtenerPorTecnico($tecnico_id, $limit = null, $offset = null) {
         try {
-            $sql = "SELECT o.*, 
+            $sql = "SELECT o.*,
                            p.nombre_planta,
                            a.nombre_area,
                            e.nombre_equipo,
@@ -580,7 +583,7 @@ class OrdenTrabajo {
                     LEFT JOIN areas a ON o.id_area = a.id_area
                     LEFT JOIN equipos e ON o.id_equipo = e.id_equipo
                     LEFT JOIN componentes c ON o.id_componente = c.id_componente
-                    WHERE o.tecnico_id = ? 
+                    WHERE o.tecnico_id = ?
                     ORDER BY o.fecha_creacion DESC";
 
             if ($limit !== null && $offset !== null) {
@@ -606,7 +609,7 @@ class OrdenTrabajo {
 
     public function obtenerEstadisticas() {
         try {
-            $sql = "SELECT 
+            $sql = "SELECT
                         COUNT(*) as total,
                         SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as pendientes,
                         SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as en_proceso,
@@ -656,7 +659,7 @@ class OrdenTrabajo {
 
     public function obtenerTotalGastado() {
         try {
-            $sql = "SELECT COALESCE(SUM(costo_total), 0) as total 
+            $sql = "SELECT COALESCE(SUM(costo_total), 0) as total
                     FROM ordenes_mantenimiento
                     WHERE status IN ('CERRADA', 'APROBADA', 'EJECUTADA')";
             $stmt = $this->db->prepare($sql);
@@ -670,15 +673,9 @@ class OrdenTrabajo {
     }
 
     // ==========================================
-    // ✅ FIX 2: generarNumeroOM() con LOCK
+    // GENERAR NÚMERO OM
     // ==========================================
 
-    /**
-     * Genera un número de OM único usando SELECT ... FOR UPDATE
-     * para evitar colisiones en concurrencia.
-     *
-     * Formato: OM-YYYY-MM-NNNN
-     */
     public function generarNumeroOM() {
         $anio = date('Y');
         $mes  = date('m');
@@ -686,9 +683,8 @@ class OrdenTrabajo {
         try {
             $this->db->beginTransaction();
 
-            // ✅ FIX: bloquear las filas del mes para evitar colisiones
-            $sql = "SELECT COUNT(*) as total 
-                    FROM ordenes_mantenimiento 
+            $sql = "SELECT COUNT(*) as total
+                    FROM ordenes_mantenimiento
                     WHERE YEAR(fecha_creacion) = ? AND MONTH(fecha_creacion) = ?
                     FOR UPDATE";
 
@@ -699,14 +695,12 @@ class OrdenTrabajo {
 
             $num_om = "OM-" . $anio . "-" . $mes . "-" . str_pad((string)$numero, 4, '0', STR_PAD_LEFT);
 
-            // Verificar que no exista (por seguridad extra)
             $sqlCheck = "SELECT COUNT(*) as existe FROM ordenes_mantenimiento WHERE num_om = ?";
             $stmtCheck = $this->db->prepare($sqlCheck);
             $stmtCheck->execute([$num_om]);
             $existe = (int)($stmtCheck->fetch(PDO::FETCH_ASSOC)['existe'] ?? 0);
 
             if ($existe > 0) {
-                // Si existe, incrementar hasta encontrar uno libre
                 $intentos = 0;
                 while ($existe > 0 && $intentos < 100) {
                     $numero++;
@@ -725,8 +719,6 @@ class OrdenTrabajo {
                 $this->db->rollBack();
             }
             error_log("Error en OrdenTrabajo::generarNumeroOM: " . $e->getMessage());
-
-            // Fallback: usar timestamp para garantizar unicidad
             return "OM-" . $anio . "-" . $mes . "-" . substr((string)time(), -4);
         }
     }
@@ -737,7 +729,6 @@ class OrdenTrabajo {
 
     public function obtenerTecnicosDeOrden($orden_id) {
         try {
-            // ✅ FIX 5: LEFT JOIN para no perder datos si el técnico fue borrado
             $sql = "SELECT ot.*, t.nombre, t.especialidad, t.tarifa as tarifa_tecnico
                     FROM ordenes_tecnicos ot
                     LEFT JOIN tecnicos t ON ot.tecnico_id = t.id
@@ -762,7 +753,7 @@ class OrdenTrabajo {
                 return true;
             }
 
-            $sql = "INSERT INTO ordenes_tecnicos (orden_id, tecnico_id, tarifa_hora, fecha_asignacion) 
+            $sql = "INSERT INTO ordenes_tecnicos (orden_id, tecnico_id, tarifa_hora, fecha_asignacion)
                     VALUES (?, ?, ?, NOW())";
             $stmt = $this->db->prepare($sql);
 
@@ -786,7 +777,6 @@ class OrdenTrabajo {
 
     public function obtenerRepuestosDeOrden($orden_id) {
         try {
-            // ✅ FIX 5: LEFT JOIN para no perder datos si el repuesto fue borrado
             $sql = "SELECT orp.*, i.nombre, i.codigo, i.descripcion
                     FROM ordenes_repuestos orp
                     LEFT JOIN inventario i ON orp.repuesto_id = i.id
@@ -810,7 +800,7 @@ class OrdenTrabajo {
                 return true;
             }
 
-            $sql = "INSERT INTO ordenes_repuestos (orden_id, repuesto_id, cantidad, costo_unitario, costo_total, fecha_asignacion) 
+            $sql = "INSERT INTO ordenes_repuestos (orden_id, repuesto_id, cantidad, costo_unitario, costo_total, fecha_asignacion)
                     VALUES (?, ?, ?, ?, ?, NOW())";
             $stmt = $this->db->prepare($sql);
 
@@ -832,7 +822,7 @@ class OrdenTrabajo {
     }
 
     // ==========================================
-    // ✅ FIX 3 y 4: DEVOLUCIONES
+    // DEVOLUCIONES
     // ==========================================
 
     public function registrarDevolucion($orden_id, $motivo, $usuario_id) {
@@ -842,21 +832,20 @@ class OrdenTrabajo {
                 return ['success' => false, 'error' => 'Orden no encontrada'];
             }
 
-            // ✅ FIX 3: solo CERRADA y EJECUTADA pueden devolverse
             if (!in_array($orden['status'], ['CERRADA', 'EJECUTADA'], true)) {
                 return ['success' => false, 'error' => 'Solo se pueden devolver órdenes CERRADAS o EJECUTADAS'];
             }
 
             $this->db->beginTransaction();
 
-            $sql = "INSERT INTO devoluciones_ordenes (orden_id, usuario_id, motivo, fecha_solicitud, estado) 
+            $sql = "INSERT INTO devoluciones_ordenes (orden_id, usuario_id, motivo, fecha_solicitud, estado)
                     VALUES (?, ?, ?, NOW(), 'pendiente')";
             $stmt = $this->db->prepare($sql);
             $stmt->execute([(int)$orden_id, (int)$usuario_id, $motivo]);
 
             $devolucion_id = $this->db->lastInsertId();
 
-            $sqlUpdate = "UPDATE ordenes_mantenimiento SET 
+            $sqlUpdate = "UPDATE ordenes_mantenimiento SET
                             status = 'DEVUELTA',
                             devolucion_motivo = ?,
                             devolucion_fecha = NOW(),
@@ -878,8 +867,9 @@ class OrdenTrabajo {
             if ($this->db->inTransaction()) {
                 $this->db->rollBack();
             }
+            // ✅ FIX: NO exponer mensaje técnico
             error_log("Error en OrdenTrabajo::registrarDevolucion: " . $e->getMessage());
-            return ['success' => false, 'error' => $e->getMessage()];
+            return ['success' => false, 'error' => 'Error al registrar la devolución'];
         }
     }
 
@@ -900,7 +890,7 @@ class OrdenTrabajo {
 
             $this->db->beginTransaction();
 
-            $sql = "UPDATE devoluciones_ordenes SET 
+            $sql = "UPDATE devoluciones_ordenes SET
                         estado = 'aprobada',
                         fecha_aprobacion = NOW(),
                         aprobado_por = ?
@@ -908,8 +898,7 @@ class OrdenTrabajo {
             $stmt = $this->db->prepare($sql);
             $stmt->execute([(int)$supervisor_id, (int)$devolucion_id]);
 
-            // ✅ FIX 4: la orden vuelve a CERRADA (no APROBADA)
-            $sqlUpdate = "UPDATE ordenes_mantenimiento SET 
+            $sqlUpdate = "UPDATE ordenes_mantenimiento SET
                             status = 'CERRADA',
                             devolucion_estado = 'aprobada',
                             fecha_actualizacion = NOW()
@@ -925,8 +914,9 @@ class OrdenTrabajo {
             if ($this->db->inTransaction()) {
                 $this->db->rollBack();
             }
+            // ✅ FIX: NO exponer mensaje técnico
             error_log("Error en OrdenTrabajo::aprobarDevolucion: " . $e->getMessage());
-            return ['success' => false, 'error' => $e->getMessage()];
+            return ['success' => false, 'error' => 'Error al aprobar la devolución'];
         }
     }
 
@@ -949,7 +939,7 @@ class OrdenTrabajo {
 
     public function obtenerDevoluciones() {
         try {
-            $sql = "SELECT o.*, 
+            $sql = "SELECT o.*,
                            t.nombre as tecnico_nombre,
                            s.nombre as supervisor_nombre,
                            p.nombre_planta,
@@ -978,7 +968,7 @@ class OrdenTrabajo {
 
     public function obtenerCostosPorPlanta($fechaInicio, $fechaFin) {
         try {
-            $sql = "SELECT 
+            $sql = "SELECT
                         p.nombre_planta,
                         COUNT(o.id) as total_ordenes,
                         COALESCE(SUM(o.costo_total), 0) as total_costos,
@@ -1004,7 +994,7 @@ class OrdenTrabajo {
 
     public function obtenerEvolucionMensual() {
         try {
-            $sql = "SELECT 
+            $sql = "SELECT
                         DATE_FORMAT(o.fecha_creacion, '%b %Y') as mes_label,
                         DATE_FORMAT(o.fecha_creacion, '%Y-%m') as mes,
                         COUNT(o.id) as total_ordenes,
@@ -1030,7 +1020,7 @@ class OrdenTrabajo {
     // ==========================================
 
     public function obtenerEstadisticasDashboard($filtros = []) {
-        $sql = "SELECT 
+        $sql = "SELECT
                     COUNT(o.id) as total,
                     SUM(CASE WHEN o.status = 'PENDIENTE' THEN 1 ELSE 0 END) as pendientes,
                     SUM(CASE WHEN o.status = 'EN_PROCESO' THEN 1 ELSE 0 END) as en_proceso,
@@ -1069,7 +1059,7 @@ class OrdenTrabajo {
     }
 
     public function obtenerOrdenesPorMes($filtros = []) {
-        $sql = "SELECT 
+        $sql = "SELECT
                     DATE_FORMAT(o.fecha_creacion, '%b %Y') as mes_label,
                     DATE_FORMAT(o.fecha_creacion, '%Y-%m') as mes,
                     COUNT(o.id) as total,
@@ -1090,7 +1080,7 @@ class OrdenTrabajo {
     }
 
     public function obtenerOrdenesPorPlantaDashboard($filtros = []) {
-        $sql = "SELECT 
+        $sql = "SELECT
                     COALESCE(p.nombre_planta, 'Sin Planta') as planta,
                     COUNT(o.id) as total,
                     SUM(CASE WHEN o.status IN ('CERRADA', 'APROBADA', 'EJECUTADA') THEN 1 ELSE 0 END) as cerradas,
@@ -1111,7 +1101,7 @@ class OrdenTrabajo {
     }
 
     public function obtenerCostoPorPlanta($filtros = []) {
-        $sql = "SELECT 
+        $sql = "SELECT
                     COALESCE(p.nombre_planta, 'Sin Planta') as planta,
                     SUM(o.costo_total) as costo_total,
                     SUM(o.costo_repuestos) as costo_repuestos,
@@ -1132,7 +1122,7 @@ class OrdenTrabajo {
     }
 
     public function obtenerOrdenesPorTipoActividad($filtros = []) {
-        $sql = "SELECT 
+        $sql = "SELECT
                     COALESCE(o.tipo_actividad, 'No Especificado') as actividad,
                     COUNT(o.id) as total,
                     SUM(CASE WHEN o.status IN ('CERRADA', 'APROBADA', 'EJECUTADA') THEN 1 ELSE 0 END) as cerradas,
@@ -1150,7 +1140,7 @@ class OrdenTrabajo {
     }
 
     public function obtenerCostoPorTipoMantenimiento($filtros = []) {
-        $sql = "SELECT 
+        $sql = "SELECT
                     COALESCE(o.tipo_mantenimiento, 'No Especificado') as tipo_mantenimiento,
                     SUM(o.costo_total) as costo_total,
                     SUM(o.costo_repuestos) as costo_repuestos,
@@ -1170,7 +1160,7 @@ class OrdenTrabajo {
     }
 
     public function obtenerEquiposMayorRecurrencia($limite = 5, $filtros = []) {
-        $sql = "SELECT 
+        $sql = "SELECT
                     COALESCE(e.nombre_equipo, 'Sin Equipo') as equipo,
                     COUNT(o.id) as total_ordenes,
                     SUM(CASE WHEN o.status IN ('CERRADA', 'APROBADA', 'EJECUTADA') THEN 1 ELSE 0 END) as completadas,
@@ -1182,9 +1172,9 @@ class OrdenTrabajo {
 
         $params = [];
         $sql = $this->aplicarFiltrosDashboard($sql, $filtros, $params);
-        $sql .= " GROUP BY o.id_equipo 
+        $sql .= " GROUP BY o.id_equipo
                   HAVING total_ordenes > 0
-                  ORDER BY total_ordenes DESC 
+                  ORDER BY total_ordenes DESC
                   LIMIT ?";
         $params[] = (int)$limite;
 
@@ -1194,7 +1184,7 @@ class OrdenTrabajo {
     }
 
     public function obtenerProductividadPorTecnico($filtros = []) {
-        $sql = "SELECT 
+        $sql = "SELECT
                     COALESCE(t.nombre, 'Sin Asignar') as tecnico,
                     COUNT(o.id) as total_ordenes,
                     SUM(CASE WHEN o.status IN ('CERRADA', 'APROBADA', 'EJECUTADA') THEN 1 ELSE 0 END) as completadas,
@@ -1208,7 +1198,7 @@ class OrdenTrabajo {
 
         $params = [];
         $sql = $this->aplicarFiltrosDashboard($sql, $filtros, $params);
-        $sql .= " GROUP BY o.tecnico_id 
+        $sql .= " GROUP BY o.tecnico_id
                   HAVING total_ordenes > 0
                   ORDER BY completadas DESC, eficiencia DESC
                   LIMIT 10";

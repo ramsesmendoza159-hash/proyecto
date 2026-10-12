@@ -1,6 +1,7 @@
 <?php
 // controller/ErrorController.php
 // Controlador de errores
+// ✅ FIX: guards por consistencia
 
 class ErrorController {
     
@@ -18,4 +19,3 @@ class ErrorController {
         require_once __DIR__ . '/../views/error/500.php';
     }
 }
-?>

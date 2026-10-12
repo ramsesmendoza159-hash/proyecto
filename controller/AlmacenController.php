@@ -1,12 +1,6 @@
 <?php
 // controller/AlmacenController.php
-// MÓDULO DE ALMACÉN - CON AUDITORÍA DE MOVIMIENTOS - VERSIÓN CORREGIDA
-// ✅ FIX: catch (Exception) → catch (Throwable) en TODOS los métodos (3 ocurrencias)
-// ✅ FIX: removidos error_log() de debug innecesarios
-// ✅ FIX: uso consistente de redirectWithSuccess/Error (ToastHelper)
-// ✅ FIX: headers JSON con charset=utf-8
-// ✅ FIX: verificación de rol estricta con in_array(..., true)
-// ⚠️ TODO: permanencia() ejecuta UPDATE masivo en cada request. Mover a cron.
+// MÓDULO DE ALMACÉN - CON AUDITORÍA DE MOVIMIENTOS
 
 require_once __DIR__ . '/../model/InventarioModel.php';
 require_once __DIR__ . '/../model/AuditoriaModel.php';
@@ -16,12 +10,36 @@ require_once __DIR__ . '/../helpers/Controller.php';
 require_once __DIR__ . '/../config/database.php';
 
 class AlmacenController extends Controller {
-    
+
     private $inventarioModel;
 
     public function __construct() {
         parent::__construct();
-        $this->inventarioModel = new InventarioModel();
+
+        try {
+            $this->inventarioModel = new InventarioModel();
+        } catch (Throwable $e) {
+            error_log("Error al instanciar InventarioModel en AlmacenController: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * ✅ Helper: ¿el usuario actual puede operar el almacén?
+     */
+    private function puedeOperarAlmacen() {
+        $rol = $this->authHelper->getRole();
+        return in_array($rol, ['almacen', 'admin'], true);
+    }
+
+    /**
+     * ✅ Helper: si no está logueado, redirige y devuelve true
+     */
+    private function requiereLogin() {
+        if (!$this->authHelper->isLoggedIn()) {
+            $this->redirect('/auth/login');
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -29,12 +47,9 @@ class AlmacenController extends Controller {
      * URL: /almacen
      */
     public function index() {
-        if (!$this->authHelper->isLoggedIn()) {
-            $this->redirect('/auth/login');
-            return;
-        }
-        
-        if (!$this->authHelper->isAlmacen() && !$this->authHelper->isAdmin()) {
+        if ($this->requiereLogin()) return;
+
+        if (!$this->puedeOperarAlmacen()) {
             $this->redirectWithError('/dashboard', 'No tienes permisos para acceder a esta sección');
             return;
         }
@@ -65,7 +80,7 @@ class AlmacenController extends Controller {
      */
     public function dashboardData() {
         header('Content-Type: application/json; charset=utf-8');
-        
+
         if (!$this->authHelper->isLoggedIn()) {
             echo json_encode(['error' => 'No autorizado']);
             exit;
@@ -105,7 +120,7 @@ class AlmacenController extends Controller {
      */
     public function notificaciones() {
         header('Content-Type: application/json; charset=utf-8');
-        
+
         if (!$this->authHelper->isLoggedIn()) {
             echo json_encode(['success' => false, 'message' => 'No autorizado']);
             exit;
@@ -113,7 +128,7 @@ class AlmacenController extends Controller {
 
         try {
             $stock_bajo = $this->inventarioModel->obtenerStockBajo();
-            
+
             $productos = [];
             foreach ($stock_bajo as $item) {
                 $productos[] = [
@@ -149,12 +164,9 @@ class AlmacenController extends Controller {
      * URL: /almacen/entrada_seleccion
      */
     public function entrada_seleccion() {
-        if (!$this->authHelper->isLoggedIn()) {
-            $this->redirect('/auth/login');
-            return;
-        }
-        
-        if (!$this->authHelper->isAlmacen() && !$this->authHelper->isAdmin()) {
+        if ($this->requiereLogin()) return;
+
+        if (!$this->puedeOperarAlmacen()) {
             $this->redirectWithError('/dashboard', 'No tienes permisos para realizar entradas');
             return;
         }
@@ -176,12 +188,9 @@ class AlmacenController extends Controller {
      * URL: /almacen/entrada/{id}
      */
     public function entrada($id = null) {
-        if (!$this->authHelper->isLoggedIn()) {
-            $this->redirect('/auth/login');
-            return;
-        }
-        
-        if (!$this->authHelper->isAlmacen() && !$this->authHelper->isAdmin()) {
+        if ($this->requiereLogin()) return;
+
+        if (!$this->puedeOperarAlmacen()) {
             $this->redirectWithError('/dashboard', 'No tienes permisos para realizar entradas');
             return;
         }
@@ -201,11 +210,11 @@ class AlmacenController extends Controller {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 $cantidad = (int)($_POST['cantidad'] ?? 0);
-                $motivo = $_POST['motivo'] ?? 'Compra';
-                $observaciones = $_POST['observaciones'] ?? '';
+                $motivo = trim((string)($_POST['motivo'] ?? 'Compra'));
+                $observaciones = trim((string)($_POST['observaciones'] ?? ''));
 
                 if ($cantidad <= 0) {
-                    throw new RuntimeException('La cantidad debe ser mayor a 0');
+                    throw new RuntimeException('CANTIDAD_INVALIDA');
                 }
 
                 $cantidadAnterior = (int)$producto['cantidad'];
@@ -217,7 +226,6 @@ class AlmacenController extends Controller {
                 );
 
                 if ($resultado) {
-                    // REGISTRAR EN AUDITORÍA
                     try {
                         $auditoria = new AuditoriaModel();
                         $auditoria->registrar(
@@ -237,12 +245,18 @@ class AlmacenController extends Controller {
                     $this->redirectWithSuccess('/almacen/detalle/' . $id, "Entrada registrada correctamente. Cantidad: $cantidad");
                     return;
                 } else {
-                    throw new RuntimeException($this->inventarioModel->getLastError() ?: 'Error al registrar entrada');
+                    throw new RuntimeException('ERROR_ENTRADA');
                 }
 
-            } catch (Throwable $e) {   // ✅ FIX: Throwable
+            } catch (Throwable $e) {
                 error_log("Error en entrada($id): " . $e->getMessage());
-                $this->redirectWithError('/almacen/entrada/' . $id, $e->getMessage());
+                // ✅ FIX: NO exponer $e->getMessage()
+                if ($e->getMessage() === 'CANTIDAD_INVALIDA') {
+                    $msg = 'La cantidad debe ser mayor a 0';
+                } else {
+                    $msg = 'Error al registrar la entrada. Intenta nuevamente.';
+                }
+                $this->redirectWithError('/almacen/entrada/' . $id, $msg);
                 return;
             }
         }
@@ -257,12 +271,9 @@ class AlmacenController extends Controller {
      * URL: /almacen/salida_seleccion
      */
     public function salida_seleccion() {
-        if (!$this->authHelper->isLoggedIn()) {
-            $this->redirect('/auth/login');
-            return;
-        }
-        
-        if (!$this->authHelper->isAlmacen() && !$this->authHelper->isAdmin()) {
+        if ($this->requiereLogin()) return;
+
+        if (!$this->puedeOperarAlmacen()) {
             $this->redirectWithError('/dashboard', 'No tienes permisos para realizar salidas');
             return;
         }
@@ -284,12 +295,9 @@ class AlmacenController extends Controller {
      * URL: /almacen/salida/{id}
      */
     public function salida($id = null) {
-        if (!$this->authHelper->isLoggedIn()) {
-            $this->redirect('/auth/login');
-            return;
-        }
-        
-        if (!$this->authHelper->isAlmacen() && !$this->authHelper->isAdmin()) {
+        if ($this->requiereLogin()) return;
+
+        if (!$this->puedeOperarAlmacen()) {
             $this->redirectWithError('/dashboard', 'No tienes permisos para realizar salidas');
             return;
         }
@@ -309,19 +317,19 @@ class AlmacenController extends Controller {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 $cantidad = (int)($_POST['cantidad'] ?? 0);
-                $motivo = $_POST['motivo'] ?? 'Uso interno';
-                $destino = $_POST['destino'] ?? '';
+                $motivo = trim((string)($_POST['motivo'] ?? 'Uso interno'));
+                $destino = trim((string)($_POST['destino'] ?? ''));
 
                 if ($cantidad <= 0) {
-                    throw new RuntimeException('La cantidad debe ser mayor a 0');
+                    throw new RuntimeException('CANTIDAD_INVALIDA');
                 }
 
                 if (empty($destino)) {
-                    throw new RuntimeException('El destino es obligatorio');
+                    throw new RuntimeException('DESTINO_VACIO');
                 }
 
-                if ($cantidad > $producto['cantidad']) {
-                    throw new RuntimeException('Stock insuficiente. Disponible: ' . $producto['cantidad']);
+                if ($cantidad > (int)$producto['cantidad']) {
+                    throw new RuntimeException('STOCK_INSUFICIENTE');
                 }
 
                 $cantidadAnterior = (int)$producto['cantidad'];
@@ -333,7 +341,6 @@ class AlmacenController extends Controller {
                 );
 
                 if ($resultado) {
-                    // REGISTRAR EN AUDITORÍA
                     try {
                         $auditoria = new AuditoriaModel();
                         $auditoria->registrar(
@@ -353,12 +360,21 @@ class AlmacenController extends Controller {
                     $this->redirectWithSuccess('/almacen/detalle/' . $id, "Salida registrada correctamente. Cantidad: $cantidad");
                     return;
                 } else {
-                    throw new RuntimeException($this->inventarioModel->getLastError() ?: 'Error al registrar salida');
+                    throw new RuntimeException('ERROR_SALIDA');
                 }
 
-            } catch (Throwable $e) {   // ✅ FIX: Throwable
+            } catch (Throwable $e) {
                 error_log("Error en salida($id): " . $e->getMessage());
-                $this->redirectWithError('/almacen/salida/' . $id, $e->getMessage());
+                // ✅ FIX: NO exponer $e->getMessage()
+                $msg = 'Error al registrar la salida. Intenta nuevamente.';
+                if ($e->getMessage() === 'CANTIDAD_INVALIDA') {
+                    $msg = 'La cantidad debe ser mayor a 0';
+                } elseif ($e->getMessage() === 'DESTINO_VACIO') {
+                    $msg = 'El destino es obligatorio';
+                } elseif ($e->getMessage() === 'STOCK_INSUFICIENTE') {
+                    $msg = 'Stock insuficiente. Disponible: ' . ($producto['cantidad'] ?? 0);
+                }
+                $this->redirectWithError('/almacen/salida/' . $id, $msg);
                 return;
             }
         }
@@ -369,16 +385,13 @@ class AlmacenController extends Controller {
     }
 
     /**
-     * Historial de movimientos - CORREGIDO
+     * Historial de movimientos
      * URL: /almacen/movimientos
      */
     public function movimientos() {
-        if (!$this->authHelper->isLoggedIn()) {
-            $this->redirect('/auth/login');
-            return;
-        }
-        
-        if (!$this->authHelper->isAlmacen() && !$this->authHelper->isAdmin()) {
+        if ($this->requiereLogin()) return;
+
+        if (!$this->puedeOperarAlmacen()) {
             $this->redirectWithError('/dashboard', 'No tienes permisos para ver movimientos');
             return;
         }
@@ -392,7 +405,6 @@ class AlmacenController extends Controller {
 
         $titulo = 'Historial de Movimientos';
         $seccion = 'movimientos';
-
         require_once __DIR__ . '/../views/almacen/movimientos.php';
     }
 
@@ -401,12 +413,9 @@ class AlmacenController extends Controller {
      * URL: /almacen/detalle/{id}
      */
     public function detalle($id) {
-        if (!$this->authHelper->isLoggedIn()) {
-            $this->redirect('/auth/login');
-            return;
-        }
-        
-        if (!$this->authHelper->isAlmacen() && !$this->authHelper->isAdmin()) {
+        if ($this->requiereLogin()) return;
+
+        if (!$this->puedeOperarAlmacen()) {
             $this->redirectWithError('/dashboard', 'No tienes permisos');
             return;
         }
@@ -436,13 +445,13 @@ class AlmacenController extends Controller {
      */
     public function buscar() {
         header('Content-Type: application/json; charset=utf-8');
-        
+
         if (!$this->authHelper->isLoggedIn()) {
             echo json_encode([]);
             exit;
         }
 
-        $term = isset($_GET['term']) ? trim($_GET['term']) : '';
+        $term = isset($_GET['term']) ? trim((string)$_GET['term']) : '';
         if (strlen($term) < 2) {
             echo json_encode([]);
             exit;
@@ -461,28 +470,19 @@ class AlmacenController extends Controller {
     /**
      * CONTROL DE PERMANENCIA
      * URL: /almacen/permanencia
-     * 
-     * ⚠️ TODO: Este método ejecuta un UPDATE masivo en cada request.
-     *          Migrar a cron (cron/actualizar_permanencia.php) que corra 1 vez al día,
-     *          o calcular dias_permanencia on-the-fly en el SELECT.
+     * ✅ FIX: calcular dias_permanencia en el SELECT (sin UPDATE masivo)
      */
     public function permanencia() {
-        if (!$this->authHelper->isLoggedIn()) {
-            $this->redirect('/auth/login');
-            return;
-        }
-        
-        if (!$this->authHelper->isAlmacen() && !$this->authHelper->isAdmin()) {
+        if ($this->requiereLogin()) return;
+
+        if (!$this->puedeOperarAlmacen()) {
             $this->redirectWithError('/dashboard', 'No tienes permisos');
             return;
         }
 
         try {
             $db = Database::getInstance()->getConnection();
-            
-            // ⚠️ TODO: mover a cron
-            $db->exec("UPDATE inventario SET dias_permanencia = DATEDIFF(NOW(), fecha_ultima_entrada) WHERE fecha_ultima_entrada IS NOT NULL");
-            
+
             $sql = "SELECT 
                         id, 
                         codigo, 
@@ -493,36 +493,39 @@ class AlmacenController extends Controller {
                         ubicacion, 
                         stock_minimo,
                         fecha_ultima_entrada,
-                        dias_permanencia,
+                        DATEDIFF(NOW(), fecha_ultima_entrada) AS dias_permanencia,
                         CASE 
-                            WHEN dias_permanencia >= 30 THEN '⚠️ Crítico'
-                            WHEN dias_permanencia >= 15 THEN '🟡 Normal'
-                            WHEN dias_permanencia >= 7 THEN '🟢 Reciente'
+                            WHEN DATEDIFF(NOW(), fecha_ultima_entrada) >= 30 THEN '⚠️ Crítico'
+                            WHEN DATEDIFF(NOW(), fecha_ultima_entrada) >= 15 THEN '🟡 Normal'
+                            WHEN DATEDIFF(NOW(), fecha_ultima_entrada) >= 7 THEN '🟢 Reciente'
                             ELSE '✅ Nuevo'
-                        END as estado_permanencia
+                        END AS estado_permanencia
                     FROM inventario 
                     WHERE estado = 'activo'
+                      AND fecha_ultima_entrada IS NOT NULL
                     ORDER BY dias_permanencia DESC";
-            
+
             $stmt = $db->prepare($sql);
             $stmt->execute();
             $productos = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            
+
             $sqlResumen = "SELECT 
                             COUNT(*) as total,
-                            SUM(CASE WHEN dias_permanencia >= 30 THEN 1 ELSE 0 END) as criticos,
-                            SUM(CASE WHEN dias_permanencia >= 15 AND dias_permanencia < 30 THEN 1 ELSE 0 END) as normales,
-                            SUM(CASE WHEN dias_permanencia >= 7 AND dias_permanencia < 15 THEN 1 ELSE 0 END) as recientes,
-                            SUM(CASE WHEN dias_permanencia < 7 THEN 1 ELSE 0 END) as nuevos,
-                            AVG(dias_permanencia) as promedio_dias,
-                            MAX(dias_permanencia) as max_dias
+                            SUM(CASE WHEN DATEDIFF(NOW(), fecha_ultima_entrada) >= 30 THEN 1 ELSE 0 END) as criticos,
+                            SUM(CASE WHEN DATEDIFF(NOW(), fecha_ultima_entrada) >= 15 AND DATEDIFF(NOW(), fecha_ultima_entrada) < 30 THEN 1 ELSE 0 END) as normales,
+                            SUM(CASE WHEN DATEDIFF(NOW(), fecha_ultima_entrada) >= 7 AND DATEDIFF(NOW(), fecha_ultima_entrada) < 15 THEN 1 ELSE 0 END) as recientes,
+                            SUM(CASE WHEN DATEDIFF(NOW(), fecha_ultima_entrada) < 7 THEN 1 ELSE 0 END) as nuevos,
+                            AVG(DATEDIFF(NOW(), fecha_ultima_entrada)) as promedio_dias,
+                            MAX(DATEDIFF(NOW(), fecha_ultima_entrada)) as max_dias
                         FROM inventario 
-                        WHERE estado = 'activo' AND cantidad > 0 AND dias_permanencia IS NOT NULL";
-            
+                        WHERE estado = 'activo' 
+                          AND cantidad > 0 
+                          AND fecha_ultima_entrada IS NOT NULL";
+
             $stmtResumen = $db->prepare($sqlResumen);
             $stmtResumen->execute();
             $resumen = $stmtResumen->fetch(PDO::FETCH_ASSOC);
-            
+
             if (!$resumen) {
                 $resumen = [
                     'total' => 0,
@@ -534,8 +537,8 @@ class AlmacenController extends Controller {
                     'max_dias' => 0
                 ];
             }
-            
-        } catch (Throwable $e) {   // ✅ FIX: Throwable
+
+        } catch (Throwable $e) {
             error_log("Error en permanencia: " . $e->getMessage());
             $productos = [];
             $resumen = [
@@ -548,10 +551,9 @@ class AlmacenController extends Controller {
                 'max_dias' => 0
             ];
         }
-        
+
         $titulo = 'Control de Permanencia';
         $seccion = 'permanencia';
-        
         require_once __DIR__ . '/../views/almacen/permanencia.php';
     }
 
@@ -561,6 +563,7 @@ class AlmacenController extends Controller {
      */
     public function inventario() {
         $this->redirect('/inventario');
+        return;
     }
 
     /**
@@ -569,7 +572,7 @@ class AlmacenController extends Controller {
      */
     public function estadisticas() {
         header('Content-Type: application/json; charset=utf-8');
-        
+
         if (!$this->authHelper->isLoggedIn()) {
             echo json_encode(['error' => 'No autorizado']);
             exit;
@@ -602,7 +605,7 @@ class AlmacenController extends Controller {
      */
     public function graficos() {
         header('Content-Type: application/json; charset=utf-8');
-        
+
         if (!$this->authHelper->isLoggedIn()) {
             echo json_encode(['error' => 'No autorizado']);
             exit;

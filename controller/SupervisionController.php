@@ -1,11 +1,11 @@
 <?php
 // controller/SupervisionController.php
 // VERSIÓN COMPLETA CORREGIDA - TABLA 'supervisiones'
-// ✅ FIX CRÍTICO: index() normaliza estado con strtoupper() (los contadores antes daban 0)
-// ✅ FIX: transacciones en actualizar(), aprobar(), rechazar() con rollBack protegido
-// ✅ FIX: catch (Throwable) en vez de Exception (ya estaba correcto)
-// ✅ FIX: redirect() con rutas relativas
-// ✅ FIX: exit después de cada redirect() (Controller::redirect ya hace exit)
+// ✅ FIX CRÍTICO: JOIN a 'supervisores' (no a 'usuarios')
+// ✅ FIX: index() normaliza estado con strtoupper()
+// ✅ FIX: transacciones en actualizar(), aprobar(), rechazar()
+// ✅ FIX: catch (Throwable)
+// ✅ FIX: return después de cada redirect()
 
 require_once __DIR__ . '/../helpers/Controller.php';
 require_once __DIR__ . '/../config/database.php';
@@ -26,26 +26,30 @@ class SupervisionController extends Controller {
 
         if (!$this->authHelper->isLoggedIn()) {
             $this->redirect('/auth/login');
+            return;
         }
 
-        if (!$this->authHelper->isAdmin() &&
-            !$this->authHelper->isSupervisor() &&
-            !$this->authHelper->isConsultor()) {
+        $rol = $this->authHelper->getRole();
+        if (!in_array($rol, ['admin', 'supervisor', 'consultor'], true)) {
             $_SESSION['error'] = 'No tienes permisos para acceder a esta sección';
             $this->redirect('/dashboard');
+            return;
         }
 
-        $this->db = Database::getInstance()->getConnection();
-        $this->ordenModel = new OrdenTrabajo();
-        $this->supervisorModel = new Supervisor();
-        $this->tecnicoModel = new Tecnico();
+        try {
+            $this->db = Database::getInstance()->getConnection();
+            $this->ordenModel = new OrdenTrabajo();
+            $this->supervisorModel = new Supervisor();
+            $this->tecnicoModel = new Tecnico();
+        } catch (Throwable $e) {
+            error_log("Error al instanciar modelos en SupervisionController: " . $e->getMessage());
+            $this->redirectWithError('/dashboard', 'Error al cargar el módulo');
+            return;
+        }
     }
 
-    /**
-     * ¿El usuario actual es consultor?
-     */
     private function esConsultor() {
-        return $this->authHelper->isConsultor();
+        return $this->authHelper->getRole() === 'consultor';
     }
 
     // ==========================================
@@ -58,15 +62,16 @@ class SupervisionController extends Controller {
         $tecnicos = [];
 
         try {
-            $sql = "SELECT s.*, 
+            // ✅ FIX CRÍTICO: JOIN a 'supervisores' (no a 'usuarios')
+            $sql = "SELECT s.*,
                            o.num_om,
                            o.titulo,
                            o.status as orden_estado,
-                           u.nombre as supervisor_nombre,
+                           sup.nombre as supervisor_nombre,
                            t.nombre as tecnico_nombre
                     FROM supervisiones s
                     LEFT JOIN ordenes_mantenimiento o ON s.orden_id = o.id
-                    LEFT JOIN usuarios u ON s.supervisor_id = u.id
+                    LEFT JOIN supervisores sup ON s.supervisor_id = sup.id
                     LEFT JOIN tecnicos t ON o.tecnico_id = t.id
                     ORDER BY s.fecha_creacion DESC";
 
@@ -74,8 +79,7 @@ class SupervisionController extends Controller {
             $stmt->execute();
             $supervisiones = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            // ✅ FIX CRÍTICO: normalizar estado con strtoupper()
-            // Los datos en BD están como 'APROBADA', 'PENDIENTE', 'RECHAZADA'
+            // ✅ FIX: normalizar estado con strtoupper() porque la BD guarda minúsculas
             $estadisticas = [
                 'total'      => count($supervisiones),
                 'pendientes' => count(array_filter($supervisiones, fn($s) => strtoupper($s['estado'] ?? '') === 'PENDIENTE')),
@@ -109,16 +113,17 @@ class SupervisionController extends Controller {
         }
 
         try {
-            $sql = "SELECT s.*, 
+            // ✅ FIX CRÍTICO: JOIN a 'supervisores'
+            $sql = "SELECT s.*,
                            o.num_om,
                            o.titulo,
                            o.descripcion_mantenimiento,
                            o.status as orden_estado,
-                           u.nombre as supervisor_nombre,
+                           sup.nombre as supervisor_nombre,
                            t.nombre as tecnico_nombre
                     FROM supervisiones s
                     LEFT JOIN ordenes_mantenimiento o ON s.orden_id = o.id
-                    LEFT JOIN usuarios u ON s.supervisor_id = u.id
+                    LEFT JOIN supervisores sup ON s.supervisor_id = sup.id
                     LEFT JOIN tecnicos t ON o.tecnico_id = t.id
                     WHERE s.id = ?";
 
@@ -157,7 +162,7 @@ class SupervisionController extends Controller {
         }
 
         try {
-            $sql = "SELECT s.*, 
+            $sql = "SELECT s.*,
                            o.num_om,
                            o.titulo
                     FROM supervisiones s
@@ -190,7 +195,7 @@ class SupervisionController extends Controller {
     }
 
     // ==========================================
-    // ACTUALIZAR (con transacción)
+    // ACTUALIZAR
     // ==========================================
 
     public function actualizar($id) {
@@ -228,7 +233,6 @@ class SupervisionController extends Controller {
             $fecha_supervision = null;
         }
 
-        // ✅ Validar estado contra whitelist
         $estados_validos = ['pendiente', 'aprobada', 'rechazada', 'PENDIENTE', 'APROBADA', 'RECHAZADA'];
         if (!in_array($estado, $estados_validos, true)) {
             $this->redirectWithError('/supervision/ver/' . $id, 'Estado inválido');
@@ -238,7 +242,7 @@ class SupervisionController extends Controller {
         try {
             $this->db->beginTransaction();
 
-            $sql = "UPDATE supervisiones SET 
+            $sql = "UPDATE supervisiones SET
                         orden_id = ?,
                         supervisor_id = ?,
                         calificacion = ?,
@@ -261,11 +265,10 @@ class SupervisionController extends Controller {
                 $id,
             ]);
 
-            // Si se aprueba o rechaza, actualizar el estado de la orden
             if ($resultado && $orden_id > 0 && in_array(strtoupper($estado), ['APROBADA', 'RECHAZADA'], true)) {
                 $nuevoEstado = (strtoupper($estado) === 'APROBADA') ? 'APROBADA' : 'RECHAZADA';
-                $sqlOrden = "UPDATE ordenes_mantenimiento 
-                             SET status = ?, fecha_actualizacion = NOW() 
+                $sqlOrden = "UPDATE ordenes_mantenimiento
+                             SET status = ?, fecha_actualizacion = NOW()
                              WHERE id = ?";
                 $stmtOrden = $this->db->prepare($sqlOrden);
                 $stmtOrden->execute([$nuevoEstado, $orden_id]);
@@ -292,7 +295,7 @@ class SupervisionController extends Controller {
     }
 
     // ==========================================
-    // APROBAR (con transacción)
+    // APROBAR
     // ==========================================
 
     public function aprobar($id) {
@@ -326,7 +329,7 @@ class SupervisionController extends Controller {
             $result = $stmtGet->fetch(PDO::FETCH_ASSOC);
             $orden_id = $result['orden_id'] ?? null;
 
-            $sql = "UPDATE supervisiones SET 
+            $sql = "UPDATE supervisiones SET
                         estado = 'APROBADA',
                         observaciones = ?,
                         fecha_actualizacion = NOW()
@@ -336,8 +339,8 @@ class SupervisionController extends Controller {
             $resultado = $stmt->execute([$observaciones, $id]);
 
             if ($resultado && $orden_id) {
-                $sqlOrden = "UPDATE ordenes_mantenimiento 
-                             SET status = 'APROBADA', fecha_actualizacion = NOW() 
+                $sqlOrden = "UPDATE ordenes_mantenimiento
+                             SET status = 'APROBADA', fecha_actualizacion = NOW()
                              WHERE id = ?";
                 $stmtOrden = $this->db->prepare($sqlOrden);
                 $stmtOrden->execute([$orden_id]);
@@ -361,7 +364,7 @@ class SupervisionController extends Controller {
     }
 
     // ==========================================
-    // RECHAZAR (con transacción)
+    // RECHAZAR
     // ==========================================
 
     public function rechazar($id) {
@@ -395,7 +398,7 @@ class SupervisionController extends Controller {
             $result = $stmtGet->fetch(PDO::FETCH_ASSOC);
             $orden_id = $result['orden_id'] ?? null;
 
-            $sql = "UPDATE supervisiones SET 
+            $sql = "UPDATE supervisiones SET
                         estado = 'RECHAZADA',
                         observaciones = ?,
                         fecha_actualizacion = NOW()
@@ -405,8 +408,8 @@ class SupervisionController extends Controller {
             $resultado = $stmt->execute([$motivo, $id]);
 
             if ($resultado && $orden_id) {
-                $sqlOrden = "UPDATE ordenes_mantenimiento 
-                             SET status = 'RECHAZADA', fecha_actualizacion = NOW() 
+                $sqlOrden = "UPDATE ordenes_mantenimiento
+                             SET status = 'RECHAZADA', fecha_actualizacion = NOW()
                              WHERE id = ?";
                 $stmtOrden = $this->db->prepare($sqlOrden);
                 $stmtOrden->execute([$orden_id]);
@@ -551,7 +554,7 @@ class SupervisionController extends Controller {
         $reporte = [];
 
         try {
-            $sql = "SELECT 
+            $sql = "SELECT
                         DATE_FORMAT(s.fecha_creacion, '%Y-%m') as mes,
                         COUNT(*) as total,
                         SUM(CASE WHEN UPPER(s.estado) = 'APROBADA'  THEN 1 ELSE 0 END) as aprobadas,

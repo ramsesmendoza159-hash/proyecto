@@ -1,12 +1,6 @@
 <?php
 // controller/SupervisorController.php
-// Panel del Supervisor - VERSIÓN COMPLETA CORREGIDA
-// ✅ FIX CRÍTICO: ordenesList() y supervisionesList() usaban LIMIT/OFFSET interpolados
-// ✅ FIX: bindValue con PDO::PARAM_INT explícito para LIMIT/OFFSET
-// ✅ FIX: WHERE con placeholders dinámicos + bindValue
-// ✅ FIX: try/catch (Throwable) en todos los métodos
-// ✅ FIX: ver_supervision() trae todos los campos con JOIN completo
-// ✅ FIX: headers JSON con charset=utf-8
+// Panel del Supervisor - VERSIÓN FINAL
 
 require_once __DIR__ . '/../helpers/Controller.php';
 require_once __DIR__ . '/../config/database.php';
@@ -16,7 +10,7 @@ require_once __DIR__ . '/../model/Tecnico.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
 
 class SupervisorController extends Controller {
-    
+
     private $db;
     private $ordenModel;
     private $supervisorModel;
@@ -24,32 +18,41 @@ class SupervisorController extends Controller {
 
     public function __construct() {
         parent::__construct();
-        
+
         if (!$this->authHelper->isLoggedIn()) {
             $this->redirect('/auth/login');
+            return;
         }
-        
-        if (!$this->authHelper->isSupervisor() && !$this->authHelper->isAdmin()) {
+
+        $rol = $this->authHelper->getRole();
+        if (!in_array($rol, ['supervisor', 'admin'], true)) {
             $_SESSION['error'] = 'No tienes permisos para acceder a esta sección';
             $this->redirect('/dashboard');
+            return;
         }
-        
-        $this->db = Database::getInstance()->getConnection();
-        $this->ordenModel = new OrdenTrabajo();
-        $this->supervisorModel = new Supervisor();
-        $this->tecnicoModel = new Tecnico();
+
+        try {
+            $this->db = Database::getInstance()->getConnection();
+            $this->ordenModel = new OrdenTrabajo();
+            $this->supervisorModel = new Supervisor();
+            $this->tecnicoModel = new Tecnico();
+        } catch (Throwable $e) {
+            error_log("Error al instanciar modelos en SupervisorController: " . $e->getMessage());
+            $this->redirectWithError('/dashboard', 'Error al cargar el módulo');
+            return;
+        }
     }
 
     private function obtenerSupervisorId() {
         try {
             $email = $_SESSION['email'] ?? '';
             if (empty($email)) return null;
-            
+
             $sql = "SELECT id FROM supervisores WHERE LOWER(email) = LOWER(?) LIMIT 1";
             $stmt = $this->db->prepare($sql);
             $stmt->execute([$email]);
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
-            
+
             return $result ? (int)$result['id'] : null;
         } catch (Throwable $e) {
             error_log("Error en obtenerSupervisorId: " . $e->getMessage());
@@ -60,7 +63,7 @@ class SupervisorController extends Controller {
     public function index() {
         try {
             $kpis = $this->calcularKPIs();
-            
+
             $sql = "SELECT o.id, o.num_om, o.titulo, o.status, o.prioridad,
                            o.fecha_finalizacion, o.fecha_creacion,
                            t.nombre as tecnico_nombre
@@ -72,7 +75,7 @@ class SupervisorController extends Controller {
             $stmt = $this->db->prepare($sql);
             $stmt->execute();
             $ordenes_pendientes = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            
+
         } catch (Throwable $e) {
             error_log("Error en SupervisorController::index - " . $e->getMessage());
             $kpis = [
@@ -83,22 +86,18 @@ class SupervisorController extends Controller {
             ];
             $ordenes_pendientes = [];
         }
-        
+
         $titulo = 'Panel de Supervisor';
         $seccion = 'supervisor';
-        
-        $supervisor_kpis = $kpis;
-        $supervisor_ordenes = $ordenes_pendientes;
-        
         require_once __DIR__ . '/../views/supervisor/index.php';
     }
 
     public function dashboardData() {
         header('Content-Type: application/json; charset=utf-8');
-        
+
         try {
             $kpis = $this->calcularKPIs();
-            
+
             $sql = "SELECT o.id, o.num_om, o.titulo, o.prioridad,
                            o.fecha_finalizacion, o.status,
                            t.nombre as tecnico_nombre
@@ -110,15 +109,15 @@ class SupervisorController extends Controller {
             $stmt = $this->db->prepare($sql);
             $stmt->execute();
             $ordenes = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            
+
             foreach ($ordenes as &$orden) {
-                $orden['fecha_cierre'] = $orden['fecha_finalizacion'] 
-                    ? date('d/m/Y H:i', strtotime($orden['fecha_finalizacion'])) 
+                $orden['fecha_cierre'] = $orden['fecha_finalizacion']
+                    ? date('d/m/Y H:i', strtotime($orden['fecha_finalizacion']))
                     : 'N/A';
                 $orden['tecnico'] = $orden['tecnico_nombre'] ?? 'Sin asignar';
             }
             unset($orden);
-            
+
             echo json_encode([
                 'success' => true,
                 'total_ordenes' => $kpis['total_ordenes'],
@@ -127,7 +126,7 @@ class SupervisorController extends Controller {
                 'rechazadas' => $kpis['rechazadas'],
                 'ordenes' => $ordenes
             ]);
-            
+
         } catch (Throwable $e) {
             error_log("Error en dashboardData: " . $e->getMessage());
             echo json_encode([
@@ -145,7 +144,7 @@ class SupervisorController extends Controller {
 
     private function calcularKPIs() {
         try {
-            $sql = "SELECT 
+            $sql = "SELECT
                         COUNT(*) as total_ordenes,
                         SUM(CASE WHEN status = 'CERRADA' THEN 1 ELSE 0 END) as pendientes_revision,
                         SUM(CASE WHEN status = 'APROBADA' THEN 1 ELSE 0 END) as aprobadas,
@@ -154,7 +153,7 @@ class SupervisorController extends Controller {
             $stmt = $this->db->prepare($sql);
             $stmt->execute();
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
-            
+
             return [
                 'total_ordenes' => (int)($result['total_ordenes'] ?? 0),
                 'pendientes_revision' => (int)($result['pendientes_revision'] ?? 0),
@@ -178,58 +177,52 @@ class SupervisorController extends Controller {
         require_once __DIR__ . '/../views/supervisor/ordenes.php';
     }
 
-    /**
-     * Listado JSON de órdenes con paginación
-     * ✅ FIX: bindValue con PARAM_INT para LIMIT/OFFSET
-     */
     public function ordenesList() {
         header('Content-Type: application/json; charset=utf-8');
-        
+
         try {
             $estado = $_GET['estado'] ?? '';
             $prioridad = $_GET['prioridad'] ?? '';
             $tecnico_id = !empty($_GET['tecnico']) ? (int)$_GET['tecnico'] : null;
             $fecha = $_GET['fecha'] ?? '';
             $page = max(1, (int)($_GET['page'] ?? 1));
-            $limit = max(1, min(100, (int)($_GET['limit'] ?? 10)));   // límite máx 100
+            $limit = max(1, min(100, (int)($_GET['limit'] ?? 10)));
             $offset = ($page - 1) * $limit;
-            
+
             $where = ["1=1"];
             $params = [];
-            
+
             if (!empty($estado)) {
                 $where[] = "o.status = ?";
                 $params[] = $estado;
             } else {
                 $where[] = "o.status IN ('CERRADA', 'APROBADA', 'RECHAZADA')";
             }
-            
+
             if (!empty($prioridad)) {
                 $where[] = "o.prioridad = ?";
                 $params[] = $prioridad;
             }
-            
+
             if ($tecnico_id) {
                 $where[] = "o.tecnico_id = ?";
                 $params[] = $tecnico_id;
             }
-            
+
             if (!empty($fecha)) {
                 $where[] = "DATE(o.fecha_finalizacion) = ?";
                 $params[] = $fecha;
             }
-            
+
             $where_sql = implode(' AND ', $where);
-            
-            // Count
-            $sqlCount = "SELECT COUNT(*) as total 
-                         FROM ordenes_mantenimiento o 
+
+            $sqlCount = "SELECT COUNT(*) as total
+                         FROM ordenes_mantenimiento o
                          WHERE $where_sql";
             $stmtCount = $this->db->prepare($sqlCount);
             $stmtCount->execute($params);
             $total = (int)$stmtCount->fetch(PDO::FETCH_ASSOC)['total'];
-            
-            // Datos con bindValue PARAM_INT para LIMIT/OFFSET
+
             $sql = "SELECT o.id, o.num_om, o.titulo, o.status, o.prioridad,
                            o.fecha_finalizacion, o.fecha_creacion,
                            t.nombre as tecnico,
@@ -240,9 +233,9 @@ class SupervisorController extends Controller {
                     WHERE $where_sql
                     ORDER BY o.fecha_finalizacion DESC, o.fecha_creacion DESC
                     LIMIT ? OFFSET ?";
-            
+
             $stmt = $this->db->prepare($sql);
-            
+
             $i = 1;
             foreach ($params as $p) {
                 $tipo = is_int($p) ? PDO::PARAM_INT : PDO::PARAM_STR;
@@ -250,25 +243,25 @@ class SupervisorController extends Controller {
             }
             $stmt->bindValue($i++, $limit, PDO::PARAM_INT);
             $stmt->bindValue($i++, $offset, PDO::PARAM_INT);
-            
+
             $stmt->execute();
             $ordenes = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            
+
             foreach ($ordenes as &$orden) {
                 $orden['estado'] = $orden['status'];
-                $orden['fecha_creacion'] = $orden['fecha_finalizacion'] 
+                $orden['fecha_creacion'] = $orden['fecha_finalizacion']
                     ? date('d/m/Y', strtotime($orden['fecha_finalizacion']))
                     : date('d/m/Y', strtotime($orden['fecha_creacion']));
             }
             unset($orden);
-            
+
             echo json_encode([
                 'success' => true,
                 'ordenes' => $ordenes,
                 'total' => $total,
                 'paginas' => ceil($total / $limit)
             ]);
-            
+
         } catch (Throwable $e) {
             error_log("Error en ordenesList: " . $e->getMessage());
             echo json_encode([
@@ -288,10 +281,10 @@ class SupervisorController extends Controller {
             $this->redirectWithError('/supervisor/ordenes', 'ID de orden inválido');
             return;
         }
-        
+
         try {
             $orden = $this->ordenModel->obtenerPorId($id);
-            
+
             if (!$orden) {
                 $this->redirectWithError('/supervisor/ordenes', 'Orden no encontrada');
                 return;
@@ -301,7 +294,7 @@ class SupervisorController extends Controller {
             $this->redirectWithError('/supervisor/ordenes', 'Error al cargar la orden');
             return;
         }
-        
+
         $titulo = 'Revisar Orden #' . $id;
         $seccion = 'supervisor';
         require_once __DIR__ . '/../views/supervisor/revisar.php';
@@ -312,41 +305,42 @@ class SupervisorController extends Controller {
             $this->redirect('/supervisor/ordenes');
             return;
         }
-        
+
         $token = $_POST['csrf_token'] ?? '';
         if (!SecurityHelper::verifyCSRFToken($token)) {
             $this->redirectWithError('/supervisor/ordenes', 'Token de seguridad inválido');
             return;
         }
-        
+
         $orden_id = (int)($_POST['orden_id'] ?? 0);
         $calificacion = (int)($_POST['calificacion'] ?? 0);
         $estado = $_POST['estado'] ?? '';
         $observaciones = trim($_POST['observaciones'] ?? '');
         $cumple = isset($_POST['cumple']) ? 1 : 0;
-        
+
         if ($orden_id <= 0) {
             $this->redirectWithError('/supervisor/ordenes', 'ID de orden inválido');
             return;
         }
-        
+
         if (!in_array($estado, ['APROBADA', 'RECHAZADA'], true)) {
             $this->redirectWithError('/supervisor/revisar/' . $orden_id, 'Estado inválido');
             return;
         }
-        
+
         try {
             $this->db->beginTransaction();
-            
+
+            // Guarda supervisores.id (comportamiento actual del proyecto)
             $supervisor_id = $this->obtenerSupervisorId();
-            
+
             $sqlCheck = "SELECT id FROM supervisiones WHERE orden_id = ? LIMIT 1";
             $stmtCheck = $this->db->prepare($sqlCheck);
             $stmtCheck->execute([$orden_id]);
             $existe = $stmtCheck->fetch(PDO::FETCH_ASSOC);
-            
+
             if ($existe) {
-                $sql = "UPDATE supervisiones 
+                $sql = "UPDATE supervisiones
                         SET supervisor_id = ?,
                             calificacion = ?,
                             estado = ?,
@@ -365,7 +359,7 @@ class SupervisorController extends Controller {
                     $existe['id']
                 ]);
             } else {
-                $sql = "INSERT INTO supervisiones 
+                $sql = "INSERT INTO supervisiones
                         (orden_id, supervisor_id, calificacion, estado, observaciones, cumple, fecha_supervision, fecha_creacion)
                         VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())";
                 $stmt = $this->db->prepare($sql);
@@ -378,14 +372,14 @@ class SupervisorController extends Controller {
                     $cumple
                 ]);
             }
-            
+
             $nuevoStatus = ($estado === 'APROBADA') ? 'APROBADA' : 'RECHAZADA';
-            $sqlUpdate = "UPDATE ordenes_mantenimiento 
+            $sqlUpdate = "UPDATE ordenes_mantenimiento
                           SET status = ?, fecha_actualizacion = NOW()
                           WHERE id = ?";
             $stmtUpdate = $this->db->prepare($sqlUpdate);
             $stmtUpdate->execute([$nuevoStatus, $orden_id]);
-            
+
             try {
                 require_once __DIR__ . '/../model/AuditoriaModel.php';
                 $auditoria = new AuditoriaModel();
@@ -402,12 +396,12 @@ class SupervisorController extends Controller {
             } catch (Throwable $e) {
                 error_log("Error auditoría revisar_orden: " . $e->getMessage());
             }
-            
+
             $this->db->commit();
-            
+
             $this->redirectWithSuccess('/supervisor/ordenes', 'Orden ' . strtolower($nuevoStatus) . ' correctamente');
             return;
-            
+
         } catch (Throwable $e) {
             if ($this->db->inTransaction()) {
                 $this->db->rollBack();
@@ -424,46 +418,42 @@ class SupervisorController extends Controller {
         require_once __DIR__ . '/../views/supervisor/supervisiones.php';
     }
 
-    /**
-     * Listado JSON de supervisiones con paginación
-     * ✅ FIX: bindValue con PARAM_INT para LIMIT/OFFSET
-     */
     public function supervisionesList() {
         header('Content-Type: application/json; charset=utf-8');
-        
+
         try {
             $estado = $_GET['estado'] ?? '';
             $calificacion = $_GET['calificacion'] ?? '';
             $fecha = $_GET['fecha'] ?? '';
             $page = max(1, (int)($_GET['page'] ?? 1));
-            $limit = max(1, min(100, (int)($_GET['limit'] ?? 10)));   // límite máx 100
+            $limit = max(1, min(100, (int)($_GET['limit'] ?? 10)));
             $offset = ($page - 1) * $limit;
-            
+
             $where = ["1=1"];
             $params = [];
-            
+
             if (!empty($estado)) {
                 $where[] = "UPPER(s.estado) = UPPER(?)";
                 $params[] = $estado;
             }
-            
+
             if (!empty($calificacion)) {
                 $where[] = "s.calificacion = ?";
                 $params[] = (int)$calificacion;
             }
-            
+
             if (!empty($fecha)) {
                 $where[] = "DATE(s.fecha_supervision) = ?";
                 $params[] = $fecha;
             }
-            
+
             $where_sql = implode(' AND ', $where);
-            
+
             $sqlCount = "SELECT COUNT(*) as total FROM supervisiones s WHERE $where_sql";
             $stmtCount = $this->db->prepare($sqlCount);
             $stmtCount->execute($params);
             $total = (int)$stmtCount->fetch(PDO::FETCH_ASSOC)['total'];
-            
+
             $sql = "SELECT s.id, s.orden_id, s.calificacion, s.estado, s.cumple,
                            s.observaciones, s.fecha_supervision,
                            o.num_om, o.titulo,
@@ -474,9 +464,9 @@ class SupervisorController extends Controller {
                     WHERE $where_sql
                     ORDER BY s.fecha_supervision DESC, s.fecha_creacion DESC
                     LIMIT ? OFFSET ?";
-            
+
             $stmt = $this->db->prepare($sql);
-            
+
             $i = 1;
             foreach ($params as $p) {
                 $tipo = is_int($p) ? PDO::PARAM_INT : PDO::PARAM_STR;
@@ -484,24 +474,24 @@ class SupervisorController extends Controller {
             }
             $stmt->bindValue($i++, $limit, PDO::PARAM_INT);
             $stmt->bindValue($i++, $offset, PDO::PARAM_INT);
-            
+
             $stmt->execute();
             $supervisiones = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            
+
             foreach ($supervisiones as &$sup) {
-                $sup['fecha_creacion'] = $sup['fecha_supervision'] 
+                $sup['fecha_creacion'] = $sup['fecha_supervision']
                     ? date('d/m/Y', strtotime($sup['fecha_supervision']))
                     : 'N/A';
             }
             unset($sup);
-            
+
             echo json_encode([
                 'success' => true,
                 'supervisiones' => $supervisiones,
                 'total' => $total,
                 'paginas' => ceil($total / $limit)
             ]);
-            
+
         } catch (Throwable $e) {
             error_log("Error en supervisionesList: " . $e->getMessage());
             echo json_encode([
@@ -521,10 +511,10 @@ class SupervisorController extends Controller {
             $this->redirectWithError('/supervisor/ordenes', 'ID de orden inválido');
             return;
         }
-        
+
         try {
             $orden = $this->ordenModel->obtenerPorId($id);
-            
+
             if (!$orden) {
                 $this->redirectWithError('/supervisor/ordenes', 'Orden no encontrada');
                 return;
@@ -534,14 +524,14 @@ class SupervisorController extends Controller {
             $this->redirectWithError('/supervisor/ordenes', 'Error al cargar la orden');
             return;
         }
-        
+
         $titulo = 'Ver Orden #' . $id;
         $seccion = 'supervisor';
         require_once __DIR__ . '/../views/supervisor/ver_orden.php';
     }
 
     /**
-     * ✅ FIX: JOIN completo con ordenes_mantenimiento, areas, plantas, tecnicos
+     * ✅ FIX: JOIN a supervisores (no usuarios) porque supervisor_id = supervisores.id
      */
     public function ver_supervision($id) {
         $id = (int)$id;
@@ -549,9 +539,9 @@ class SupervisorController extends Controller {
             $this->redirectWithError('/supervisor/supervisiones', 'ID de supervisión inválido');
             return;
         }
-        
+
         try {
-            $sql = "SELECT 
+            $sql = "SELECT
                         s.*,
                         o.num_om,
                         o.titulo AS orden_titulo,
@@ -563,18 +553,18 @@ class SupervisorController extends Controller {
                         a.nombre_area,
                         p.nombre_planta,
                         t.nombre AS tecnico,
-                        u.nombre AS supervisor_nombre
+                        sup.nombre AS supervisor_nombre
                     FROM supervisiones s
                     LEFT JOIN ordenes_mantenimiento o ON s.orden_id = o.id
                     LEFT JOIN areas a ON o.id_area = a.id_area
                     LEFT JOIN plantas p ON o.id_planta = p.id_planta
                     LEFT JOIN tecnicos t ON o.tecnico_id = t.id
-                    LEFT JOIN usuarios u ON s.supervisor_id = u.id
+                    LEFT JOIN supervisores sup ON s.supervisor_id = sup.id
                     WHERE s.id = ?";
             $stmt = $this->db->prepare($sql);
             $stmt->execute([$id]);
             $supervision = $stmt->fetch(PDO::FETCH_ASSOC);
-            
+
             if (!$supervision) {
                 $this->redirectWithError('/supervisor/supervisiones', 'Supervisión no encontrada');
                 return;
@@ -584,7 +574,7 @@ class SupervisorController extends Controller {
             $this->redirectWithError('/supervisor/supervisiones', 'Error al cargar la supervisión');
             return;
         }
-        
+
         $titulo = 'Ver Supervisión #' . $id;
         $seccion = 'supervisor';
         require_once __DIR__ . '/../views/supervisor/ver_supervision.php';
@@ -592,16 +582,16 @@ class SupervisorController extends Controller {
 
     public function tecnicosList() {
         header('Content-Type: application/json; charset=utf-8');
-        
+
         try {
-            $sql = "SELECT id, nombre, especialidad 
-                    FROM tecnicos 
-                    WHERE estado = 'activo' 
+            $sql = "SELECT id, nombre, especialidad
+                    FROM tecnicos
+                    WHERE estado = 'activo'
                     ORDER BY nombre ASC";
             $stmt = $this->db->prepare($sql);
             $stmt->execute();
             $tecnicos = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            
+
             echo json_encode($tecnicos);
         } catch (Throwable $e) {
             error_log("Error en tecnicosList: " . $e->getMessage());

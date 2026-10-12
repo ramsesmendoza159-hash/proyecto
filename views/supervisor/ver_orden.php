@@ -1,8 +1,7 @@
 <?php
 // views/supervisor/ver_orden.php
 // Ver Orden - VERSIÓN CORREGIDA
-// ✅ FIX: usa los campos reales del JOIN plano
-// ✅ FIX: supervisor_estado en vez de supervision['estado']
+// ✅ FIX CRÍTICO: ahora muestra datos reales de supervisión (requiere JOIN en el controller)
 
 if (!isset($seccion)) {
     $seccion = 'supervisor';
@@ -14,6 +13,8 @@ if (!isset($orden) || !$orden) {
     header('Location: /proyecto/supervisor/ordenes');
     exit();
 }
+
+$supervision_estado = $orden['supervision_estado'] ?? null;
 
 include_once __DIR__ . '/../layouts/header.php';
 ?>
@@ -34,7 +35,7 @@ include_once __DIR__ . '/../layouts/header.php';
             <a href="/proyecto/supervisor/ordenes" class="btn btn-secondary">
                 <i class="fas fa-arrow-left me-1"></i> Volver
             </a>
-            <?php if (($orden['status'] ?? '') === 'CERRADA' && empty($orden['supervision_estado'])): ?>
+            <?php if (($orden['status'] ?? '') === 'CERRADA' && empty($supervision_estado)): ?>
                 <a href="/proyecto/supervisor/revisar/<?= (int)$orden['id'] ?>" class="btn btn-primary">
                     <i class="fas fa-clipboard-check me-1"></i> Revisar
                 </a>
@@ -62,7 +63,6 @@ include_once __DIR__ . '/../layouts/header.php';
     <div class="row g-4">
         <!-- Columna principal -->
         <div class="col-lg-8">
-            <!-- Información de la orden -->
             <div class="card border-0">
                 <div class="card-header bg-transparent border-0 pt-3">
                     <h5 class="mb-0 fw-semibold">
@@ -91,10 +91,10 @@ include_once __DIR__ . '/../layouts/header.php';
                                     $prioridad = $orden['prioridad'] ?? 'Media';
                                     $color = match($prioridad) {
                                         'Urgente' => 'danger',
-                                        'Alta' => 'warning',
-                                        'Media' => 'info',
-                                        'Baja' => 'success',
-                                        default => 'secondary'
+                                        'Alta'    => 'warning',
+                                        'Media'   => 'info',
+                                        'Baja'    => 'success',
+                                        default   => 'secondary'
                                     };
                                     ?>
                                     <span class="badge bg-<?= $color ?> bg-opacity-10 text-<?= $color ?>">
@@ -108,11 +108,11 @@ include_once __DIR__ . '/../layouts/header.php';
                                     <?php
                                     $estado = $orden['status'] ?? 'PENDIENTE';
                                     $color = match($estado) {
-                                        'CERRADA', 'APROBADA' => 'success',
-                                        'EN_PROCESO' => 'info',
-                                        'EJECUTADA' => 'primary',
+                                        'CERRADA', 'APROBADA'   => 'success',
+                                        'EN_PROCESO'            => 'info',
+                                        'EJECUTADA'             => 'primary',
                                         'CANCELADA', 'RECHAZADA' => 'danger',
-                                        default => 'warning'
+                                        default                  => 'warning'
                                     };
                                     ?>
                                     <span class="badge bg-<?= $color ?> bg-opacity-10 text-<?= $color ?>">
@@ -174,7 +174,7 @@ include_once __DIR__ . '/../layouts/header.php';
                         </div>
                     <?php endif; ?>
 
-                    <!-- Costos desglosados -->
+                    <!-- Costos -->
                     <?php if (!empty($orden['costo_total'])): ?>
                         <hr>
                         <label class="text-muted small fw-semibold text-uppercase d-block mb-3">Desglose de Costos</label>
@@ -217,7 +217,7 @@ include_once __DIR__ . '/../layouts/header.php';
             </div>
         </div>
 
-        <!-- Columna lateral - Estado de supervisión -->
+        <!-- Columna lateral -->
         <div class="col-lg-4">
             <div class="card border-0">
                 <div class="card-header bg-transparent border-0 pt-3">
@@ -226,21 +226,20 @@ include_once __DIR__ . '/../layouts/header.php';
                     </h5>
                 </div>
                 <div class="card-body">
-                    <?php if (!empty($orden['supervision_estado'])): ?>
+                    <?php if (!empty($supervision_estado)): ?>
                         <div class="mb-3">
                             <label class="text-muted small fw-semibold text-uppercase">Estado</label>
                             <p class="mb-0">
                                 <?php
-                                $supEstado = $orden['supervision_estado'] ?? '';
-                                $supColor = match($supEstado) {
-                                    'APROBADA', 'aprobada' => 'success',
-                                    'RECHAZADA', 'rechazada' => 'danger',
-                                    default => 'warning'
+                                $supColor = match(strtoupper($supervision_estado)) {
+                                    'APROBADA'  => 'success',
+                                    'RECHAZADA' => 'danger',
+                                    default      => 'warning'
                                 };
                                 ?>
                                 <span class="badge bg-<?= $supColor ?> bg-opacity-10 text-<?= $supColor ?>">
                                     <i class="fas fa-circle me-1" style="font-size:6px;"></i>
-                                    <?= htmlspecialchars($supEstado) ?>
+                                    <?= htmlspecialchars(ucfirst(strtolower($supervision_estado))) ?>
                                 </span>
                             </p>
                         </div>
@@ -280,10 +279,7 @@ include_once __DIR__ . '/../layouts/header.php';
 </div>
 
 <style>
-.card {
-    border-radius: 16px;
-    box-shadow: 0 2px 12px var(--shadow-color, rgba(0,0,0,0.04));
-}
+.card { border-radius: 16px; box-shadow: 0 2px 12px var(--shadow-color, rgba(0,0,0,0.04)); }
 .costo-mini {
     padding: 10px 12px;
     background: var(--bg-card-hover, #f8f9fa);

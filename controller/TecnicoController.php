@@ -1,12 +1,12 @@
 <?php
 // controller/TecnicoController.php
-// VERSIÓN CORREGIDA - SIN ChecklistModel (eliminado del proyecto)
-// ✅ FIX: Eliminado require_once ChecklistModel.php (archivo no existe)
-// ✅ FIX: Eliminada propiedad $checklistModel y su instanciación
-// ✅ FIX: procesarCierre() no llama a guardarChecklist()
-// ✅ FIX: floatval() en vez de (float)
-// ✅ FIX: catch (Throwable) en vez de Exception
-// ✅ FIX: Uso de $this->redirect() en vez de header() directo
+// VERSIÓN CORREGIDA - ALINEADA CON views/tecnico/cerrar_orden.php
+// ✅ FIX 1: procesarCierre() lee los campos REALES de la vista (descripcion_cierre, evidencias[], etc.)
+// ✅ FIX 2: usa $this->redirect() en vez de header()
+// ✅ FIX 3: procesarFotosAdjuntas() ahora lee $_FILES['evidencias']
+// ✅ FIX 4: cálculo de costo_total no duplica mano de obra
+// ✅ FIX 5: validación de rol por getRole() (sin depender de isTecnico())
+// ✅ FIX 6: extensión derivada del MIME verificado con getimagesize()
 
 require_once __DIR__ . '/../model/OrdenTrabajo.php';
 require_once __DIR__ . '/../model/Tecnico.php';
@@ -23,9 +23,15 @@ class TecnicoController extends Controller {
     public function __construct() {
         parent::__construct();
 
-        if (!$this->authHelper->isLoggedIn() || !$this->authHelper->isTecnico()) {
-            header('Location: /proyecto/auth/login');
-            exit();
+        if (!$this->authHelper->isLoggedIn()) {
+            $this->redirect('/auth/login');
+            return;
+        }
+
+        // ✅ FIX 5: usar getRole() en vez de isTecnico()
+        if ($this->authHelper->getRole() !== 'tecnico') {
+            $this->redirectWithError('/dashboard', 'No tienes permisos para esta sección');
+            return;
         }
 
         $this->ordenModel = new OrdenTrabajo();
@@ -120,15 +126,13 @@ class TecnicoController extends Controller {
         $orden = $this->ordenModel->obtenerPorId($id);
 
         if (!$orden) {
-            $_SESSION['error'] = 'Orden no encontrada';
-            header('Location: /proyecto/tecnico/mis_ordenes');
-            exit();
+            $this->redirectWithError('/tecnico/mis_ordenes', 'Orden no encontrada');
+            return;
         }
 
         if ((int)$orden['tecnico_id'] !== (int)$this->tecnicoId) {
-            $_SESSION['error'] = 'No tienes permisos para ver esta orden';
-            header('Location: /proyecto/tecnico/mis_ordenes');
-            exit();
+            $this->redirectWithError('/tecnico/mis_ordenes', 'No tienes permisos para ver esta orden');
+            return;
         }
 
         $titulo = 'Detalle de Orden';
@@ -143,16 +147,14 @@ class TecnicoController extends Controller {
         $orden = $this->ordenModel->obtenerPorId($id);
 
         if (!$orden) {
-            $_SESSION['error'] = 'Orden no encontrada';
-            header('Location: /proyecto/tecnico/mis_ordenes');
-            exit();
+            $this->redirectWithError('/tecnico/mis_ordenes', 'Orden no encontrada');
+            return;
         }
 
         $status = $orden['status'] ?? '';
         if (!in_array($status, ['PENDIENTE', 'EN_PROCESO', 'EJECUTADA'], true)) {
-            $_SESSION['error'] = 'Esta orden no se puede cerrar en su estado actual';
-            header('Location: /proyecto/tecnico/detalle_orden/' . $id);
-            exit();
+            $this->redirectWithError('/tecnico/detalle_orden/' . $id, 'Esta orden no se puede cerrar en su estado actual');
+            return;
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -167,131 +169,129 @@ class TecnicoController extends Controller {
 
     /**
      * Procesar cierre de orden
-     * ✅ FIX: Lee $_POST['firma_svg'] y lo guarda
-     * ✅ FIX: NO llama a guardarChecklist() (tabla no existe)
-     * ✅ FIX: Usa floatval() en vez de (float)
-     * ✅ FIX: catch (Throwable)
+     * ✅ FIX 1: lee los campos REALES de views/tecnico/cerrar_orden.php
+     * ✅ FIX 3: lee $_FILES['evidencias']
+     * ✅ FIX 4: no duplica mano de obra en costo_total
      */
     public function procesarCierre($id) {
         try {
             if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-                header('Location: /proyecto/tecnico/cerrar_orden/' . $id);
-                exit();
+                $this->redirect('/tecnico/cerrar_orden/' . $id);
+                return;
             }
 
             $token = $_POST['csrf_token'] ?? '';
             if (!SecurityHelper::verifyCSRFToken($token)) {
-                $_SESSION['error'] = 'Token de seguridad inválido';
-                header('Location: /proyecto/tecnico/cerrar_orden/' . $id);
-                exit();
+                $this->redirectWithError('/tecnico/cerrar_orden/' . $id, 'Token de seguridad inválido');
+                return;
             }
 
             $orden = $this->ordenModel->obtenerPorId($id);
             if (!$orden) {
-                $_SESSION['error'] = 'Orden no encontrada';
-                header('Location: /proyecto/tecnico/mis_ordenes');
-                exit();
+                $this->redirectWithError('/tecnico/mis_ordenes', 'Orden no encontrada');
+                return;
             }
 
             if ((int)$orden['tecnico_id'] !== (int)$this->tecnicoId) {
-                $_SESSION['error'] = 'No tienes permisos para cerrar esta orden';
-                header('Location: /proyecto/tecnico/mis_ordenes');
-                exit();
+                $this->redirectWithError('/tecnico/mis_ordenes', 'No tienes permisos para cerrar esta orden');
+                return;
             }
 
-            $checklist        = $_POST['checklist'] ?? [];
-            $tiempo_invertido = floatval($_POST['tiempo_invertido'] ?? 0);
-            $firma_svg        = $_POST['firma_svg'] ?? '';
+            // ✅ FIX 1: campos reales de la vista
+            $descripcion_cierre    = trim($_POST['descripcion_cierre'] ?? '');
+            $tiempo_invertido      = floatval($_POST['tiempo_invertido'] ?? 0);
+            $repuestos_utilizados  = trim($_POST['repuestos_utilizados'] ?? '');
+            $satisfactorio         = !empty($_POST['satisfactorio']);
+            $firma_svg             = $_POST['firma_svg'] ?? '';
 
-            if (empty($checklist) || !is_array($checklist)) {
-                $_SESSION['error'] = 'Debes completar la lista de verificación';
-                header('Location: /proyecto/tecnico/cerrar_orden/' . $id);
-                exit();
+            if (empty($descripcion_cierre)) {
+                $this->redirectWithError('/tecnico/cerrar_orden/' . $id, 'Debes describir el trabajo realizado');
+                return;
             }
 
             if ($tiempo_invertido <= 0) {
-                $_SESSION['error'] = 'Debes indicar el tiempo invertido';
-                header('Location: /proyecto/tecnico/cerrar_orden/' . $id);
-                exit();
+                $this->redirectWithError('/tecnico/cerrar_orden/' . $id, 'Debes indicar el tiempo invertido');
+                return;
             }
 
             if ($tiempo_invertido > 720) {
-                $_SESSION['error'] = 'El tiempo invertido no puede exceder 720 horas (30 días)';
-                header('Location: /proyecto/tecnico/cerrar_orden/' . $id);
-                exit();
+                $this->redirectWithError('/tecnico/cerrar_orden/' . $id, 'El tiempo invertido no puede exceder 720 horas');
+                return;
             }
 
-            if (empty($firma_svg)) {
-                $_SESSION['error'] = 'Debes dibujar tu firma antes de cerrar la orden';
-                header('Location: /proyecto/tecnico/cerrar_orden/' . $id);
-                exit();
-            }
-
-            if (strpos($firma_svg, '<svg') === false || strpos($firma_svg, '</svg>') === false) {
-                $_SESSION['error'] = 'La firma no tiene el formato correcto (SVG)';
-                header('Location: /proyecto/tecnico/cerrar_orden/' . $id);
-                exit();
-            }
-
-            if (strlen($firma_svg) > 204800) {
-                $_SESSION['error'] = 'La firma es demasiado grande (máx 200 KB)';
-                header('Location: /proyecto/tecnico/cerrar_orden/' . $id);
-                exit();
+            // Firma es OPCIONAL aquí (se firma después con firmas secuenciales)
+            if (!empty($firma_svg)) {
+                if (strpos($firma_svg, '<svg') === false || strpos($firma_svg, '</svg>') === false) {
+                    $this->redirectWithError('/tecnico/cerrar_orden/' . $id, 'La firma no tiene el formato correcto (SVG)');
+                    return;
+                }
+                if (strlen($firma_svg) > 204800) {
+                    $this->redirectWithError('/tecnico/cerrar_orden/' . $id, 'La firma es demasiado grande (máx 200 KB)');
+                    return;
+                }
             }
 
             $fotos_guardadas = $this->procesarFotosAdjuntas($id);
 
-            // Preparar descripción con el checklist
-            $descripcion_realizada = "Trabajo completado según checklist:\n";
-            foreach ($checklist as $item) {
-                $descripcion_realizada .= "✓ " . $item . "\n";
+            // Armar descripción enriquecida
+            $descripcion_realizada = $descripcion_cierre;
+            if (!empty($repuestos_utilizados)) {
+                $descripcion_realizada .= "\n\nRepuestos utilizados: " . $repuestos_utilizados;
+            }
+            if (!$satisfactorio) {
+                $descripcion_realizada .= "\n\n⚠️ Trabajo marcado como NO satisfactorio por el técnico.";
             }
 
             $tarifa = floatval($orden['tarifa_tecnico'] ?? 0);
             $costo_mano_obra = $tiempo_invertido * $tarifa;
+            $costo_repuestos = floatval($orden['costo_repuestos'] ?? 0);
+
+            // ✅ FIX 4: no duplicar mano de obra
+            $costo_total = $costo_repuestos + $costo_mano_obra;
 
             $datos = [
                 'descripcion_realizada'  => $descripcion_realizada,
                 'pasos_ejecutados'       => '',
                 'horas_trabajadas'       => $tiempo_invertido,
                 'tarifa_tecnico'         => $tarifa,
-                'costo_repuestos'        => floatval($orden['costo_repuestos'] ?? 0),
+                'costo_repuestos'        => $costo_repuestos,
                 'costo_mano_obra'        => $costo_mano_obra,
-                'costo_total'            => floatval($orden['costo_total'] ?? 0) + $costo_mano_obra,
+                'costo_total'            => $costo_total,
                 'foto_evidencia'         => $fotos_guardadas > 0 ? 'evidencias' : '',
-                'observaciones_tecnico'  => $_POST['observaciones_tecnico'] ?? 'Cerrado por técnico con checklist',
-                'observaciones_cierre'   => '',
+                'observaciones_tecnico'  => $repuestos_utilizados,
+                'observaciones_cierre'   => $satisfactorio ? 'Trabajo satisfactorio' : 'Trabajo NO satisfactorio',
                 'actualizado_por'        => $this->authHelper->getUserId()
             ];
 
             $resultado = $this->ordenModel->cerrar($id, $datos);
 
             if ($resultado) {
-                // Registrar la firma secuencial del técnico
-                try {
-                    require_once __DIR__ . '/../model/FirmaModel.php';
-                    $firmaModel = new FirmaModel();
-                    $paso_actual = $firmaModel->obtenerPasoActual($id);
+                // Registrar firma secuencial (si el paso actual es del técnico)
+                if (!empty($firma_svg)) {
+                    try {
+                        require_once __DIR__ . '/../model/FirmaModel.php';
+                        $firmaModel = new FirmaModel();
+                        $paso_actual = $firmaModel->obtenerPasoActual($id);
 
-                    if ($paso_actual && $paso_actual['rol_firmante'] === 'tecnico') {
-                        $resultadoFirma = $firmaModel->firmar(
-                            $id,
-                            $paso_actual['id'],
-                            $this->authHelper->getUserId(),
-                            $_SESSION['nombre'] ?? 'Técnico',
-                            $firma_svg,
-                            'Trabajo completado'
-                        );
-
-                        if (!$resultadoFirma['success']) {
-                            error_log("Error al registrar firma del técnico: " . $resultadoFirma['mensaje']);
+                        if ($paso_actual && $paso_actual['rol_firmante'] === 'tecnico') {
+                            $resultadoFirma = $firmaModel->firmar(
+                                $id,
+                                $paso_actual['id'],
+                                $this->authHelper->getUserId(),
+                                $_SESSION['nombre'] ?? 'Técnico',
+                                $firma_svg,
+                                'Trabajo completado'
+                            );
+                            if (!$resultadoFirma['success']) {
+                                error_log("Error firma técnico: " . $resultadoFirma['mensaje']);
+                            }
                         }
+                    } catch (Throwable $e) {
+                        error_log("Error al registrar firma secuencial: " . $e->getMessage());
                     }
-                } catch (Throwable $e) {
-                    error_log("Error al registrar firma secuencial: " . $e->getMessage());
                 }
 
-                // Registrar en auditoría
+                // Auditoría
                 try {
                     require_once __DIR__ . '/../model/AuditoriaModel.php';
                     $auditoria = new AuditoriaModel();
@@ -309,34 +309,35 @@ class TecnicoController extends Controller {
                     error_log("Error auditoría: " . $e->getMessage());
                 }
 
-                $msg = 'Orden cerrada correctamente. Firma digital registrada.';
+                $msg = 'Orden cerrada correctamente.';
                 if ($fotos_guardadas > 0) {
                     $msg .= " ({$fotos_guardadas} foto(s) guardada(s))";
                 }
-                $_SESSION['mensaje'] = $msg;
-                $_SESSION['mensaje_tipo'] = 'success';
-                header('Location: /proyecto/tecnico/detalle_orden/' . $id);
+                $this->redirectWithSuccess('/tecnico/detalle_orden/' . $id, $msg);
+                return;
             } else {
-                $_SESSION['error'] = 'Error al cerrar la orden';
-                header('Location: /proyecto/tecnico/cerrar_orden/' . $id);
+                $this->redirectWithError('/tecnico/cerrar_orden/' . $id, 'Error al cerrar la orden');
+                return;
             }
 
         } catch (Throwable $e) {
             error_log("Error en procesarCierre: " . $e->getMessage());
-            $_SESSION['error'] = 'Error al cerrar la orden: ' . $e->getMessage();
-            header('Location: /proyecto/tecnico/cerrar_orden/' . $id);
+            $this->redirectWithError('/tecnico/cerrar_orden/' . $id, 'Error al cerrar la orden');
+            return;
         }
-        exit();
     }
 
     /**
      * Procesar fotos adjuntas
+     * ✅ FIX 3: lee $_FILES['evidencias']
+     * ✅ FIX 6: extensión derivada del MIME verificado
      */
     private function procesarFotosAdjuntas($orden_id) {
         $fotos_guardadas = 0;
 
         try {
-            if (empty($_FILES['fotos']) || !is_array($_FILES['fotos']['name'])) {
+            // ✅ FIX 3: leer 'evidencias' en vez de 'fotos'
+            if (empty($_FILES['evidencias']) || !is_array($_FILES['evidencias']['name'])) {
                 return 0;
             }
 
@@ -346,42 +347,43 @@ class TecnicoController extends Controller {
             }
 
             $db = Database::getInstance()->getConnection();
-            $tipos_permitidos = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
+            $tipos_permitidos = [
+                'image/jpeg' => 'jpg',
+                'image/png'  => 'png',
+                'image/webp' => 'webp'
+            ];
 
-            foreach ($_FILES['fotos']['name'] as $index => $nombre) {
+            foreach ($_FILES['evidencias']['name'] as $index => $nombre) {
                 if (empty($nombre)) continue;
 
-                $error = $_FILES['fotos']['error'][$index] ?? UPLOAD_ERR_NO_FILE;
+                $error = $_FILES['evidencias']['error'][$index] ?? UPLOAD_ERR_NO_FILE;
                 if ($error !== UPLOAD_ERR_OK) {
-                    error_log("Error al subir foto $index: código $error");
+                    error_log("Error al subir evidencia $index: código $error");
                     continue;
                 }
 
-                $tmp_name = $_FILES['fotos']['tmp_name'][$index];
-                $tipo     = $_FILES['fotos']['type'][$index];
-                $tamaño   = $_FILES['fotos']['size'][$index];
+                $tmp_name = $_FILES['evidencias']['tmp_name'][$index];
+                $tipo     = $_FILES['evidencias']['type'][$index];
+                $tamaño   = $_FILES['evidencias']['size'][$index];
 
-                if (!in_array($tipo, $tipos_permitidos, true)) {
+                if (!isset($tipos_permitidos[$tipo])) {
                     error_log("Tipo no permitido: $tipo");
                     continue;
                 }
 
                 if ($tamaño > 5 * 1024 * 1024) {
-                    error_log("Foto muy grande: $tamaño bytes");
+                    error_log("Evidencia muy grande: $tamaño bytes");
                     continue;
                 }
 
-                // Validar que sea imagen real
                 $info = @getimagesize($tmp_name);
                 if ($info === false) {
                     error_log("Archivo no es imagen válida: $nombre");
                     continue;
                 }
 
-                $extension = strtolower(pathinfo($nombre, PATHINFO_EXTENSION));
-                if (!in_array($extension, ['jpg', 'jpeg', 'png', 'webp'], true)) {
-                    $extension = 'jpg';
-                }
+                // ✅ FIX 6: extensión según MIME real
+                $extension = $tipos_permitidos[$tipo];
 
                 $filename = 'evidencia_' . $orden_id . '_' . date('YmdHis') . '_' . ($index + 1) . '.' . $extension;
                 $ruta_completa = $uploadDir . $filename;

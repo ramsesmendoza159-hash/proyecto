@@ -1,33 +1,38 @@
 <?php
-// controller/SeguridadController.php
-// Panel del rol Seguridad
-// ✅ FIX: try/catch (Throwable) en index()
 
 require_once __DIR__ . '/../helpers/Controller.php';
 require_once __DIR__ . '/../model/FirmaModel.php';
 require_once __DIR__ . '/../model/OrdenTrabajo.php';
 
 class SeguridadController extends Controller {
-    
+
     private $firmaModel;
     private $ordenModel;
-    
+
     public function __construct() {
         parent::__construct();
-        
+
         if (!$this->authHelper->isLoggedIn()) {
             $this->redirect('/auth/login');
+            return;
         }
-        
-        if (!$this->authHelper->hasRole('seguridad')) {
+
+        $rol = $this->authHelper->getRole();
+        if ($rol !== 'seguridad') {
             $this->redirectWithError('/dashboard', 'No tienes permisos para acceder a esta sección');
             return;
         }
-        
-        $this->firmaModel = new FirmaModel();
-        $this->ordenModel = new OrdenTrabajo();
+
+        try {
+            $this->firmaModel = new FirmaModel();
+            $this->ordenModel = new OrdenTrabajo();
+        } catch (Throwable $e) {
+            error_log("Error al instanciar modelos en SeguridadController: " . $e->getMessage());
+            $this->redirectWithError('/dashboard', 'Error al cargar el panel');
+            return;
+        }
     }
-    
+
     public function index() {
         try {
             $pendientes = $this->firmaModel->obtenerPendientesPorRol('seguridad');
@@ -39,10 +44,10 @@ class SeguridadController extends Controller {
             $total_pendientes = 0;
             $estadisticas = [];
         }
-        
+
         $titulo = 'Panel de Seguridad';
         $seccion = 'seguridad';
-        
+
         require_once __DIR__ . '/../views/seguridad/index.php';
     }
 }

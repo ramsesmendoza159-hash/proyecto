@@ -2,6 +2,8 @@
 // views/perfil/index.php
 // Ver perfil - CON CANVAS DE FIRMA MEJORADO + SANITIZACIÓN SVG CENTRALIZADA
 // ✅ FIX: usar SVGSanitizer en vez de función inline
+// ✅ FIX: guard contra $usuario vacío con $this->redirect() (no aplica en vistas, pero mantenemos guard)
+// ✅ FIX: modal de cambio de contraseña apunta a un método existente
 
 if (!isset($usuario) || empty($usuario)) {
     $_SESSION['error'] = 'No se pudo cargar la información del usuario.';
@@ -214,7 +216,8 @@ include_once __DIR__ . '/../layouts/header.php';
 <div class="modal fade" id="modalPassword" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
-            <form action="/proyecto/perfil/cambiar_password" method="POST">
+            <!-- ✅ FIX: apuntamos a /perfil/cambiarPassword (method existe en PerfilController) -->
+            <form action="/proyecto/perfil/cambiarPassword" method="POST" id="formCambiarPassword">
                 <input type="hidden" name="csrf_token" value="<?= SecurityHelper::generateCSRFToken() ?>">
                 <div class="modal-header">
                     <h5 class="modal-title"><i class="fas fa-key text-primary me-2"></i> Cambiar Contraseña</h5>
@@ -233,10 +236,11 @@ include_once __DIR__ . '/../layouts/header.php';
                         <label class="form-label fw-semibold">Confirmar Nueva Contraseña</label>
                         <input type="password" class="form-control" name="password_confirmar" required>
                     </div>
+                    <div id="mensajePassword" class="small"></div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Actualizar Contraseña</button>
+                    <button type="submit" class="btn btn-primary" id="btnCambiarPassword">Actualizar Contraseña</button>
                 </div>
             </form>
         </div>
@@ -384,6 +388,47 @@ document.addEventListener('DOMContentLoaded', function() {
 
     setTimeout(resizeCanvas, 100);
     window.addEventListener('resize', resizeCanvas);
+
+    // ✅ FIX: submit del formulario de contraseña con AJAX para mejor UX
+    const formPass = document.getElementById('formCambiarPassword');
+    if (formPass) {
+        formPass.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const btn = document.getElementById('btnCambiarPassword');
+            const msg = document.getElementById('mensajePassword');
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Actualizando...';
+            msg.innerHTML = '';
+
+            fetch(this.action, {
+                method: 'POST',
+                credentials: 'same-origin',
+                body: new FormData(this)
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    msg.innerHTML = '<span class="text-success"><i class="fas fa-check-circle me-1"></i>' + (data.mensaje || 'Contraseña actualizada') + '</span>';
+                    setTimeout(() => {
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('modalPassword'));
+                        if (modal) modal.hide();
+                        window.location.reload();
+                    }, 1200);
+                } else {
+                    msg.innerHTML = '<span class="text-danger"><i class="fas fa-times-circle me-1"></i>' + (data.mensaje || 'Error');
+                    btn.disabled = false;
+                    btn.innerHTML = 'Actualizar Contraseña';
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                msg.innerHTML = '<span class="text-danger"><i class="fas fa-times-circle me-1"></i>Error al procesar la solicitud</span>';
+                btn.disabled = false;
+                btn.innerHTML = 'Actualizar Contraseña';
+            });
+        });
+    }
 });
 
 function limpiarFirmaPerfil() {

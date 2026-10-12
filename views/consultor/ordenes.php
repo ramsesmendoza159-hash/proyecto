@@ -1,6 +1,7 @@
 <?php
 // views/consultor/ordenes.php
-// Órdenes - Consultor (solo lectura) - VERSIÓN COMPLETA
+// Órdenes - Consultor (solo lectura) - VERSIÓN OFICIAL
+// ✅ FIX: contenedor .table-actions + btn-icon
 
 if (!isset($seccion)) {
     $seccion = 'consultor';
@@ -26,8 +27,8 @@ include_once __DIR__ . '/../layouts/header.php';
                 <i class="fas fa-info-circle me-1"></i> Visualización de todas las órdenes
             </p>
         </div>
-        <a href="/proyecto/consultor" class="btn btn-secondary">
-            <i class="fas fa-arrow-left me-1"></i> Volver
+        <a href="/proyecto/consultor" class="btn btn-secondary btn-header-action">
+            <i class="fas fa-arrow-left"></i> Volver
         </a>
     </div>
 
@@ -44,7 +45,7 @@ include_once __DIR__ . '/../layouts/header.php';
                             <th>Estado</th>
                             <th>Prioridad</th>
                             <th>Fecha</th>
-                            <th class="text-center">Acciones</th>
+                            <th class="text-center" style="width:100px;">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -56,48 +57,46 @@ include_once __DIR__ . '/../layouts/header.php';
                                 </td>
                             </tr>
                         <?php else: ?>
-                            <?php foreach ($ordenes as $orden): ?>
+                            <?php foreach ($ordenes as $orden):
+                                $estadoColor = match($orden['status'] ?? 'PENDIENTE') {
+                                    'PENDIENTE'  => 'warning',
+                                    'EN_PROCESO' => 'info',
+                                    'EJECUTADA'  => 'primary',
+                                    'CERRADA', 'APROBADA' => 'success',
+                                    'CANCELADA', 'RECHAZADA' => 'danger',
+                                    default      => 'secondary'
+                                };
+                                $prioridadColor = match($orden['prioridad'] ?? 'Media') {
+                                    'Baja'    => 'success',
+                                    'Media'   => 'info',
+                                    'Alta'    => 'warning',
+                                    'Urgente' => 'danger',
+                                    default   => 'secondary'
+                                };
+                            ?>
                                 <tr>
-                                    <td><span class="fw-semibold">#<?php echo $orden['id']; ?></span></td>
-                                    <td><?php echo htmlspecialchars($orden['titulo'] ?? 'Sin título'); ?></td>
-                                    <td><?php echo htmlspecialchars($orden['nombre_area'] ?? 'N/A'); ?></td>
-                                    <td><?php echo htmlspecialchars($orden['tecnico_nombre'] ?? 'Sin asignar'); ?></td>
+                                    <td><span class="fw-semibold">#<?= (int)$orden['id'] ?></span></td>
+                                    <td><?= htmlspecialchars($orden['titulo'] ?? 'Sin título') ?></td>
+                                    <td><?= htmlspecialchars($orden['nombre_area'] ?? 'N/A') ?></td>
+                                    <td><?= htmlspecialchars($orden['tecnico_nombre'] ?? 'Sin asignar') ?></td>
                                     <td>
-                                        <?php
-                                        $estadoColor = match($orden['status'] ?? 'PENDIENTE') {
-                                            'PENDIENTE' => 'warning',
-                                            'EN_PROCESO' => 'info',
-                                            'EJECUTADA' => 'primary',
-                                            'CERRADA' => 'success',
-                                            'APROBADA' => 'success',
-                                            'CANCELADA' => 'danger',
-                                            'RECHAZADA' => 'danger',
-                                            default => 'secondary'
-                                        };
-                                        ?>
-                                        <span class="badge-status bg-<?php echo $estadoColor; ?> bg-opacity-10 text-<?php echo $estadoColor; ?>">
+                                        <span class="badge-status bg-<?= $estadoColor ?> bg-opacity-10 text-<?= $estadoColor ?>">
                                             <i class="fas fa-circle me-1" style="font-size:6px;"></i>
-                                            <?php echo $orden['status'] ?? 'PENDIENTE'; ?>
+                                            <?= htmlspecialchars($orden['status'] ?? 'PENDIENTE') ?>
                                         </span>
                                     </td>
                                     <td>
-                                        <?php
-                                        $prioridadColor = match($orden['prioridad'] ?? 'Media') {
-                                            'Baja' => 'success',
-                                            'Media' => 'info',
-                                            'Alta' => 'warning',
-                                            'Urgente' => 'danger',
-                                            default => 'secondary'
-                                        };
-                                        ?>
-                                        <span class="badge bg-<?php echo $prioridadColor; ?> bg-opacity-10 text-<?php echo $prioridadColor; ?>">
-                                            <?php echo $orden['prioridad'] ?? 'Media'; ?>
+                                        <span class="badge bg-<?= $prioridadColor ?> bg-opacity-10 text-<?= $prioridadColor ?>">
+                                            <?= htmlspecialchars($orden['prioridad'] ?? 'Media') ?>
                                         </span>
                                     </td>
-                                    <td><small><?php echo date('d/m/Y', strtotime($orden['fecha_creacion'] ?? 'now')); ?></small></td>
+                                    <td><small><?= date('d/m/Y', strtotime($orden['fecha_creacion'] ?? 'now')) ?></small></td>
                                     <td>
-                                        <div class="d-flex justify-content-center">
-                                            <a href="/proyecto/consultor/ver_orden/<?php echo $orden['id']; ?>" class="btn btn-sm btn-info" title="Ver">
+                                        <div class="table-actions">
+                                            <a href="/proyecto/consultor/ver_orden/<?= (int)$orden['id'] ?>"
+                                               class="btn btn-sm btn-outline-info btn-icon"
+                                               title="Ver"
+                                               aria-label="Ver orden">
                                                 <i class="fas fa-eye"></i>
                                             </a>
                                         </div>
@@ -109,7 +108,7 @@ include_once __DIR__ . '/../layouts/header.php';
                 </table>
             </div>
             <div class="mt-3 text-muted small">
-                <i class="fas fa-list me-1"></i> Mostrando <?php echo count($ordenes); ?> órden(es)
+                <i class="fas fa-list me-1"></i> Mostrando <?= count($ordenes) ?> órden(es)
             </div>
         </div>
     </div>
@@ -117,10 +116,7 @@ include_once __DIR__ . '/../layouts/header.php';
 </div>
 
 <style>
-.card {
-    border-radius: 16px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
-}
+.card { border-radius: 16px; box-shadow: 0 2px 12px var(--shadow-color); }
 .badge-status {
     padding: 4px 12px;
     border-radius: 20px;

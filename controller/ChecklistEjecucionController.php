@@ -1,11 +1,7 @@
 <?php
 // controller/ChecklistEjecucionController.php
 // Controlador de ejecución de checklists (llenar, guardar lecturas, cerrar, firmar)
-// ✅ FIX: throw new Exception → \RuntimeException
-// ✅ FIX: NO exponer $e->getMessage() al usuario (JSON ni $_SESSION)
-// ✅ FIX: return explícito tras cada redirect()/redirectWithError()
-// ✅ FIX: try/catch en iniciar() al buscar el tipo
-// ✅ FIX: try/catch en procesarFirma() y rechazar()
+
 
 require_once __DIR__ . '/../helpers/Controller.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
@@ -32,27 +28,60 @@ class ChecklistEjecucionController extends Controller
     /**
      * Mis checklists (listado de tipos asignados al rol del usuario)
      * URL: /checklists/mis-checklists
+     * ✅ FIX 12: prioriza registros asignados específicamente al usuario
+     * ✅ FIX 14: separa los registros vencidos (fecha < hoy, BORRADOR)
      */
     public function misChecklists()
     {
         $rol = $this->authHelper->getRole();
+        $usuario_id = $this->authHelper->getUserId();
 
         try {
-            $tipos = $this->model->obtenerTiposPorRol($rol);
+            $tipos = $this->model->obtenerTiposPorRol($rol, $usuario_id);
             $fecha = $this->get('fecha', date('Y-m-d'));
 
-            // Para cada tipo, buscar si ya existe un registro hoy
+            // Asignados específicamente al usuario
+            $asignados = $this->model->obtenerRegistrosAsignadosAUsuario($usuario_id);
+
+            // Registros vencidos (asignados al usuario, sin cerrar, fecha < hoy)
+            $vencidos = $this->model->obtenerRegistrosVencidosPorUsuario($usuario_id);
+
+            // Indexar asignados por tipo_id para búsqueda rápida
+            $asignados_por_tipo = [];
+            foreach ($asignados as $a) {
+                $tipo_id_asig = (int)$a['tipo_id'];
+                if ($a['fecha'] === $fecha) {
+                    $asignados_por_tipo[$tipo_id_asig] = $a;
+                }
+            }
+
             foreach ($tipos as &$tipo) {
                 $turno = $tipo['requiere_turno'] ? $this->model->detectarTurnoActual() : null;
-                $tipo['registro_hoy'] = $this->model->obtenerRegistroPorTipoFechaTurno(
-                    $tipo['id'], $fecha, $turno
-                );
+
+                // Prioridad 1: registro asignado a mí (hoy)
+                $reg = null;
+                $es_asignado_a_mi = false;
+                if (isset($asignados_por_tipo[(int)$tipo['id']])) {
+                    $reg = $asignados_por_tipo[(int)$tipo['id']];
+                    $es_asignado_a_mi = true;
+                }
+
+                // Prioridad 2: registro del tipo+fecha+turno (comportamiento previo)
+                if (!$reg) {
+                    $reg = $this->model->obtenerRegistroPorTipoFechaTurno(
+                        $tipo['id'], $fecha, $turno
+                    );
+                }
+
+                $tipo['registro_hoy'] = $reg;
+                $tipo['es_asignado_a_mi'] = $es_asignado_a_mi;
             }
             unset($tipo);
 
         } catch (Throwable $e) {
             error_log("Error en ChecklistEjecucionController::misChecklists: " . $e->getMessage());
             $tipos = [];
+            $vencidos = [];
             $fecha = date('Y-m-d');
             $_SESSION['error'] = 'Error al cargar tus checklists';
         }
@@ -89,7 +118,6 @@ class ChecklistEjecucionController extends Controller
             );
 
             if (!$registro) {
-                // ✅ FIX: \RuntimeException en vez de Exception
                 throw new \RuntimeException($this->model->getLastError() ?: 'No se pudo iniciar el registro');
             }
 
@@ -98,8 +126,126 @@ class ChecklistEjecucionController extends Controller
 
         } catch (Throwable $e) {
             error_log("Error en ChecklistEjecucionController::iniciar: " . $e->getMessage());
-            // ✅ FIX: NO exponer detalles internos
             $this->redirectWithError('/checklists/mis-checklists', 'No se pudo iniciar el registro');
+            return;
+        }
+    }
+
+    /**
+     * Formulario de asignación
+     * URL: /checklists/asignar
+     * Solo admin y operador
+     */
+    public function asignar()
+    {
+        $rol = $this->authHelper->getRole();
+        if (!in_array($rol, ['admin', 'operador'], true)) {
+            $this->redirectWithError('/checklists', 'No tienes permisos para asignar checklists');
+            return;
+        }
+
+        try {
+            $tipos = $this->model->obtenerTipos(['activo' => 1]);
+            $tecnicos = $this->model->obtenerTecnicosParaAsignar();
+        } catch (Throwable $e) {
+            error_log("Error en ChecklistEjecucionController::asignar: " . $e->getMessage());
+            $tipos = [];
+            $tecnicos = [];
+            $_SESSION['error'] = 'Error al cargar datos para la asignación';
+        }
+
+        $titulo = 'Asignar Checklist';
+        $seccion = 'checklists';
+        require_once __DIR__ . '/../views/checklists/asignar.php';
+    }
+
+    /**
+     * Procesar la asignación
+     * URL: /checklists/asignar/guardar (POST)
+     * Solo admin y operador
+     */
+    public function guardarAsignacion()
+    {
+        $this->requirePost();
+
+        $rol = $this->authHelper->getRole();
+        if (!in_array($rol, ['admin', 'operador'], true)) {
+            $this->redirectWithError('/checklists', 'No tienes permisos para asignar checklists');
+            return;
+        }
+
+        $token = $this->post('csrf_token', '');
+        if (!SecurityHelper::verifyCSRFToken($token)) {
+            $this->redirectWithError('/checklists/asignar', 'Token de seguridad inválido');
+            return;
+        }
+
+        $tipo_id         = (int)$this->post('tipo_id', 0);
+        $asignado_a_id   = (int)$this->post('asignado_a_id', 0);
+        $fecha           = trim($this->post('fecha', date('Y-m-d')));
+        $turno           = trim($this->post('turno', ''));
+        $observaciones   = trim($this->post('observaciones', ''));
+
+        if ($tipo_id <= 0 || $asignado_a_id <= 0) {
+            $this->redirectWithError('/checklists/asignar', 'Debes seleccionar tipo y técnico');
+            return;
+        }
+
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
+            $this->redirectWithError('/checklists/asignar', 'Fecha inválida');
+            return;
+        }
+
+        $tipo = $this->model->obtenerTipoPorId($tipo_id);
+        if ($tipo && !empty($tipo['requiere_turno']) && empty($turno)) {
+            $this->redirectWithError('/checklists/asignar', 'Este tipo requiere que indiques el turno');
+            return;
+        }
+
+        try {
+            $registro = $this->model->asignarChecklist(
+                $tipo_id,
+                $asignado_a_id,
+                $fecha,
+                !empty($turno) ? $turno : null,
+                $this->authHelper->getUserId(),
+                $observaciones
+            );
+
+            if (!$registro) {
+                throw new \RuntimeException($this->model->getLastError() ?: 'No se pudo asignar el checklist');
+            }
+
+            try {
+                $auditoria = new AuditoriaModel();
+                $auditoria->registrar(
+                    $this->authHelper->getUserId(),
+                    $_SESSION['nombre'] ?? 'Usuario',
+                    $rol,
+                    'asignar_checklist',
+                    'checklist_registros',
+                    $registro['id'],
+                    null,
+                    [
+                        'tipo_id' => $tipo_id,
+                        'asignado_a_id' => $asignado_a_id,
+                        'fecha' => $fecha,
+                        'turno' => $turno
+                    ]
+                );
+            } catch (Throwable $e) {
+                error_log("Error auditoría asignar checklist: " . $e->getMessage());
+            }
+
+            $this->redirectWithSuccess(
+                '/checklists/historial',
+                'Checklist asignado a ' . ($registro['asignado_nombre'] ?? 'técnico')
+            );
+            return;
+
+        } catch (Throwable $e) {
+            error_log("Error en ChecklistEjecucionController::guardarAsignacion: " . $e->getMessage());
+            $this->redirectWithError('/checklists/asignar', 'Error al asignar el checklist');
             return;
         }
     }
@@ -125,7 +271,6 @@ class ChecklistEjecucionController extends Controller
 
             $puede_editar = ($registro['estado'] === 'BORRADOR');
 
-            // Organizar lecturas en matriz
             $matriz = [];
             foreach ($registro['lecturas'] as $lec) {
                 $key = $lec['seccion_id'] . '_' . ($lec['id_equipo'] ?? 0) . '_'
@@ -194,7 +339,6 @@ class ChecklistEjecucionController extends Controller
 
         } catch (Throwable $e) {
             error_log("Error en ChecklistEjecucionController::guardarLectura: " . $e->getMessage());
-            // ✅ FIX: NO exponer $e->getMessage()
             echo json_encode(['success' => false, 'mensaje' => 'Error al procesar la solicitud']);
         }
         exit;
@@ -224,7 +368,6 @@ class ChecklistEjecucionController extends Controller
             $resultado = $this->model->cerrarRegistro($registro_id, $this->authHelper->getUserId());
 
             if (!$resultado) {
-                // ✅ FIX: \RuntimeException en vez de Exception
                 throw new \RuntimeException($this->model->getLastError() ?: 'No se pudo cerrar');
             }
 
@@ -250,8 +393,86 @@ class ChecklistEjecucionController extends Controller
 
         } catch (Throwable $e) {
             error_log("Error en ChecklistEjecucionController::cerrar: " . $e->getMessage());
-            // ✅ FIX: NO exponer $e->getMessage()
             $this->redirectWithError('/checklists/llenar/' . $registro_id, 'Error al cerrar el registro');
+            return;
+        }
+    }
+
+    /**
+     * Omitir un checklist vencido
+     * URL: /checklists/omitir (POST)
+     * Solo admin/supervisor
+     */
+    public function omitir()
+    {
+        $this->requirePost();
+
+        $rol = $this->authHelper->getRole();
+        if (!in_array($rol, ['admin', 'supervisor'], true)) {
+            $this->redirectWithError('/checklists/mis-checklists', 'No tienes permisos para omitir');
+            return;
+        }
+
+        $token = $this->post('csrf_token', '');
+        if (!SecurityHelper::verifyCSRFToken($token)) {
+            $this->redirectWithError('/checklists/mis-checklists', 'Token de seguridad inválido');
+            return;
+        }
+
+        $registro_id = (int)$this->post('registro_id', 0);
+        $motivo      = trim($this->post('motivo', ''));
+
+        if ($registro_id <= 0) {
+            $this->redirectWithError('/checklists/mis-checklists', 'Registro inválido');
+            return;
+        }
+
+        if (empty($motivo)) {
+            $this->redirectWithError('/checklists/mis-checklists', 'Debes indicar el motivo');
+            return;
+        }
+
+        try {
+            // Validar que el registro esté en BORRADOR
+            $stmt = $this->db->prepare("SELECT estado FROM checklist_registros WHERE id = ?");
+            $stmt->execute([$registro_id]);
+            $estado = $stmt->fetchColumn();
+
+            if ($estado !== 'BORRADOR') {
+                $this->redirectWithError('/checklists/mis-checklists', 'Solo se pueden omitir registros en borrador');
+                return;
+            }
+
+            $sql = "UPDATE checklist_registros 
+                    SET estado = 'OMITIDO',
+                        observaciones = CONCAT(COALESCE(observaciones, ''), ?),
+                        fecha_actualizacion = NOW()
+                    WHERE id = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute(["\n[OMITIDO por {$rol}] " . $motivo, $registro_id]);
+
+            try {
+                $auditoria = new AuditoriaModel();
+                $auditoria->registrar(
+                    $this->authHelper->getUserId(),
+                    $_SESSION['nombre'] ?? 'Usuario',
+                    $rol,
+                    'omitir_checklist',
+                    'checklist_registros',
+                    $registro_id,
+                    null,
+                    ['motivo' => $motivo]
+                );
+            } catch (Throwable $e) {
+                error_log("Error auditoría omitir: " . $e->getMessage());
+            }
+
+            $this->redirectWithSuccess('/checklists/mis-checklists', 'Checklist marcado como OMITIDO');
+            return;
+
+        } catch (Throwable $e) {
+            error_log("Error en ChecklistEjecucionController::omitir: " . $e->getMessage());
+            $this->redirectWithError('/checklists/mis-checklists', 'Error al omitir el checklist');
             return;
         }
     }
@@ -276,7 +497,6 @@ class ChecklistEjecucionController extends Controller
 
             $puede_firmar = false;
             if ($paso_actual && $paso_actual['rol_firmante'] === $rol) {
-                // Si el paso tiene turno_firma, validar que coincida con el turno actual
                 if (!empty($paso_actual['turno_firma'])) {
                     $turno_actual = $this->model->detectarTurnoFirma();
                     $puede_firmar = ($paso_actual['turno_firma'] === $turno_actual);
@@ -321,7 +541,6 @@ class ChecklistEjecucionController extends Controller
         }
 
         try {
-            // Validar paso
             $paso_actual = $this->model->obtenerPasoActual($registro_id);
             $rol = $this->authHelper->getRole();
 

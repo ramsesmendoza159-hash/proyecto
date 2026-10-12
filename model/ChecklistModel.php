@@ -9,6 +9,9 @@
 // ✅ FIX 6: guardarLectura() valida que campo_id pertenezca a seccion_id
 // ✅ FIX 7: firmar() sanitiza SVG con SVGSanitizer
 // ✅ FIX 8: validaciones trim() y longitud
+// ✅ FIX 9: NUEVO asignarChecklist() para admin/operador
+// ✅ FIX 10: NUEVO obtenerRegistrosAsignadosAUsuario() para "Mis Checklists"
+// ✅ FIX 11: NUEVO obtenerRegistrosVencidosPorUsuario() para alertas de atraso
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../helpers/SVGSanitizer.php';
@@ -271,10 +274,14 @@ class ChecklistModel
             $sql = "SELECT r.*, 
                            t.codigo AS tipo_codigo, t.nombre AS tipo_nombre,
                            t.area AS tipo_area, t.frecuencia, t.requiere_turno,
-                           u.nombre AS operador_nombre
+                           u.nombre AS operador_nombre,
+                           ua.nombre AS asignado_nombre,
+                           up.nombre AS asignado_por_nombre
                     FROM checklist_registros r
                     JOIN checklist_tipos t ON r.tipo_id = t.id
                     LEFT JOIN usuarios u ON r.operador_id = u.id
+                    LEFT JOIN usuarios ua ON r.asignado_a_id = ua.id
+                    LEFT JOIN usuarios up ON r.asignado_por_id = up.id
                     WHERE r.id = ?";
             $stmt = $this->db->prepare($sql);
             $stmt->execute([$id]);
@@ -302,6 +309,7 @@ class ChecklistModel
             $sql = "SELECT r.*, 
                            t.codigo AS tipo_codigo, t.nombre AS tipo_nombre,
                            u.nombre AS operador_nombre,
+                           ua.nombre AS asignado_nombre,
                            (SELECT COUNT(*) FROM checklist_lecturas l 
                             WHERE l.registro_id = r.id AND l.valor IS NOT NULL) AS lecturas_completadas,
                            (SELECT COUNT(*) FROM checklist_lecturas l 
@@ -309,6 +317,7 @@ class ChecklistModel
                     FROM checklist_registros r
                     JOIN checklist_tipos t ON r.tipo_id = t.id
                     LEFT JOIN usuarios u ON r.operador_id = u.id
+                    LEFT JOIN usuarios ua ON r.asignado_a_id = ua.id
                     WHERE 1=1";
             $params = [];
 
@@ -384,9 +393,6 @@ class ChecklistModel
     // LECTURAS
     // ==========================================
 
-    /**
-     * ✅ FIX 4-6: valida tipo de campo, longitud de valor/observacion, y que campo_id pertenezca a seccion_id
-     */
     public function guardarLectura($datos)
     {
         try {
@@ -400,13 +406,11 @@ class ChecklistModel
             $observacion = trim($datos['observacion'] ?? '');
             $usuario_id  = (int)($datos['usuario_id'] ?? 0);
 
-            // Validar IDs básicos
             if ($registro_id <= 0 || $seccion_id <= 0) {
                 $this->lastError = 'Datos incompletos (registro_id o seccion_id)';
                 return false;
             }
 
-            // ✅ FIX 7: validar que el registro esté en BORRADOR
             $sqlEstado = "SELECT estado FROM checklist_registros WHERE id = ?";
             $stmtEstado = $this->db->prepare($sqlEstado);
             $stmtEstado->execute([$registro_id]);
@@ -416,7 +420,6 @@ class ChecklistModel
                 return false;
             }
 
-            // ✅ FIX 6: validar que el campo_id pertenezca a la sección
             $limites = ['valor_min' => null, 'valor_max' => null, 'tipo' => 'texto'];
 
             if ($campo_id !== null) {
@@ -435,28 +438,23 @@ class ChecklistModel
                 $limites = $campo;
             }
 
-            // ✅ FIX 4: validar tipo de campo
             $tipo = $limites['tipo'] ?? 'texto';
             $valor = $this->normalizarValorSegunTipo($valor, $tipo);
 
             if ($valor === false) {
-                // normalizarValorSegunTipo devolvió false → dato inválido
                 return false;
             }
 
-            // ✅ FIX 5: validar longitud de valor (max 255 según columna)
             if ($valor !== null && mb_strlen((string)$valor) > 255) {
                 $this->lastError = 'El valor excede la longitud máxima (255 caracteres)';
                 return false;
             }
 
-            // ✅ FIX 5: validar longitud de observación (max 500 según columna)
             if (mb_strlen($observacion) > 500) {
                 $this->lastError = 'La observación excede la longitud máxima (500 caracteres)';
                 return false;
             }
 
-            // Calcular valor numérico y nivel de alerta
             $valor_numerico = (is_numeric($valor) && $valor !== '') ? (float)$valor : null;
             $nivel_alerta = $this->calcularNivelAlerta(
                 $valor_numerico,
@@ -465,7 +463,6 @@ class ChecklistModel
             );
             $fuera_de_rango = ($nivel_alerta !== 'OK') ? 1 : 0;
 
-            // UPSERT
             $sql = "INSERT INTO checklist_lecturas
                     (registro_id, seccion_id, id_equipo, hora, campo_id, batch_num,
                      valor, valor_numerico, observacion, nivel_alerta, fuera_de_rango, usuario_id)
@@ -498,13 +495,8 @@ class ChecklistModel
         }
     }
 
-    /**
-     * ✅ FIX 4: normaliza y valida el valor según el tipo de campo.
-     * Devuelve el valor normalizado, o false si es inválido.
-     */
     private function normalizarValorSegunTipo($valor, $tipo)
     {
-        // Si el valor viene vacío, es válido (borrar lectura)
         if ($valor === null || $valor === '') {
             return $valor;
         }
@@ -518,7 +510,6 @@ class ChecklistModel
                 return (string)(float)$valor;
 
             case 'booleano':
-                // Aceptar "1", "0", "true", "false", true, false
                 $normalizado = filter_var($valor, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
                 if ($normalizado === null) {
                     $this->lastError = 'El valor debe ser booleano (0/1)';
@@ -527,7 +518,6 @@ class ChecklistModel
                 return $normalizado ? '1' : '0';
 
             case 'hora':
-                // Formato HH:MM o HH:MM:SS
                 if (!preg_match('/^([0-1][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/', $valor)) {
                     $this->lastError = 'El valor debe ser una hora válida (HH:MM)';
                     return false;
@@ -535,7 +525,6 @@ class ChecklistModel
                 return $valor;
 
             case 'fecha':
-                // Formato YYYY-MM-DD
                 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $valor)) {
                     $this->lastError = 'El valor debe ser una fecha válida (YYYY-MM-DD)';
                     return false;
@@ -549,10 +538,6 @@ class ChecklistModel
 
             case 'select':
             case 'radio':
-                // Validar contra opciones si están definidas
-                $opciones = $limites['opciones'] ?? null;
-                // Nota: no tenemos $limites acá, así que aceptamos cualquier valor
-                // (En el controlador se puede validar contra opciones específicas)
                 return (string)$valor;
 
             case 'texto':
@@ -576,22 +561,6 @@ class ChecklistModel
         } catch (PDOException $e) {
             error_log("Error en ChecklistModel::obtenerLecturas: " . $e->getMessage());
             return [];
-        }
-    }
-
-    private function obtenerLimitesCampo($campo_id)
-    {
-        try {
-            if (!$campo_id) return ['valor_min' => null, 'valor_max' => null];
-
-            $sql = "SELECT valor_min, valor_max FROM checklist_campos WHERE id = ?";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([(int)$campo_id]);
-            return $stmt->fetch(PDO::FETCH_ASSOC) ?: ['valor_min' => null, 'valor_max' => null];
-
-        } catch (PDOException $e) {
-            error_log("Error en ChecklistModel::obtenerLimitesCampo: " . $e->getMessage());
-            return ['valor_min' => null, 'valor_max' => null];
         }
     }
 
@@ -698,16 +667,12 @@ class ChecklistModel
         }
     }
 
-    /**
-     * ✅ FIX 7: sanitiza firma_svg con SVGSanitizer
-     */
     public function firmar($registro_id, $paso_id, $usuario_id, $usuario_nombre, $firma_svg, $comentario = null)
     {
         try {
             $registro_id = (int)$registro_id;
             $paso_id = (int)$paso_id;
 
-            // Sanitizar el SVG
             if (empty($firma_svg)) {
                 return ['success' => false, 'mensaje' => 'La firma está vacía'];
             }
@@ -719,7 +684,7 @@ class ChecklistModel
             $firma_svg = SVGSanitizer::sanitize($firma_svg);
 
             if (empty($firma_svg)) {
-                return ['success' => false, 'mensaje' => 'La firma no pudo ser procesada (contiene elementos no permitidos)'];
+                return ['success' => false, 'mensaje' => 'La firma no pudo ser procesada'];
             }
 
             $this->db->beginTransaction();
@@ -791,13 +756,10 @@ class ChecklistModel
                 $this->db->rollBack();
             }
             error_log("Error en ChecklistModel::firmar: " . $e->getMessage());
-            return ['success' => false, 'mensaje' => $e->getMessage()];
+            return ['success' => false, 'mensaje' => 'Error al firmar'];
         }
     }
 
-    /**
-     * ✅ FIX 8: valida motivo no vacío y ownership del paso
-     */
     public function rechazar($registro_id, $paso_id, $usuario_id, $usuario_nombre, $motivo)
     {
         try {
@@ -815,7 +777,6 @@ class ChecklistModel
 
             $this->db->beginTransaction();
 
-            // Validar que el paso sea el actual
             $paso_actual = $this->obtenerPasoActual($registro_id);
             if (!$paso_actual || (int)$paso_actual['id'] !== $paso_id) {
                 $this->db->rollBack();
@@ -859,7 +820,7 @@ class ChecklistModel
                 $this->db->rollBack();
             }
             error_log("Error en ChecklistModel::rechazar: " . $e->getMessage());
-            return ['success' => false, 'mensaje' => $e->getMessage()];
+            return ['success' => false, 'mensaje' => 'Error al rechazar'];
         }
     }
 
@@ -907,10 +868,7 @@ class ChecklistModel
     // ASIGNACIONES
     // ==========================================
 
-    /**
-     * Admin ve todos los tipos; otros roles solo los suyos.
-     */
-    public function obtenerTiposPorRol($rol)
+    public function obtenerTiposPorRol($rol, $usuario_id = null)
     {
         try {
             if ($rol === 'admin') {
@@ -925,16 +883,209 @@ class ChecklistModel
 
             $sql = "SELECT DISTINCT t.*
                     FROM checklist_tipos t
-                    INNER JOIN checklist_asignaciones a ON a.tipo_id = t.id
-                    WHERE a.activo = 1 AND t.activo = 1
-                    AND a.rol = ?
+                    WHERE t.activo = 1
+                      AND (
+                          t.id IN (
+                              SELECT a.tipo_id FROM checklist_asignaciones a
+                              WHERE a.activo = 1 AND a.rol = ?
+                          )
+                          " . ($usuario_id ? "OR t.id IN (
+                              SELECT r.tipo_id FROM checklist_registros r
+                              WHERE r.asignado_a_id = ? 
+                                AND r.estado IN ('BORRADOR','CERRADO','RECHAZADO')
+                          )" : "") . "
+                      )
                     ORDER BY t.codigo ASC";
+
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([$rol]);
+            $params = [$rol];
+            if ($usuario_id) {
+                $params[] = (int)$usuario_id;
+            }
+            $stmt->execute($params);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         } catch (PDOException $e) {
             error_log("Error en ChecklistModel::obtenerTiposPorRol: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    public function asignarChecklist($tipo_id, $asignado_a_id, $fecha, $turno, $asignado_por_id, $observaciones = null)
+    {
+        try {
+            $tipo_id         = (int)$tipo_id;
+            $asignado_a_id   = (int)$asignado_a_id;
+            $asignado_por_id = (int)$asignado_por_id;
+
+            if ($tipo_id <= 0 || $asignado_a_id <= 0 || $asignado_por_id <= 0) {
+                $this->lastError = 'Datos incompletos para asignar';
+                return false;
+            }
+
+            if (!in_array($turno, [null, '', 'DIA', 'TARDE', 'NOCHE'], true)) {
+                $this->lastError = 'Turno inválido';
+                return false;
+            }
+            $turno = !empty($turno) ? $turno : null;
+
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
+                $this->lastError = 'Fecha inválida';
+                return false;
+            }
+
+            $tipo = $this->obtenerTipoPorId($tipo_id);
+            if (!$tipo || empty($tipo['activo'])) {
+                $this->lastError = 'Tipo de checklist no encontrado o inactivo';
+                return false;
+            }
+
+            $sqlU = "SELECT id, nombre, rol, estado FROM usuarios WHERE id = ?";
+            $stmtU = $this->db->prepare($sqlU);
+            $stmtU->execute([$asignado_a_id]);
+            $usuario = $stmtU->fetch(PDO::FETCH_ASSOC);
+            if (!$usuario || $usuario['estado'] !== 'activo') {
+                $this->lastError = 'El usuario asignado no existe o está inactivo';
+                return false;
+            }
+
+            $observaciones = trim((string)$observaciones);
+            if (mb_strlen($observaciones) > 1000) {
+                $this->lastError = 'Las observaciones exceden la longitud máxima (1000 caracteres)';
+                return false;
+            }
+
+            $existente = $this->obtenerRegistroPorTipoFechaTurno($tipo_id, $fecha, $turno);
+            if ($existente) {
+                $sql = "UPDATE checklist_registros 
+                        SET asignado_a_id = ?, asignado_por_id = ?, 
+                            observaciones = CONCAT(COALESCE(observaciones,''), ?)
+                        WHERE id = ?";
+                $stmt = $this->db->prepare($sql);
+                $stmt->execute([
+                    $asignado_a_id,
+                    $asignado_por_id,
+                    "\n[REASIGNADO] " . $observaciones,
+                    $existente['id']
+                ]);
+                return $this->obtenerRegistro($existente['id']);
+            }
+
+            $sql = "INSERT INTO checklist_registros
+                    (tipo_id, fecha, turno, operador_id, asignado_a_id, asignado_por_id,
+                     estado, observaciones, creado_por)
+                    VALUES (?, ?, ?, NULL, ?, ?, 'BORRADOR', ?, ?)";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([
+                $tipo_id,
+                $fecha,
+                $turno,
+                $asignado_a_id,
+                $asignado_por_id,
+                $observaciones,
+                $asignado_por_id
+            ]);
+            $registro_id = (int)$this->db->lastInsertId();
+
+            $this->inicializarFirmas($registro_id, $tipo_id);
+
+            return $this->obtenerRegistro($registro_id);
+
+        } catch (PDOException $e) {
+            error_log("Error en ChecklistModel::asignarChecklist: " . $e->getMessage());
+            $this->lastError = $e->getMessage();
+            return false;
+        }
+    }
+
+    public function obtenerRegistrosAsignadosAUsuario($usuario_id, $soloActivos = true)
+    {
+        try {
+            $usuario_id = (int)$usuario_id;
+            if ($usuario_id <= 0) return [];
+
+            $sql = "SELECT r.*, 
+                           t.codigo AS tipo_codigo, t.nombre AS tipo_nombre,
+                           t.area AS tipo_area, t.frecuencia, t.requiere_turno,
+                           ua.nombre AS asignado_nombre,
+                           up.nombre AS asignado_por_nombre
+                    FROM checklist_registros r
+                    JOIN checklist_tipos t ON r.tipo_id = t.id
+                    LEFT JOIN usuarios ua ON r.asignado_a_id = ua.id
+                    LEFT JOIN usuarios up ON r.asignado_por_id = up.id
+                    WHERE r.asignado_a_id = ?";
+
+            if ($soloActivos) {
+                $sql .= " AND r.estado IN ('BORRADOR','CERRADO','RECHAZADO')";
+            }
+
+            $sql .= " ORDER BY r.fecha DESC, r.id DESC";
+
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$usuario_id]);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        } catch (PDOException $e) {
+            error_log("Error en ChecklistModel::obtenerRegistrosAsignadosAUsuario: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * ✅ NUEVO: Obtiene los registros vencidos (fecha < hoy, estado BORRADOR)
+     * que están asignados específicamente al usuario.
+     */
+    public function obtenerRegistrosVencidosPorUsuario($usuario_id)
+    {
+        try {
+            $usuario_id = (int)$usuario_id;
+            if ($usuario_id <= 0) return [];
+
+            $hoy = date('Y-m-d');
+
+            $sql = "SELECT r.*, 
+                           t.codigo AS tipo_codigo, 
+                           t.nombre AS tipo_nombre,
+                           t.area AS tipo_area, 
+                           t.frecuencia, 
+                           t.requiere_turno,
+                           ua.nombre AS asignado_nombre,
+                           up.nombre AS asignado_por_nombre,
+                           DATEDIFF(?, r.fecha) AS dias_atraso
+                    FROM checklist_registros r
+                    JOIN checklist_tipos t ON r.tipo_id = t.id
+                    LEFT JOIN usuarios ua ON r.asignado_a_id = ua.id
+                    LEFT JOIN usuarios up ON r.asignado_por_id = up.id
+                    WHERE r.asignado_a_id = ?
+                      AND r.estado = 'BORRADOR'
+                      AND r.fecha < ?
+                    ORDER BY r.fecha ASC, r.id ASC
+                    LIMIT 50";
+
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$hoy, $usuario_id, $hoy]);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        } catch (PDOException $e) {
+            error_log("Error en ChecklistModel::obtenerRegistrosVencidosPorUsuario: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    public function obtenerTecnicosParaAsignar()
+    {
+        try {
+            $sql = "SELECT id, nombre, email, rol 
+                    FROM usuarios 
+                    WHERE estado = 'activo' 
+                      AND rol IN ('tecnico','operador')
+                    ORDER BY rol ASC, nombre ASC";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        } catch (PDOException $e) {
+            error_log("Error en ChecklistModel::obtenerTecnicosParaAsignar: " . $e->getMessage());
             return [];
         }
     }

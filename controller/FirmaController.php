@@ -1,16 +1,14 @@
 <?php
 // controller/FirmaController.php
 // Controlador para el sistema de firmas secuenciales
-// ✅ FIX: usar SVGSanitizer en procesar() en vez de validación manual
-// ✅ FIX: validar whitelist de roles en guardarConfiguracion()
-// ✅ FIX: catch (Throwable)
+// ✅ FIX: admin solo puede firmar pasos de ingeniero (override restringido)
 
 require_once __DIR__ . '/../helpers/Controller.php';
 require_once __DIR__ . '/../model/FirmaModel.php';
 require_once __DIR__ . '/../model/OrdenTrabajo.php';
 require_once __DIR__ . '/../helpers/FirmaSecuenciaHelper.php';
 require_once __DIR__ . '/../helpers/SecurityHelper.php';
-require_once __DIR__ . '/../helpers/SVGSanitizer.php';   // ✅ FIX
+require_once __DIR__ . '/../helpers/SVGSanitizer.php';
 require_once __DIR__ . '/../config/database.php';
 
 class FirmaController extends Controller {
@@ -21,15 +19,35 @@ class FirmaController extends Controller {
     /** Roles permitidos en la secuencia de firmas */
     private const ROLES_VALIDOS = ['ingeniero', 'calidad', 'tecnico', 'supervisor', 'seguridad'];
 
+    /** ✅ Roles que admin puede firmar con override */
+    private const ROLES_OVERRIDE_ADMIN = ['ingeniero'];
+
     public function __construct() {
         parent::__construct();
 
         if (!$this->authHelper->isLoggedIn()) {
             $this->redirect('/auth/login');
+            return;
         }
 
         $this->firmaModel = new FirmaModel();
         $this->ordenModel = new OrdenTrabajo();
+    }
+
+    /**
+     * ✅ Helper: ¿el usuario actual puede firmar el paso dado?
+     * Admin solo puede override en pasos de ingeniero.
+     */
+    private function usuarioPuedeFirmarPaso($paso, $rol) {
+        if (!$paso) return false;
+        if ($rol === $paso['rol_firmante']) return true;
+
+        // Admin solo override en pasos de ingeniero
+        if ($rol === 'admin' && in_array($paso['rol_firmante'], self::ROLES_OVERRIDE_ADMIN, true)) {
+            return true;
+        }
+
+        return false;
     }
 
     public function orden($orden_id = null) {
@@ -59,6 +77,7 @@ class FirmaController extends Controller {
             'rechazados' => 0, 'omitidos' => 0, 'completa' => false, 'porcentaje' => 0
         ];
         $puede_firmar_ahora = false;
+        $es_override_admin = false;
 
         try {
             $this->firmaModel->inicializarFirmas($orden_id);
@@ -73,8 +92,12 @@ class FirmaController extends Controller {
             ], $resumen);
 
             $rol = $this->authHelper->getRole();
-            if ($paso_actual_firma && $paso_actual_firma['rol_firmante'] === $rol) {
+
+            if ($this->usuarioPuedeFirmarPaso($paso_actual_firma, $rol)) {
                 $puede_firmar_ahora = true;
+                $es_override_admin = ($rol === 'admin' 
+                    && $paso_actual_firma 
+                    && $paso_actual_firma['rol_firmante'] !== 'admin');
             }
 
         } catch (Throwable $e) {
@@ -85,6 +108,7 @@ class FirmaController extends Controller {
         $pasoActual = $paso_actual_firma;
         $puedeFirmar = $puede_firmar_ahora;
         $pasoFirmable = $paso_actual_firma;
+        $esOverrideAdmin = $es_override_admin;
 
         $titulo = 'Firmas de Orden ' . ($orden['num_om'] ?? '');
         $seccion = 'ordenes';
@@ -124,16 +148,17 @@ class FirmaController extends Controller {
 
             if (!$pasoActual || (int)$pasoActual['id'] !== $paso_id) {
                 $this->redirectWithError(
-                    '/firmas/orden/' . $orden_id, 
+                    '/firmas/orden/' . $orden_id,
                     'Este paso ya no está disponible para firmar'
                 );
                 return;
             }
 
             $rol = $this->authHelper->getRole();
-            if ($pasoActual['rol_firmante'] !== $rol) {
+
+            if (!$this->usuarioPuedeFirmarPaso($pasoActual, $rol)) {
                 $this->redirectWithError(
-                    '/firmas/orden/' . $orden_id, 
+                    '/firmas/orden/' . $orden_id,
                     'No tienes el rol requerido para este paso'
                 );
                 return;
@@ -145,6 +170,7 @@ class FirmaController extends Controller {
         }
 
         $paso_actual = $pasoActual;
+        $es_override_admin = ($rol === 'admin' && $pasoActual['rol_firmante'] !== 'admin');
 
         $titulo = 'Firmar Paso ' . $pasoActual['paso'];
         $seccion = 'ordenes';
@@ -179,7 +205,6 @@ class FirmaController extends Controller {
             return;
         }
 
-        // ✅ FIX: usar SVGSanitizer centralizado
         if (!SVGSanitizer::esFormatoValido($firma_svg)) {
             $this->redirectWithError(
                 '/firmas/firmar/' . $orden_id . '/' . $paso_id,
@@ -202,9 +227,9 @@ class FirmaController extends Controller {
                 return;
             }
 
-            if ($paso_actual['rol_firmante'] !== $rol_usuario) {
+            if (!$this->usuarioPuedeFirmarPaso($paso_actual, $rol_usuario)) {
                 $this->redirectWithError(
-                    '/firmas/orden/' . $orden_id, 
+                    '/firmas/orden/' . $orden_id,
                     'No tienes el rol requerido para este paso'
                 );
                 return;
@@ -240,9 +265,13 @@ class FirmaController extends Controller {
                     error_log("Error auditoría firma: " . $e->getMessage());
                 }
 
-                $mensaje = $resultado['completada'] 
+                $mensaje = $resultado['completada']
                     ? '¡Todas las firmas completadas! La orden ha sido aprobada.'
                     : 'Firma registrada. Siguiente paso: ' . $resultado['siguiente_paso'];
+
+                if (!empty($resultado['es_override'])) {
+                    $mensaje .= ' (firma registrada como override de admin)';
+                }
 
                 $this->redirectWithSuccess('/firmas/orden/' . $orden_id, $mensaje);
             } else {
@@ -294,10 +323,11 @@ class FirmaController extends Controller {
             );
 
             if ($resultado['success']) {
-                $this->redirectWithWarning(
-                    '/firmas/orden/' . $orden_id,
-                    'La orden ha sido rechazada en este paso'
-                );
+                $msg = 'La orden ha sido rechazada en este paso';
+                if (!empty($resultado['es_override'])) {
+                    $msg .= ' (override de admin)';
+                }
+                $this->redirectWithWarning('/firmas/orden/' . $orden_id, $msg);
             } else {
                 $this->redirectWithError(
                     '/firmas/firmar/' . $orden_id . '/' . $paso_id,
@@ -337,9 +367,6 @@ class FirmaController extends Controller {
         require_once __DIR__ . '/../views/firmas/configuracion.php';
     }
 
-    /**
-     * ✅ FIX: validar whitelist de roles en pasos
-     */
     public function guardarConfiguracion() {
         if (!$this->authHelper->isAdmin()) {
             $this->redirectWithError('/dashboard', 'No tienes permisos');
@@ -363,7 +390,6 @@ class FirmaController extends Controller {
         $errores = [];
 
         foreach ($roles as $paso => $rol) {
-            // ✅ FIX: validar whitelist de roles
             if (!in_array($rol, self::ROLES_VALIDOS, true)) {
                 $errores[] = "Rol inválido en el paso " . (int)$paso . ": $rol";
                 continue;
