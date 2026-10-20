@@ -37,10 +37,27 @@ include_once __DIR__ . '/../layouts/header.php';
                 <i class="fas fa-calendar me-1"></i><?= date('d/m/Y', strtotime($registro['fecha'] ?? 'now')) ?>
             </p>
         </div>
-        <a href="/proyecto/checklists/ver/<?= (int)$registro['id'] ?>" class="btn btn-secondary">
-            <i class="fas fa-arrow-left me-1"></i> Volver
+        <a href="/proyecto/checklists/ver/<?= (int)$registro['id'] ?>" class="btn btn-secondary btn-header-action">
+            <i class="fas fa-arrow-left"></i> Volver
         </a>
     </div>
+
+    <!-- Mensajes -->
+    <?php if (isset($_SESSION['mensaje'])): ?>
+        <div class="alert alert-<?= $_SESSION['mensaje_tipo'] ?? 'success' ?> alert-dismissible fade show">
+            <i class="fas fa-check-circle me-2"></i> <?= htmlspecialchars($_SESSION['mensaje']) ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <?php unset($_SESSION['mensaje'], $_SESSION['mensaje_tipo']); ?>
+    <?php endif; ?>
+
+    <?php if (isset($_SESSION['error'])): ?>
+        <div class="alert alert-danger alert-dismissible fade show">
+            <i class="fas fa-exclamation-circle me-2"></i> <?= htmlspecialchars($_SESSION['error']) ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <?php unset($_SESSION['error']); ?>
+    <?php endif; ?>
 
     <div class="card border-0 mb-4">
         <div class="card-body">
@@ -154,7 +171,7 @@ include_once __DIR__ . '/../layouts/header.php';
 
                             <div class="mb-3">
                                 <label class="form-label fw-semibold">Firma manuscrita <span class="text-danger">*</span></label>
-                                <div class="border rounded" style="background:#fff;">
+                                <div class="border rounded canvas-firma-wrapper">
                                     <canvas id="canvasFirma" style="width:100%;height:180px;cursor:crosshair;touch-action:none;display:block;"></canvas>
                                 </div>
                                 <button type="button" class="btn btn-sm btn-outline-secondary mt-2" onclick="limpiarFirma()">
@@ -209,6 +226,22 @@ include_once __DIR__ . '/../layouts/header.php';
     </div>
 </div>
 <?php endif; ?>
+
+<style>
+.card { border-radius: 16px; box-shadow: 0 2px 12px var(--shadow-color); }
+.canvas-firma-wrapper {
+    background: #ffffff;
+    border-color: var(--border-color) !important;
+}
+[data-theme="dark"] .canvas-firma-wrapper {
+    background: #ffffff !important;
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.15) !important;
+}
+[data-theme="dark"] #canvasFirma {
+    background: #ffffff !important;
+}
+</style>
 
 <script>
 let signaturePadFirma = null;
@@ -273,9 +306,5 @@ function limpiarFirma() {
     if (input) input.value = '';
 }
 </script>
-
-<style>
-.card { border-radius: 16px; box-shadow: 0 2px 12px var(--shadow-color); }
-</style>
 
 <?php include_once __DIR__ . '/../layouts/footer.php'; ?>

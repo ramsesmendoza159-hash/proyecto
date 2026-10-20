@@ -1,7 +1,8 @@
 <?php
 // views/equipos/ver.php
 // Detalle del Equipo - CON CONTROL DE ROLES
-// ✅ FIX: confirmarEliminar() ahora recibe id y nombre correctamente
+// ✅ FIX: confirmarEliminar() recibe id y nombre correctamente
+// ✅ Guards para $equipo
 
 if (!isset($seccion)) $seccion = 'equipos';
 if (!isset($titulo)) $titulo = 'Detalle del Equipo';
@@ -30,16 +31,16 @@ include_once __DIR__ . '/../layouts/header.php';
             </p>
         </div>
         <div class="d-flex gap-2">
-            <a href="/proyecto/equipos" class="btn btn-secondary">
-                <i class="fas fa-arrow-left me-1"></i> Volver
+            <a href="/proyecto/equipos" class="btn btn-secondary btn-header-action">
+                <i class="fas fa-arrow-left"></i> Volver
             </a>
 
             <?php if (in_array($rol, ['admin', 'supervisor'])): ?>
-                <a href="/proyecto/mantenimiento/equipo/<?= (int)$equipo['id_equipo'] ?>" class="btn btn-info text-white">
-                    <i class="fas fa-tools me-1"></i> Mantenimiento
+                <a href="/proyecto/mantenimiento/equipo/<?= (int)$equipo['id_equipo'] ?>" class="btn btn-info text-white btn-header-action">
+                    <i class="fas fa-tools"></i> Mantenimiento
                 </a>
-                <a href="/proyecto/equipos/editar/<?= (int)$equipo['id_equipo'] ?>" class="btn btn-warning">
-                    <i class="fas fa-edit me-1"></i> Editar
+                <a href="/proyecto/equipos/editar/<?= (int)$equipo['id_equipo'] ?>" class="btn btn-warning btn-header-action">
+                    <i class="fas fa-edit"></i> Editar
                 </a>
             <?php endif; ?>
         </div>
@@ -141,10 +142,13 @@ include_once __DIR__ . '/../layouts/header.php';
                             <p>
                                 <?php
                                 $estadoOp = $equipo['estado_operativo'] ?? 'Operativo';
-                                $color = 'success';
-                                if ($estadoOp === 'En Mantenimiento') $color = 'warning';
-                                elseif ($estadoOp === 'Averiado') $color = 'danger';
-                                elseif ($estadoOp === 'Fuera de Servicio') $color = 'secondary';
+                                $color = match($estadoOp) {
+                                    'Operativo' => 'success',
+                                    'En Mantenimiento' => 'warning',
+                                    'Averiado' => 'danger',
+                                    'Fuera de Servicio' => 'secondary',
+                                    default => 'secondary'
+                                };
                                 ?>
                                 <span class="badge bg-<?= $color ?>">
                                     <?= htmlspecialchars($estadoOp) ?>
@@ -242,7 +246,7 @@ include_once __DIR__ . '/../layouts/header.php';
 <style>
 .card {
     border-radius: 16px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+    box-shadow: 0 2px 12px var(--shadow-color);
 }
 </style>
 

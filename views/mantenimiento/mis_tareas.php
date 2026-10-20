@@ -1,8 +1,6 @@
 <?php
 // views/mantenimiento/mis_tareas.php
 // Listado de tareas asignadas al técnico
-// ✅ FIX: 'codigo' → 'equipo_codigo' (columna real del modelo)
-// ✅ FIX: contenedor .table-actions + btn-icon + btn-header-action
 
 if (!isset($seccion)) $seccion = 'mis_tareas';
 if (!isset($titulo)) $titulo = 'Mis Mantenimientos';
@@ -133,34 +131,44 @@ include_once __DIR__ . '/../layouts/header.php';
                         </thead>
                         <tbody>
                             <?php foreach ($tareas as $tarea):
-                                $estado_alerta = $tarea['estado_alerta'] ?? 'AL_DIA';
+                                // ✅ FIX: blindar TODOS los accesos
+                                $tarea_id       = (int)($tarea['id'] ?? 0);
+                                $tarea_equipo   = $tarea['nombre_equipo'] ?? 'N/A';
+                                $tarea_codigo   = $tarea['equipo_codigo'] ?? ($tarea['codigo'] ?? '');
+                                $tarea_nombre   = $tarea['nombre_tarea'] ?? 'N/A';
+                                $tarea_tipo     = $tarea['tipo_mantenimiento'] ?? 'PREVENTIVO';
+                                $tarea_estado   = $tarea['estado_asignacion'] ?? 'ASIGNADO';
+                                $tarea_alerta   = $tarea['estado_alerta'] ?? 'AL_DIA';
+                                $tarea_id_eq    = (int)($tarea['id_equipo'] ?? 0);
+                                $horas_rest     = $tarea['horas_restantes'] ?? null;
+                                $dias_rest      = $tarea['dias_restantes'] ?? null;
+
                                 $color = 'success';
                                 $icono = 'fa-check-circle';
                                 $texto = 'Al Día';
 
-                                if ($estado_alerta === 'VENCIDO') {
+                                if ($tarea_alerta === 'VENCIDO') {
                                     $color = 'danger'; $icono = 'fa-exclamation-triangle'; $texto = 'Vencido';
-                                } elseif ($estado_alerta === 'PROXIMO') {
+                                } elseif ($tarea_alerta === 'PROXIMO') {
                                     $color = 'warning'; $icono = 'fa-clock'; $texto = 'Próximo';
                                 }
                             ?>
                                 <tr>
                                     <td>
-                                        <div class="fw-semibold"><?= htmlspecialchars($tarea['nombre_equipo'] ?? 'N/A') ?></div>
-                                        <?php /* ✅ FIX: campo correcto es 'equipo_codigo', no 'codigo' */ ?>
-                                        <small class="text-muted">
-                                            <?= htmlspecialchars($tarea['equipo_codigo'] ?? $tarea['codigo'] ?? '') ?>
-                                        </small>
+                                        <div class="fw-semibold"><?= htmlspecialchars($tarea_equipo) ?></div>
+                                        <?php if (!empty($tarea_codigo)): ?>
+                                            <small class="text-muted"><?= htmlspecialchars($tarea_codigo) ?></small>
+                                        <?php endif; ?>
                                     </td>
                                     <td>
-                                        <div><?= htmlspecialchars($tarea['nombre_tarea'] ?? 'N/A') ?></div>
+                                        <div><?= htmlspecialchars($tarea_nombre) ?></div>
                                         <span class="badge bg-secondary bg-opacity-10 text-secondary small">
-                                            <?= htmlspecialchars($tarea['tipo_mantenimiento'] ?? 'PREVENTIVO') ?>
+                                            <?= htmlspecialchars($tarea_tipo) ?>
                                         </span>
                                     </td>
                                     <td>
                                         <span class="badge bg-info bg-opacity-10 text-info">
-                                            <?= htmlspecialchars($tarea['estado_asignacion'] ?? 'ASIGNADO') ?>
+                                            <?= htmlspecialchars($tarea_estado) ?>
                                         </span>
                                     </td>
                                     <td>
@@ -169,28 +177,28 @@ include_once __DIR__ . '/../layouts/header.php';
                                         </span>
                                     </td>
                                     <td>
-                                        <?php if (isset($tarea['horas_restantes'])): ?>
-                                            <span class="fw-semibold <?= $tarea['horas_restantes'] <= 0 ? 'text-danger' : ($tarea['horas_restantes'] <= 100 ? 'text-warning' : 'text-success') ?>">
-                                                <?= number_format($tarea['horas_restantes']) ?> h
+                                        <?php if ($horas_rest !== null): ?>
+                                            <span class="fw-semibold <?= $horas_rest <= 0 ? 'text-danger' : ($horas_rest <= 100 ? 'text-warning' : 'text-success') ?>">
+                                                <?= number_format($horas_rest) ?> h
                                             </span>
                                         <?php else: ?>—<?php endif; ?>
                                     </td>
                                     <td>
-                                        <?php if (isset($tarea['dias_restantes'])): ?>
-                                            <span class="fw-semibold <?= $tarea['dias_restantes'] <= 0 ? 'text-danger' : ($tarea['dias_restantes'] <= 30 ? 'text-warning' : 'text-success') ?>">
-                                                <?= $tarea['dias_restantes'] ?> días
+                                        <?php if ($dias_rest !== null): ?>
+                                            <span class="fw-semibold <?= $dias_rest <= 0 ? 'text-danger' : ($dias_rest <= 30 ? 'text-warning' : 'text-success') ?>">
+                                                <?= $dias_rest ?> días
                                             </span>
                                         <?php else: ?>—<?php endif; ?>
                                     </td>
                                     <td>
                                         <div class="table-actions">
-                                            <a href="/proyecto/mantenimiento/ejecutar/<?= (int)$tarea['id'] ?>"
+                                            <a href="/proyecto/mantenimiento/ejecutar/<?= $tarea_id ?>"
                                                class="btn btn-sm btn-outline-success btn-icon"
                                                title="Ejecutar"
                                                aria-label="Ejecutar mantenimiento">
                                                 <i class="fas fa-play"></i>
                                             </a>
-                                            <a href="/proyecto/mantenimiento/equipo/<?= (int)$tarea['id_equipo'] ?>"
+                                            <a href="/proyecto/mantenimiento/equipo/<?= $tarea_id_eq ?>"
                                                class="btn btn-sm btn-outline-info btn-icon"
                                                title="Ver equipo"
                                                aria-label="Ver equipo">
@@ -216,6 +224,11 @@ include_once __DIR__ . '/../layouts/header.php';
     border-radius: 16px;
     padding: 20px 24px;
     height: 100%;
+    transition: all 0.3s ease;
+}
+.stat-card-modern:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 25px var(--shadow-hover);
 }
 .stat-card-modern .stat-icon-modern {
     width: 56px; height: 56px; border-radius: 14px;

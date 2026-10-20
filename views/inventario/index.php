@@ -1,9 +1,6 @@
 <?php
 // views/inventario/index.php
 // Inventario - LISTADO COMPLETO CON FILTROS AVANZADOS
-// ✅ FIX: meta CSRF está en header.php global
-// ✅ FIX: credenciales same-origin en todos los fetch
-// ✅ FIX NUEVO: contenedor .table-actions + btn-icon (via JS)
 
 if (!isset($_SESSION['usuario_id'])) {
     header('Location: /proyecto/auth/login');
@@ -455,39 +452,48 @@ function cargarInventario(page = 1) {
 
             if (data.items && data.items.length > 0) {
                 data.items.forEach((item, index) => {
-                    const tr = document.createElement('tr');
-                    const stockClass = item.cantidad <= 5 ? 'text-danger' :
-                                      item.cantidad <= 20 ? 'text-warning' : 'text-success';
+                    // ✅ FIX: blindar TODOS los accesos del item
+                    const itemId      = parseInt(item.id) || 0;
+                    const itemNombre  = item.nombre || 'N/A';
+                    const itemCodigo  = item.codigo || 'N/A';
+                    const itemCat     = item.categoria || 'General';
+                    const itemCant    = parseInt(item.cantidad) || 0;
+                    const itemPrecio  = parseFloat(item.precio_unitario) || 0;
+                    const itemUbic    = item.ubicacion || 'N/A';
+                    const itemActivo  = Boolean(item.activo);
 
-                    // ✅ FIX: contenedor .table-actions + btn-icon
+                    const stockClass = itemCant <= 5 ? 'text-danger' :
+                                      itemCant <= 20 ? 'text-warning' : 'text-success';
+
+                    const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td><span class="fw-semibold">${((page - 1) * porPagina) + index + 1}</span></td>
-                        <td><strong>${item.nombre || 'N/A'}</strong></td>
-                        <td><code>${item.codigo || 'N/A'}</code></td>
+                        <td><strong>${escapeHTML(itemNombre)}</strong></td>
+                        <td><code>${escapeHTML(itemCodigo)}</code></td>
                         <td>
                             <span class="badge bg-info bg-opacity-10 text-info">
-                                ${item.categoria || 'General'}
+                                ${escapeHTML(itemCat)}
                             </span>
                         </td>
-                        <td class="fw-bold ${stockClass}">${item.cantidad}</td>
-                        <td>S/ ${parseFloat(item.precio_unitario || 0).toFixed(2)}</td>
-                        <td>${item.ubicacion || 'N/A'}</td>
+                        <td class="fw-bold ${stockClass}">${itemCant}</td>
+                        <td>S/ ${itemPrecio.toFixed(2)}</td>
+                        <td>${escapeHTML(itemUbic)}</td>
                         <td>
-                            <span class="badge-status ${item.activo ? 'bg-success bg-opacity-10 text-success' : 'bg-danger bg-opacity-10 text-danger'}">
+                            <span class="badge-status ${itemActivo ? 'bg-success bg-opacity-10 text-success' : 'bg-danger bg-opacity-10 text-danger'}">
                                 <i class="fas fa-circle me-1" style="font-size:6px;"></i>
-                                ${item.activo ? 'Activo' : 'Inactivo'}
+                                ${itemActivo ? 'Activo' : 'Inactivo'}
                             </span>
                         </td>
                         <td>
                             <div class="table-actions">
-                                <a href="/proyecto/inventario/editar/${item.id}" 
+                                <a href="/proyecto/inventario/editar/${itemId}" 
                                    class="btn btn-sm btn-outline-warning btn-icon" 
                                    title="Editar"
                                    aria-label="Editar item">
                                     <i class="fas fa-edit"></i>
                                 </a>
                                 <button class="btn btn-sm btn-outline-danger btn-icon" 
-                                        onclick="eliminarItem(${item.id})" 
+                                        onclick="eliminarItem(${itemId})" 
                                         title="Eliminar"
                                         aria-label="Eliminar item">
                                     <i class="fas fa-trash"></i>
@@ -527,7 +533,7 @@ function cargarInventario(page = 1) {
                 <tr>
                     <td colspan="9" class="text-center py-5 text-danger">
                         <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
-                        <p><strong>Error:</strong> ${error.message}</p>
+                        <p><strong>Error:</strong> ${escapeHTML(error.message)}</p>
                         <p class="small text-muted">Si tu sesión expiró, <a href="/proyecto/login">inicia sesión nuevamente</a>.</p>
                         <button class="btn btn-primary btn-sm mt-2" onclick="cargarInventario(1)">
                             <i class="fas fa-sync me-1"></i> Reintentar
@@ -538,6 +544,16 @@ function cargarInventario(page = 1) {
             document.getElementById('totalRegistros').textContent = 'Error al cargar';
             document.getElementById('totalRegistrosInfo').textContent = 'Error al cargar';
         });
+}
+
+function escapeHTML(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
 }
 
 function actualizarPaginacion(total, paginas) {
@@ -625,7 +641,7 @@ function eliminarItem(id) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert('✅ ' + data.message);
+            alert('✅ ' + (data.message || 'Eliminado'));
             cargarInventario(paginaActual);
         } else {
             alert('❌ ' + (data.message || 'Error desconocido'));

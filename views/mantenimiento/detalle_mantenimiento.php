@@ -1,20 +1,41 @@
 <?php
 // views/mantenimiento/detalle_mantenimiento.php
 // Detalle completo de un mantenimiento realizado
-// VERSIÓN FINAL - Con botones de edición y textos legibles en modo oscuro
+// ✅ FIX: blindaje de TODOS los accesos a $mantenimiento['xxx'] con ?? default
 
 if (!isset($seccion)) $seccion = 'mantenimiento';
 if (!isset($titulo)) $titulo = 'Detalle del Mantenimiento';
 
 $mantenimiento = $mantenimiento ?? null;
-$equipo = $equipo ?? null;
-$plan = $plan ?? null;
-$checklist = $checklist ?? [];
+$equipo        = $equipo ?? null;
+$plan          = $plan ?? null;
+$checklist     = $checklist ?? [];
 
 if (!$mantenimiento) {
     header('Location: /proyecto/mantenimiento/panel');
     exit;
 }
+
+// ✅ FIX: blindar accesos
+$mant_id       = (int)($mantenimiento['id'] ?? 0);
+$mant_fecha    = $mantenimiento['fecha_mantenimiento'] ?? null;
+$mant_id_eq    = (int)($mantenimiento['id_equipo'] ?? 0);
+$mant_tipo     = $mantenimiento['tipo'] ?? 'N/A';
+$mant_desc     = $mantenimiento['descripcion'] ?? 'Sin descripción';
+$mant_repuestos= $mantenimiento['repuestos_usados'] ?? '';
+$mant_horas    = (int)($mantenimiento['horas_equipo'] ?? 0);
+$mant_costo    = (float)($mantenimiento['costo'] ?? 0);
+$mant_tec_nom  = $mantenimiento['tecnico_nombre'] ?? '';
+$mant_tec_esp  = $mantenimiento['tecnico_especialidad'] ?? '';
+$mant_tec_tar  = $mantenimiento['tecnico_tarifa'] ?? null;
+$mant_prov_nom = $mantenimiento['proveedor_nombre'] ?? '';
+$mant_prov_con = $mantenimiento['proveedor_contacto'] ?? '';
+$mant_plan_nom = $mantenimiento['nombre_tarea'] ?? '';
+$mant_obs      = $mantenimiento['observaciones'] ?? '';
+$mant_retro    = !empty($mantenimiento['es_retroactivo']);
+
+$fecha_valida = !empty($mant_fecha) && strtotime($mant_fecha) !== false;
+$fecha_fmt = $fecha_valida ? date('d/m/Y H:i:s', strtotime($mant_fecha)) : 'N/A';
 
 $puede_editar = in_array($_SESSION['rol'] ?? '', ['admin', 'supervisor']);
 
@@ -28,8 +49,8 @@ include_once __DIR__ . '/../layouts/header.php';
         <div>
             <h4 class="mb-1 fw-bold">
                 <i class="fas fa-clipboard-check text-primary me-2"></i>Detalle del Mantenimiento
-                <span class="badge bg-primary ms-2">#<?= $mantenimiento['id'] ?></span>
-                <?php if (!empty($mantenimiento['es_retroactivo'])): ?>
+                <span class="badge bg-primary ms-2">#<?= $mant_id ?></span>
+                <?php if ($mant_retro): ?>
                     <span class="badge bg-warning text-dark ms-1">
                         <i class="fas fa-clock-rotate-left me-1"></i>Retroactivo
                     </span>
@@ -37,27 +58,27 @@ include_once __DIR__ . '/../layouts/header.php';
             </h4>
             <p class="text-muted small mb-0">
                 <i class="fas fa-calendar-alt me-1"></i> 
-                <?= date('d/m/Y H:i:s', strtotime($mantenimiento['fecha_mantenimiento'])) ?>
+                <?= $fecha_fmt ?>
             </p>
         </div>
         <div class="d-flex gap-2 flex-wrap">
-            <a href="/proyecto/mantenimiento/equipo/<?= $mantenimiento['id_equipo'] ?>" class="btn btn-secondary">
-                <i class="fas fa-arrow-left me-1"></i> Volver al Equipo
+            <a href="/proyecto/mantenimiento/equipo/<?= $mant_id_eq ?>" class="btn btn-secondary btn-header-action">
+                <i class="fas fa-arrow-left"></i> Volver al Equipo
             </a>
             
             <?php if ($puede_editar): ?>
-                <a href="/proyecto/mantenimiento/editar-mantenimiento/<?= $mantenimiento['id'] ?>" 
-                   class="btn btn-warning">
-                    <i class="fas fa-edit me-1"></i> Editar
+                <a href="/proyecto/mantenimiento/editar-mantenimiento/<?= $mant_id ?>" 
+                   class="btn btn-warning btn-header-action">
+                    <i class="fas fa-edit"></i> Editar
                 </a>
-                <a href="/proyecto/mantenimiento/editar-checklist/<?= $mantenimiento['id'] ?>" 
-                   class="btn btn-outline-warning">
-                    <i class="fas fa-tasks me-1"></i> Editar Checklist
+                <a href="/proyecto/mantenimiento/editar-checklist/<?= $mant_id ?>" 
+                   class="btn btn-outline-warning btn-header-action">
+                    <i class="fas fa-tasks"></i> Editar Checklist
                 </a>
             <?php endif; ?>
             
-            <button onclick="window.print()" class="btn btn-outline-primary">
-                <i class="fas fa-print me-1"></i> Imprimir
+            <button onclick="window.print()" class="btn btn-outline-primary btn-header-action">
+                <i class="fas fa-print"></i> Imprimir
             </button>
         </div>
     </div>
@@ -104,7 +125,7 @@ include_once __DIR__ . '/../layouts/header.php';
                     </div>
                     <div>
                         <span class="stat-label-modern">Horómetro</span>
-                        <span class="stat-number-modern"><?= number_format($mantenimiento['horas_equipo'] ?? 0) ?> h</span>
+                        <span class="stat-number-modern"><?= number_format($mant_horas) ?> h</span>
                     </div>
                 </div>
             </div>
@@ -117,7 +138,7 @@ include_once __DIR__ . '/../layouts/header.php';
                     </div>
                     <div>
                         <span class="stat-label-modern">Costo</span>
-                        <span class="stat-number-modern">S/ <?= number_format($mantenimiento['costo'] ?? 0, 2) ?></span>
+                        <span class="stat-number-modern">S/ <?= number_format($mant_costo, 2) ?></span>
                     </div>
                 </div>
             </div>
@@ -161,22 +182,22 @@ include_once __DIR__ . '/../layouts/header.php';
                                 <p class="info-value">
                                     <span class="badge bg-info bg-opacity-10 text-info px-3 py-2">
                                         <i class="fas fa-tag me-1"></i>
-                                        <?= htmlspecialchars($mantenimiento['tipo'] ?? 'N/A') ?>
+                                        <?= htmlspecialchars($mant_tipo) ?>
                                     </span>
                                 </p>
                             </div>
                             <div class="info-item mb-3">
                                 <label class="info-label">Descripción</label>
                                 <p class="info-value">
-                                    <?= nl2br(htmlspecialchars($mantenimiento['descripcion'] ?? 'Sin descripción')) ?>
+                                    <?= nl2br(htmlspecialchars($mant_desc)) ?>
                                 </p>
                             </div>
-                            <?php if (!empty($mantenimiento['repuestos_usados'])): ?>
+                            <?php if (!empty($mant_repuestos)): ?>
                                 <div class="info-item mb-3">
                                     <label class="info-label">Repuestos Usados</label>
                                     <div class="repuestos-box">
                                         <i class="fas fa-tools me-2"></i>
-                                        <span><?= nl2br(htmlspecialchars($mantenimiento['repuestos_usados'])) ?></span>
+                                        <span><?= nl2br(htmlspecialchars($mant_repuestos)) ?></span>
                                     </div>
                                 </div>
                             <?php endif; ?>
@@ -185,73 +206,69 @@ include_once __DIR__ . '/../layouts/header.php';
                             <div class="info-item mb-3">
                                 <label class="info-label">Fecha del Mantenimiento</label>
                                 <p class="info-value">
-                                    <?= date('d/m/Y', strtotime($mantenimiento['fecha_mantenimiento'])) ?>
-                                    <small class="info-sub ms-2"><?= date('H:i:s', strtotime($mantenimiento['fecha_mantenimiento'])) ?></small>
+                                    <?= $fecha_valida ? date('d/m/Y', strtotime($mant_fecha)) : 'N/A' ?>
+                                    <?php if ($fecha_valida): ?>
+                                        <small class="info-sub ms-2"><?= date('H:i:s', strtotime($mant_fecha)) ?></small>
+                                    <?php endif; ?>
                                 </p>
-                                <?php if (!empty($mantenimiento['es_retroactivo'])): ?>
-                                    <small class="badge bg-warning bg-opacity-10 text-warning">
-                                        <i class="fas fa-clock-rotate-left me-1"></i>
-                                        Registro retroactivo
-                                    </small>
-                                <?php endif; ?>
                             </div>
                             <div class="info-item mb-3">
                                 <label class="info-label">Horómetro al Momento</label>
                                 <p class="info-value">
                                     <span class="badge bg-primary fs-6 px-3 py-2">
                                         <i class="fas fa-tachometer-alt me-1"></i>
-                                        <?= number_format($mantenimiento['horas_equipo'] ?? 0) ?> horas
+                                        <?= number_format($mant_horas) ?> horas
                                     </span>
                                 </p>
                             </div>
-                            <?php if (!empty($mantenimiento['tecnico_nombre'])): ?>
+                            <?php if (!empty($mant_tec_nom)): ?>
                                 <div class="info-item mb-3">
                                     <label class="info-label">Técnico Ejecutor</label>
                                     <p class="info-value">
                                         <i class="fas fa-user-cog text-primary me-1"></i>
-                                        <?= htmlspecialchars($mantenimiento['tecnico_nombre']) ?>
+                                        <?= htmlspecialchars($mant_tec_nom) ?>
                                     </p>
-                                    <?php if (!empty($mantenimiento['tecnico_especialidad'])): ?>
+                                    <?php if (!empty($mant_tec_esp)): ?>
                                         <small class="info-sub d-block">
-                                            Especialidad: <?= htmlspecialchars($mantenimiento['tecnico_especialidad']) ?>
+                                            Especialidad: <?= htmlspecialchars($mant_tec_esp) ?>
                                         </small>
                                     <?php endif; ?>
-                                    <?php if (!empty($mantenimiento['tecnico_tarifa'])): ?>
+                                    <?php if (!empty($mant_tec_tar)): ?>
                                         <small class="info-sub d-block">
-                                            Tarifa: S/ <?= number_format($mantenimiento['tecnico_tarifa'], 2) ?>/h
+                                            Tarifa: S/ <?= number_format($mant_tec_tar, 2) ?>/h
                                         </small>
                                     <?php endif; ?>
                                 </div>
                             <?php endif; ?>
-                            <?php if (!empty($mantenimiento['proveedor_nombre'])): ?>
+                            <?php if (!empty($mant_prov_nom)): ?>
                                 <div class="info-item mb-3">
                                     <label class="info-label">Proveedor Externo</label>
                                     <p class="info-value">
                                         <i class="fas fa-truck text-warning me-1"></i>
-                                        <?= htmlspecialchars($mantenimiento['proveedor_nombre']) ?>
+                                        <?= htmlspecialchars($mant_prov_nom) ?>
                                     </p>
-                                    <?php if (!empty($mantenimiento['proveedor_contacto'])): ?>
+                                    <?php if (!empty($mant_prov_con)): ?>
                                         <small class="info-sub d-block">
-                                            Contacto: <?= htmlspecialchars($mantenimiento['proveedor_contacto']) ?>
+                                            Contacto: <?= htmlspecialchars($mant_prov_con) ?>
                                         </small>
                                     <?php endif; ?>
                                 </div>
                             <?php endif; ?>
-                            <?php if (!empty($mantenimiento['nombre_tarea'])): ?>
+                            <?php if (!empty($mant_plan_nom)): ?>
                                 <div class="info-item mb-3">
                                     <label class="info-label">Tarea del Plan</label>
-                                    <p class="info-value"><?= htmlspecialchars($mantenimiento['nombre_tarea']) ?></p>
+                                    <p class="info-value"><?= htmlspecialchars($mant_plan_nom) ?></p>
                                 </div>
                             <?php endif; ?>
                         </div>
                     </div>
 
-                    <?php if (!empty($mantenimiento['observaciones'])): ?>
+                    <?php if (!empty($mant_obs)): ?>
                         <hr>
                         <div class="info-item">
                             <label class="info-label">Observaciones</label>
                             <p class="info-value mb-0">
-                                <?= nl2br(htmlspecialchars($mantenimiento['observaciones'])) ?>
+                                <?= nl2br(htmlspecialchars($mant_obs)) ?>
                             </p>
                         </div>
                     <?php endif; ?>
@@ -276,7 +293,7 @@ include_once __DIR__ . '/../layouts/header.php';
                             <?= $cumplidos ?>/<?= $total ?> pasos (<?= $porcentaje ?>%)
                         </span>
                         <?php if ($puede_editar): ?>
-                            <a href="/proyecto/mantenimiento/editar-checklist/<?= $mantenimiento['id'] ?>" 
+                            <a href="/proyecto/mantenimiento/editar-checklist/<?= $mant_id ?>" 
                                class="btn btn-sm btn-outline-warning">
                                 <i class="fas fa-edit me-1"></i> Editar
                             </a>
@@ -288,10 +305,16 @@ include_once __DIR__ . '/../layouts/header.php';
                         <div class="progress-bar bg-<?= $badgeColor ?>" style="width: <?= $porcentaje ?>%;"></div>
                     </div>
                     <div class="checklist-container">
-                        <?php foreach ($checklist as $index => $paso): ?>
-                            <div class="checklist-item-detail <?= !empty($paso['cumplido']) ? 'completed' : 'pending' ?>">
+                        <?php foreach ($checklist as $index => $paso): 
+                            $paso_num = $paso['paso_numero'] ?? ($index + 1);
+                            $paso_desc = $paso['descripcion'] ?? $paso['paso_descripcion'] ?? 'N/A';
+                            $paso_cumpl = !empty($paso['cumplido']);
+                            $paso_obs = $paso['observaciones'] ?? '';
+                            $paso_foto = $paso['foto_evidencia'] ?? null;
+                        ?>
+                            <div class="checklist-item-detail <?= $paso_cumpl ? 'completed' : 'pending' ?>">
                                 <div class="checklist-icon">
-                                    <?php if (!empty($paso['cumplido'])): ?>
+                                    <?php if ($paso_cumpl): ?>
                                         <span class="badge bg-success rounded-circle">
                                             <i class="fas fa-check"></i>
                                         </span>
@@ -303,20 +326,18 @@ include_once __DIR__ . '/../layouts/header.php';
                                 </div>
                                 <div class="checklist-content">
                                     <div class="checklist-title">
-                                        <span class="badge bg-primary me-2">
-                                            <?= $paso['paso_numero'] ?? ($index + 1) ?>
-                                        </span>
-                                        <?= htmlspecialchars($paso['descripcion'] ?? $paso['paso_descripcion'] ?? 'N/A') ?>
+                                        <span class="badge bg-primary me-2"><?= $paso_num ?></span>
+                                        <?= htmlspecialchars($paso_desc) ?>
                                     </div>
-                                    <?php if (!empty($paso['observaciones'])): ?>
+                                    <?php if (!empty($paso_obs)): ?>
                                         <div class="checklist-observation">
                                             <i class="fas fa-comment me-1"></i>
-                                            <?= htmlspecialchars($paso['observaciones']) ?>
+                                            <?= htmlspecialchars($paso_obs) ?>
                                         </div>
                                     <?php endif; ?>
-                                    <?php if (!empty($paso['foto_evidencia'])): ?>
+                                    <?php if (!empty($paso_foto)): ?>
                                         <div class="mt-2">
-                                            <a href="/proyecto/uploads/mantenimiento/<?= $paso['foto_evidencia'] ?>" 
+                                            <a href="/proyecto/uploads/mantenimiento/<?= htmlspecialchars($paso_foto) ?>" 
                                                target="_blank" class="btn btn-sm btn-outline-primary">
                                                 <i class="fas fa-image me-1"></i> Ver evidencia
                                             </a>
@@ -352,12 +373,12 @@ include_once __DIR__ . '/../layouts/header.php';
                     <div class="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom">
                         <span class="info-label mb-0">Costo Total</span>
                         <span class="fw-bold text-primary" style="font-size: 1.5rem;">
-                            S/ <?= number_format($mantenimiento['costo'] ?? 0, 2) ?>
+                            S/ <?= number_format($mant_costo, 2) ?>
                         </span>
                     </div>
                     
                     <?php if (!empty($plan['costo_estimado'])): 
-                        $costoReal = (float)($mantenimiento['costo'] ?? 0);
+                        $costoReal = (float)$mant_costo;
                         $costoEstimado = (float)$plan['costo_estimado'];
                         $diferencia = $costoReal - $costoEstimado;
                     ?>
@@ -421,16 +442,16 @@ include_once __DIR__ . '/../layouts/header.php';
                 <div class="card-body">
                     <div class="d-grid gap-2">
                         <?php if ($puede_editar): ?>
-                            <a href="/proyecto/mantenimiento/editar-mantenimiento/<?= $mantenimiento['id'] ?>" 
+                            <a href="/proyecto/mantenimiento/editar-mantenimiento/<?= $mant_id ?>" 
                                class="btn btn-warning">
                                 <i class="fas fa-edit me-2"></i> Editar Mantenimiento
                             </a>
-                            <a href="/proyecto/mantenimiento/editar-checklist/<?= $mantenimiento['id'] ?>" 
+                            <a href="/proyecto/mantenimiento/editar-checklist/<?= $mant_id ?>" 
                                class="btn btn-outline-warning">
                                 <i class="fas fa-tasks me-2"></i> Editar Checklist
                             </a>
                         <?php endif; ?>
-                        <a href="/proyecto/mantenimiento/equipo/<?= $mantenimiento['id_equipo'] ?>" 
+                        <a href="/proyecto/mantenimiento/equipo/<?= $mant_id_eq ?>" 
                            class="btn btn-primary">
                             <i class="fas fa-industry me-2"></i> Ver Plan del Equipo
                         </a>
@@ -445,13 +466,7 @@ include_once __DIR__ . '/../layouts/header.php';
 
 </div>
 
-<!-- ========================================== -->
-<!-- ESTILOS - CORREGIDOS PARA MODO OSCURO -->
-<!-- ========================================== -->
 <style>
-/* ========================================== */
-/* TARJETAS DE RESUMEN (stats) */
-/* ========================================== */
 .stat-card-modern {
     background: var(--bg-card) !important;
     border: 1px solid var(--border-color) !important;
@@ -494,13 +509,7 @@ include_once __DIR__ . '/../layouts/header.php';
     line-height: 1.2 !important;
 }
 
-/* ========================================== */
-/* INFO ITEMS - TEXTOS LEGIBLES EN MODO OSCURO */
-/* ========================================== */
-.info-item {
-    padding: 0;
-}
-
+.info-item { padding: 0; }
 .info-label {
     display: block;
     font-size: 0.7rem;
@@ -510,7 +519,6 @@ include_once __DIR__ . '/../layouts/header.php';
     color: var(--text-secondary);
     margin-bottom: 4px;
 }
-
 .info-value {
     color: var(--text-primary) !important;
     font-weight: 500;
@@ -518,34 +526,15 @@ include_once __DIR__ . '/../layouts/header.php';
     margin-bottom: 0;
     line-height: 1.5;
 }
-
 .info-value-sm {
     color: var(--text-primary) !important;
     font-weight: 600;
     font-size: 0.9rem;
 }
-
 .info-sub {
     color: var(--text-muted) !important;
     font-size: 0.75rem;
 }
-
-/* Modo oscuro: reforzar los colores */
-[data-theme="dark"] .info-value {
-    color: #ffffff !important;
-}
-
-[data-theme="dark"] .info-label {
-    color: #8a8aa8 !important;
-}
-
-[data-theme="dark"] .info-sub {
-    color: #8a8aa8 !important;
-}
-
-/* ========================================== */
-/* CAJA DE REPUESTOS */
-/* ========================================== */
 .repuestos-box {
     background: rgba(59, 130, 246, 0.1);
     border: 1px solid rgba(59, 130, 246, 0.25);
@@ -554,21 +543,11 @@ include_once __DIR__ . '/../layouts/header.php';
     color: var(--text-primary) !important;
     font-size: 0.9rem;
 }
-
-[data-theme="dark"] .repuestos-box {
-    background: rgba(59, 130, 246, 0.12);
-    color: #ffffff !important;
-}
-
-/* ========================================== */
-/* CHECKLIST CONTAINER */
-/* ========================================== */
 .checklist-container {
     display: flex;
     flex-direction: column;
     gap: 12px;
 }
-
 .checklist-item-detail {
     display: flex;
     align-items: flex-start;
@@ -579,24 +558,13 @@ include_once __DIR__ . '/../layouts/header.php';
     background: var(--bg-card);
     transition: all 0.3s ease;
 }
-
-.checklist-item-detail.completed {
-    border-left: 4px solid #22c55e;
-}
-
-.checklist-item-detail.pending {
-    border-left: 4px solid #ef4444;
-}
-
+.checklist-item-detail.completed { border-left: 4px solid #22c55e; }
+.checklist-item-detail.pending { border-left: 4px solid #ef4444; }
 .checklist-item-detail:hover {
     transform: translateX(4px);
     box-shadow: 0 4px 12px var(--shadow-hover);
 }
-
-.checklist-icon {
-    flex-shrink: 0;
-}
-
+.checklist-icon { flex-shrink: 0; }
 .checklist-icon .badge {
     width: 32px;
     height: 32px;
@@ -605,22 +573,13 @@ include_once __DIR__ . '/../layouts/header.php';
     justify-content: center;
     font-size: 0.9rem;
 }
-
-.checklist-content {
-    flex-grow: 1;
-}
-
+.checklist-content { flex-grow: 1; }
 .checklist-title {
     color: var(--text-primary) !important;
     font-weight: 600;
     font-size: 0.95rem;
     margin-bottom: 4px;
 }
-
-[data-theme="dark"] .checklist-title {
-    color: #ffffff !important;
-}
-
 .checklist-observation {
     background: rgba(255, 193, 7, 0.1);
     border-left: 3px solid #ffc107;
@@ -630,140 +589,9 @@ include_once __DIR__ . '/../layouts/header.php';
     font-size: 0.85rem;
     color: var(--text-primary) !important;
 }
-
-[data-theme="dark"] .checklist-observation {
-    background: rgba(234, 179, 8, 0.12);
-    color: #facc15 !important;
-}
-
-/* ========================================== */
-/* CARDS GENERALES */
-/* ========================================== */
 .card {
     border-radius: 16px;
     box-shadow: 0 2px 12px var(--shadow-color);
-}
-
-/* Textos dentro de las cards en modo oscuro */
-[data-theme="dark"] .card-body p,
-[data-theme="dark"] .card-body div:not([class*="badge"]):not([class*="alert"]):not([class*="progress"]):not([class*="checklist-"]):not([class*="repuestos-"]) {
-    color: #ffffff;
-}
-
-[data-theme="dark"] .card-body strong,
-[data-theme="dark"] .card-body b,
-[data-theme="dark"] .card-body .fw-semibold,
-[data-theme="dark"] .card-body .fw-bold {
-    color: #ffffff !important;
-}
-
-[data-theme="dark"] .card-body small,
-[data-theme="dark"] .card-body .text-muted {
-    color: #8a8aa8 !important;
-}
-
-[data-theme="dark"] .card-body label:not(.form-label) {
-    color: #8a8aa8 !important;
-}
-
-/* ========================================== */
-/* PROGRESS BAR */
-/* ========================================== */
-.progress {
-    border-radius: 10px;
-    background: var(--bg-input-disabled);
-    overflow: hidden;
-}
-
-[data-theme="dark"] .progress {
-    background: #1a1a2e !important;
-}
-
-.progress-bar {
-    transition: width 0.6s ease;
-}
-
-[data-theme="dark"] .progress-bar.bg-success {
-    background: linear-gradient(90deg, #22c55e, #4ade80) !important;
-    box-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
-}
-
-[data-theme="dark"] .progress-bar.bg-warning {
-    background: linear-gradient(90deg, #eab308, #facc15) !important;
-    box-shadow: 0 0 10px rgba(234, 179, 8, 0.5);
-}
-
-[data-theme="dark"] .progress-bar.bg-danger {
-    background: linear-gradient(90deg, #ef4444, #f87171) !important;
-    box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
-}
-
-/* ========================================== */
-/* BADGES MEJORADOS EN MODO OSCURO */
-/* ========================================== */
-[data-theme="dark"] .badge.bg-info {
-    background: rgba(6, 182, 212, 0.2) !important;
-    color: #22d3ee !important;
-    border: 1px solid rgba(6, 182, 212, 0.3) !important;
-}
-
-[data-theme="dark"] .badge.bg-primary {
-    background: rgba(59, 130, 246, 0.2) !important;
-    color: #93c5fd !important;
-    border: 1px solid rgba(59, 130, 246, 0.3) !important;
-}
-
-[data-theme="dark"] .badge.bg-success {
-    background: rgba(34, 197, 94, 0.2) !important;
-    color: #4ade80 !important;
-    border: 1px solid rgba(34, 197, 94, 0.3) !important;
-}
-
-[data-theme="dark"] .badge.bg-danger {
-    background: rgba(239, 68, 68, 0.2) !important;
-    color: #f87171 !important;
-    border: 1px solid rgba(239, 68, 68, 0.3) !important;
-}
-
-[data-theme="dark"] .badge.bg-warning {
-    background: rgba(234, 179, 8, 0.2) !important;
-    color: #facc15 !important;
-    border: 1px solid rgba(234, 179, 8, 0.3) !important;
-}
-
-/* ========================================== */
-/* SEPARADORES */
-/* ========================================== */
-[data-theme="dark"] hr {
-    border-color: #1f1f35 !important;
-    opacity: 1 !important;
-}
-
-/* ========================================== */
-/* ESTILOS PARA IMPRESIÓN */
-/* ========================================== */
-@media print {
-    .btn, .sidebar, .topbar, .stat-card-modern, .d-flex.gap-2 {
-        display: none !important;
-    }
-    .main-content .content {
-        padding: 0 !important;
-    }
-    .card {
-        box-shadow: none !important;
-        border: 1px solid #ddd !important;
-        page-break-inside: avoid;
-    }
-    body {
-        background: white !important;
-        color: black !important;
-    }
-    .info-value, .checklist-title {
-        color: black !important;
-    }
-    .info-label {
-        color: #666 !important;
-    }
 }
 </style>
 

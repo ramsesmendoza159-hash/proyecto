@@ -1,10 +1,10 @@
 <?php
 // views/tecnicos/index.php
 // Gestión de Técnicos - VERSIÓN ESTANDARIZADA
-// ✅ FIX: botón "Editar" cambiado a btn-outline-warning (estándar de la regla de oro)
-// ✅ FIX: contenedor de acciones usa .table-actions (d-flex justify-content-center gap-1)
+// ✅ FIX: botón "Editar" cambiado a btn-outline-warning
+// ✅ FIX: contenedor .table-actions
+// ✅ FIX: blindaje de TODOS los accesos a $tecnico['xxx'] con ?? default
 
-// Verificar sesión
 if (!isset($_SESSION['usuario_id']) || ($_SESSION['rol'] ?? '') !== 'admin') {
     header('Location: /proyecto/auth/login');
     exit;
@@ -13,7 +13,7 @@ if (!isset($_SESSION['usuario_id']) || ($_SESSION['rol'] ?? '') !== 'admin') {
 $titulo = "Gestión de Técnicos";
 $seccion = "tecnicos";
 
-// Asegurar que las variables existan
+// Guards
 $tecnicos = $tecnicos ?? [];
 $estadisticas = $estadisticas ?? ['total' => 0, 'activos' => 0, 'inactivos' => 0];
 $especialidades = $especialidades ?? [];
@@ -38,16 +38,14 @@ include_once __DIR__ . '/../layouts/header.php';
             </p>
         </div>
         <a href="/proyecto/tecnicos/crear" class="btn btn-primary btn-header-action">
-            <i class="fas fa-plus-circle"></i>Nuevo Técnico
+            <i class="fas fa-plus-circle"></i> Nuevo Técnico
         </a>
     </div>
 
     <!-- Tarjetas de Estadísticas -->
     <div class="row g-3 mb-4">
-
-        <!-- 1. Total Técnicos -->
         <div class="col-xl-3 col-lg-6 col-md-6">
-            <div class="stat-card-modern border-0">
+            <div class="stat-card-modern">
                 <div class="d-flex align-items-center gap-3">
                     <div class="stat-icon-modern" style="background: rgba(102, 126, 234, 0.15); color: #667eea;">
                         <i class="fas fa-users fa-2x"></i>
@@ -57,20 +55,19 @@ include_once __DIR__ . '/../layouts/header.php';
                         <span class="stat-number-modern"><?= $estadisticas['total'] ?? 0 ?></span>
                     </div>
                 </div>
-                <div class="stat-footer-modern mt-2">
-                    <span class="badge bg-success bg-opacity-10 text-success">
+                <div class="mt-2 d-flex gap-1 flex-wrap">
+                    <span class="badge bg-success bg-opacity-10 text-success small">
                         <i class="fas fa-circle me-1" style="font-size:6px;"></i> <?= $estadisticas['activos'] ?? 0 ?> activos
                     </span>
-                    <span class="badge bg-secondary bg-opacity-10 text-secondary">
+                    <span class="badge bg-secondary bg-opacity-10 text-secondary small">
                         <i class="fas fa-circle me-1" style="font-size:6px;"></i> <?= $estadisticas['inactivos'] ?? 0 ?> inact.
                     </span>
                 </div>
             </div>
         </div>
 
-        <!-- 2. Especialidades -->
         <div class="col-xl-3 col-lg-6 col-md-6">
-            <div class="stat-card-modern border-0">
+            <div class="stat-card-modern">
                 <div class="d-flex align-items-center gap-3">
                     <div class="stat-icon-modern" style="background: rgba(46, 213, 115, 0.15); color: #2ed573;">
                         <i class="fas fa-cog fa-2x"></i>
@@ -80,17 +77,16 @@ include_once __DIR__ . '/../layouts/header.php';
                         <span class="stat-number-modern"><?= count($especialidades ?? []) ?></span>
                     </div>
                 </div>
-                <div class="stat-footer-modern mt-2">
-                    <span class="badge bg-info bg-opacity-10 text-info">
+                <div class="mt-2">
+                    <span class="badge bg-info bg-opacity-10 text-info small">
                         <i class="fas fa-circle me-1" style="font-size:6px;"></i> Áreas distintas
                     </span>
                 </div>
             </div>
         </div>
 
-        <!-- 3. Tarifa Promedio -->
         <div class="col-xl-3 col-lg-6 col-md-6">
-            <div class="stat-card-modern border-0">
+            <div class="stat-card-modern">
                 <div class="d-flex align-items-center gap-3">
                     <div class="stat-icon-modern" style="background: rgba(255, 193, 7, 0.15); color: #ffc107;">
                         <i class="fas fa-money-bill-wave fa-2x"></i>
@@ -100,17 +96,16 @@ include_once __DIR__ . '/../layouts/header.php';
                         <span class="stat-number-modern">S/ <?= number_format($tarifa_promedio ?? 0, 2) ?></span>
                     </div>
                 </div>
-                <div class="stat-footer-modern mt-2">
-                    <span class="badge bg-warning bg-opacity-10 text-warning">
+                <div class="mt-2">
+                    <span class="badge bg-warning bg-opacity-10 text-warning small">
                         <i class="fas fa-circle me-1" style="font-size:6px;"></i> Por hora
                     </span>
                 </div>
             </div>
         </div>
 
-        <!-- 4. Órdenes Asignadas -->
         <div class="col-xl-3 col-lg-6 col-md-6">
-            <div class="stat-card-modern border-0">
+            <div class="stat-card-modern">
                 <div class="d-flex align-items-center gap-3">
                     <div class="stat-icon-modern" style="background: rgba(220, 53, 69, 0.15); color: #dc3545;">
                         <i class="fas fa-clipboard-list fa-2x"></i>
@@ -120,14 +115,13 @@ include_once __DIR__ . '/../layouts/header.php';
                         <span class="stat-number-modern"><?= $total_ordenes ?? 0 ?></span>
                     </div>
                 </div>
-                <div class="stat-footer-modern mt-2">
-                    <span class="badge bg-danger bg-opacity-10 text-danger">
+                <div class="mt-2">
+                    <span class="badge bg-danger bg-opacity-10 text-danger small">
                         <i class="fas fa-circle me-1" style="font-size:6px;"></i> En total
                     </span>
                 </div>
             </div>
         </div>
-
     </div>
 
     <!-- Filtros -->
@@ -192,36 +186,45 @@ include_once __DIR__ . '/../layouts/header.php';
                                 </td>
                             </tr>
                         <?php else: ?>
-                            <?php foreach ($tecnicos as $index => $tecnico): ?>
+                            <?php foreach ($tecnicos as $index => $tecnico):
+                                // ✅ FIX: blindar TODOS los accesos
+                                $tec_id      = (int)($tecnico['id'] ?? 0);
+                                $tec_nombre  = $tecnico['nombre'] ?? '';
+                                $tec_email   = $tecnico['email'] ?? '';
+                                $tec_esp     = $tecnico['especialidad'] ?? 'Sin especialidad';
+                                $tec_tarifa  = (float)($tecnico['tarifa'] ?? 0);
+                                $tec_estado  = $tecnico['estado'] ?? 'inactivo';
+                                $inicial     = strtoupper(substr($tec_nombre ?: 'U', 0, 1));
+                            ?>
                                 <tr>
                                     <td><?= $index + 1 ?></td>
                                     <td>
                                         <div class="d-flex align-items-center gap-2">
-                                            <div class="avatar-sm" style="width:36px;height:36px;border-radius:50%;background:#0d6efd;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:0.85rem;">
-                                                <?= strtoupper(substr($tecnico['nombre'] ?? 'U', 0, 1)) ?>
+                                            <div class="avatar-sm">
+                                                <?= $inicial ?>
                                             </div>
                                             <div>
-                                                <div class="fw-semibold"><?= htmlspecialchars($tecnico['nombre'] ?? '') ?></div>
-                                                <small class="text-muted">ID: <?= $tecnico['id'] ?></small>
+                                                <div class="fw-semibold"><?= htmlspecialchars($tec_nombre) ?></div>
+                                                <small class="text-muted">ID: <?= $tec_id ?></small>
                                             </div>
                                         </div>
                                     </td>
                                     <td>
-                                        <a href="mailto:<?= htmlspecialchars($tecnico['email'] ?? '') ?>" class="text-decoration-none">
+                                        <a href="mailto:<?= htmlspecialchars($tec_email) ?>" class="text-decoration-none">
                                             <i class="fas fa-envelope me-1 text-muted"></i>
-                                            <?= htmlspecialchars($tecnico['email'] ?? '') ?>
+                                            <?= htmlspecialchars($tec_email) ?>
                                         </a>
                                     </td>
                                     <td>
                                         <span class="badge bg-info bg-opacity-10 text-info">
-                                            <?= htmlspecialchars($tecnico['especialidad'] ?? 'Sin especialidad') ?>
+                                            <?= htmlspecialchars($tec_esp) ?>
                                         </span>
                                     </td>
                                     <td>
-                                        <strong>S/ <?= number_format($tecnico['tarifa'] ?? 0, 2) ?></strong>
+                                        <strong>S/ <?= number_format($tec_tarifa, 2) ?></strong>
                                     </td>
                                     <td>
-                                        <?php if (($tecnico['estado'] ?? '') === 'activo'): ?>
+                                        <?php if ($tec_estado === 'activo'): ?>
                                             <span class="badge-status bg-success bg-opacity-10 text-success">
                                                 <i class="fas fa-circle me-1" style="font-size:8px;"></i> Activo
                                             </span>
@@ -233,7 +236,7 @@ include_once __DIR__ . '/../layouts/header.php';
                                     </td>
                                     <td>
                                         <div class="table-actions">
-                                            <a href="/proyecto/tecnicos/editar/<?= $tecnico['id'] ?>" 
+                                            <a href="/proyecto/tecnicos/editar/<?= $tec_id ?>" 
                                                class="btn btn-sm btn-outline-warning btn-icon" 
                                                title="Editar"
                                                aria-label="Editar técnico">
@@ -241,7 +244,7 @@ include_once __DIR__ . '/../layouts/header.php';
                                             </a>
                                             <button type="button" 
                                                     class="btn btn-sm btn-outline-danger btn-icon" 
-                                                    onclick="confirmarEliminar(<?= $tecnico['id'] ?>, '<?= htmlspecialchars($tecnico['nombre'] ?? '', ENT_QUOTES, 'UTF-8') ?>')" 
+                                                    onclick="confirmarEliminar(<?= $tec_id ?>, '<?= htmlspecialchars($tec_nombre, ENT_QUOTES, 'UTF-8') ?>')" 
                                                     title="Eliminar"
                                                     aria-label="Eliminar técnico">
                                                 <i class="fas fa-trash"></i>
@@ -254,15 +257,16 @@ include_once __DIR__ . '/../layouts/header.php';
                     </tbody>
                 </table>
             </div>
-            <div class="mt-3 text-muted small">
-                <i class="fas fa-list me-1"></i> Mostrando <?= count($tecnicos) ?> técnico(s)
+            <div class="card-footer bg-transparent">
+                <span class="text-muted small">
+                    <i class="fas fa-list me-1"></i> Mostrando <?= count($tecnicos) ?> técnico(s)
+                </span>
             </div>
         </div>
     </div>
 
 </div>
 
-<!-- Estilos -->
 <style>
 .stat-card-modern {
     background: var(--bg-card) !important;
@@ -301,15 +305,6 @@ include_once __DIR__ . '/../layouts/header.php';
     display: block !important;
     line-height: 1.2 !important;
 }
-.stat-card-modern .stat-footer-modern {
-    margin-top: 8px !important;
-}
-.stat-card-modern .stat-footer-modern .badge {
-    font-size: 0.65rem !important;
-    padding: 4px 12px !important;
-    border-radius: 20px !important;
-    font-weight: 500 !important;
-}
 .badge-status {
     padding: 4px 12px;
     border-radius: 20px;
@@ -323,6 +318,8 @@ include_once __DIR__ . '/../layouts/header.php';
     width: 36px;
     height: 36px;
     border-radius: 50%;
+    background: #0d6efd;
+    color: #fff;
     display: flex;
     align-items: center;
     justify-content: center;

@@ -1,7 +1,8 @@
 <?php
 // views/firmas/orden.php
 // Panel de firmas de una orden con timeline - CON OMITIDOS
-// ✅ FIX: sanitizar firma_svg al mostrarla (antes era XSS vulnerable)
+// ✅ FIX: sanitizar firma_svg al mostrarla
+// ✅ FIX: guards para todas las variables
 
 require_once __DIR__ . '/../../helpers/FirmaSecuenciaHelper.php';
 require_once __DIR__ . '/../../helpers/SVGSanitizer.php';
@@ -24,6 +25,9 @@ $puede_firmar_ahora  = $puede_firmar_ahora ?? false;
 $firmas      = $firmas_secuenciales;
 $pasoActual  = $paso_actual_firma;
 $puedeFirmar = $puede_firmar_ahora;
+
+if (!isset($seccion)) $seccion = 'firmas';
+if (!isset($titulo)) $titulo = 'Firmas de Orden ' . ($orden['num_om'] ?? '');
 
 include_once __DIR__ . '/../layouts/header.php';
 ?>
@@ -174,7 +178,7 @@ include_once __DIR__ . '/../layouts/header.php';
                                         <?php endif; ?>
                                         
                                         <?php if (!empty($firma['firma_svg'])): ?>
-                                            <div class="mt-3 p-2 border rounded" style="background:#fff; max-height:100px; overflow:hidden;">
+                                            <div class="mt-3 p-2 border rounded firma-svg-container">
                                                 <?= SVGSanitizer::sanitize($firma['firma_svg']) ?>
                                             </div>
                                         <?php endif; ?>
@@ -241,9 +245,17 @@ include_once __DIR__ . '/../layouts/header.php';
 .timeline-marker {
     flex-shrink: 0;
 }
+.firma-svg-container {
+    background: #ffffff !important;
+    max-height: 100px;
+    overflow: hidden;
+}
+[data-theme="dark"] .firma-svg-container {
+    background: #ffffff !important;
+}
 .card {
     border-radius: 16px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+    box-shadow: 0 2px 12px var(--shadow-color);
 }
 </style>
 

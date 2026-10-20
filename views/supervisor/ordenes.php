@@ -1,9 +1,6 @@
 <?php
 // views/supervisor/ordenes.php
 // Órdenes para Revisar - Vista del Supervisor
-// ✅ FIX: Eliminado CSS personalizado que rompía el tema global (modo oscuro)
-// ✅ FIX: Botones y tablas usan las clases estándar del sistema
-// ✅ FIX NUEVO: contenedor .table-actions + btn-icon + btn-header-action en JS
 
 if (!isset($seccion)) { $seccion = 'supervisor'; }
 if (!isset($titulo)) { $titulo = 'Órdenes para Revisar'; }
@@ -122,10 +119,14 @@ function cargarTecnicos() {
         .then(res => res.ok ? res.json() : Promise.reject(res))
         .then(data => {
             const select = document.getElementById('tecnico');
+            if (!select || !Array.isArray(data)) return;
             data.forEach(tecnico => {
+                // ✅ FIX: blindar accesos
+                const t_id = parseInt(tecnico.id) || 0;
+                const t_nombre = tecnico.nombre || 'N/A';
                 const option = document.createElement('option');
-                option.value = tecnico.id;
-                option.textContent = tecnico.nombre;
+                option.value = t_id;
+                option.textContent = t_nombre;
                 select.appendChild(option);
             });
         })
@@ -147,12 +148,21 @@ function cargarOrdenes(page = 1) {
 
             if (data.ordenes && data.ordenes.length > 0) {
                 data.ordenes.forEach(orden => {
+                    // ✅ FIX: blindar TODOS los accesos
+                    const o_id       = parseInt(orden.id) || 0;
+                    const o_titulo   = orden.titulo || 'Sin título';
+                    const o_tecnico  = orden.tecnico || 'Sin asignar';
+                    const o_prior    = orden.prioridad || 'Media';
+                    const o_fecha    = orden.fecha_creacion || '';
+                    const o_estado   = orden.estado || 'PENDIENTE';
+                    const o_sup_est  = orden.supervision_estado || '';
+
                     const prioridadColor = {
                         'Baja': 'success',
                         'Media': 'info',
                         'Alta': 'warning',
                         'Urgente': 'danger'
-                    }[orden.prioridad] || 'secondary';
+                    }[o_prior] || 'secondary';
 
                     const estadoColor = {
                         'PENDIENTE': 'warning',
@@ -162,40 +172,38 @@ function cargarOrdenes(page = 1) {
                         'APROBADA': 'success',
                         'CANCELADA': 'danger',
                         'RECHAZADA': 'danger'
-                    }[orden.estado] || 'secondary';
+                    }[o_estado] || 'secondary';
 
                     const tr = document.createElement('tr');
-
-                    // ✅ FIX: contenedor .table-actions + btn-icon
                     tr.innerHTML = `
-                        <td class="ps-4"><span class="fw-bold">#${escapeHTML(orden.id)}</span></td>
+                        <td class="ps-4"><span class="fw-bold">#${o_id}</span></td>
                         <td>
-                            <div class="fw-semibold">${escapeHTML(orden.titulo || 'Sin título')}</div>
+                            <div class="fw-semibold">${escapeHTML(o_titulo)}</div>
                             <small class="text-muted">Orden de trabajo</small>
                         </td>
-                        <td><span class="text-muted">${escapeHTML(orden.tecnico || 'Sin asignar')}</span></td>
+                        <td><span class="text-muted">${escapeHTML(o_tecnico)}</span></td>
                         <td>
                             <span class="badge bg-${prioridadColor} bg-opacity-10 text-${prioridadColor}">
-                                ${escapeHTML(orden.prioridad || 'Media')}
+                                ${escapeHTML(o_prior)}
                             </span>
                         </td>
-                        <td><small class="text-muted">${escapeHTML(orden.fecha_creacion)}</small></td>
+                        <td><small class="text-muted">${escapeHTML(o_fecha)}</small></td>
                         <td>
                             <span class="badge-status bg-${estadoColor} bg-opacity-10 text-${estadoColor}">
                                 <i class="fas fa-circle me-1" style="font-size:6px;"></i>
-                                ${escapeHTML(orden.estado || 'PENDIENTE')}
+                                ${escapeHTML(o_estado)}
                             </span>
                         </td>
                         <td class="text-center pe-4">
                             <div class="table-actions">
-                                <a href="/proyecto/supervisor/ver_orden/${encodeURIComponent(orden.id)}" 
+                                <a href="/proyecto/supervisor/ver_orden/${encodeURIComponent(o_id)}" 
                                    class="btn btn-sm btn-outline-info btn-icon" 
                                    title="Ver Detalle"
                                    aria-label="Ver detalle">
                                     <i class="fas fa-eye"></i>
                                 </a>
-                                ${orden.estado === 'CERRADA' && orden.supervision_estado !== 'APROBADA' ? `
-                                    <a href="/proyecto/supervisor/revisar/${encodeURIComponent(orden.id)}" 
+                                ${o_estado === 'CERRADA' && o_sup_est !== 'APROBADA' ? `
+                                    <a href="/proyecto/supervisor/revisar/${encodeURIComponent(o_id)}" 
                                        class="btn btn-sm btn-outline-warning btn-icon" 
                                        title="Revisar Orden"
                                        aria-label="Revisar orden">
@@ -278,5 +286,17 @@ document.addEventListener('DOMContentLoaded', function() {
     cargarOrdenes(1);
 });
 </script>
+
+<style>
+.card { border-radius: 16px; box-shadow: 0 2px 12px var(--shadow-color); }
+.badge-status {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-weight: 500;
+    font-size: 0.75rem;
+    display: inline-flex;
+    align-items: center;
+}
+</style>
 
 <?php include_once __DIR__ . '/../layouts/footer.php'; ?>

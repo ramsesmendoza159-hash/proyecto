@@ -1,8 +1,6 @@
 <?php
 // views/checklists/index.php
 // Listado de tipos de checklist - VERSIÓN ESTANDARIZADA
-// ✅ FIX NUEVO: contenedor .table-actions + btn-icon + btn-header-action
-// ✅ FIX 11: botón "Asignar Checklist" para admin/operador
 
 if (!isset($seccion)) $seccion = 'checklists';
 if (!isset($titulo)) $titulo = 'Checklists Operativos';

@@ -1,7 +1,7 @@
 <?php
 // views/backdating/ver.php
 // Detalle de un registro de backdating
-// ✅ FIX: usa $registro['motivo'] (columna real de la BD), no motivo_rechazo
+// ✅ usa $registro['motivo'] (columna real de la BD), no motivo_rechazo
 
 if (!isset($seccion)) $seccion = 'backdating';
 if (!isset($titulo)) $titulo = 'Detalle de Backdating';
@@ -26,10 +26,27 @@ include_once __DIR__ . '/../layouts/header.php';
                 <i class="fas fa-info-circle me-1"></i> Registro retroactivo de mantenimiento
             </p>
         </div>
-        <a href="/proyecto/backdating" class="btn btn-secondary">
-            <i class="fas fa-arrow-left me-1"></i> Volver
+        <a href="/proyecto/backdating" class="btn btn-secondary btn-header-action">
+            <i class="fas fa-arrow-left"></i> Volver
         </a>
     </div>
+
+    <!-- Mensajes -->
+    <?php if (isset($_SESSION['mensaje'])): ?>
+        <div class="alert alert-<?= $_SESSION['mensaje_tipo'] ?? 'success' ?> alert-dismissible fade show">
+            <i class="fas fa-check-circle me-2"></i> <?= htmlspecialchars($_SESSION['mensaje']) ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <?php unset($_SESSION['mensaje'], $_SESSION['mensaje_tipo']); ?>
+    <?php endif; ?>
+
+    <?php if (isset($_SESSION['error'])): ?>
+        <div class="alert alert-danger alert-dismissible fade show">
+            <i class="fas fa-exclamation-circle me-2"></i> <?= htmlspecialchars($_SESSION['error']) ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <?php unset($_SESSION['error']); ?>
+    <?php endif; ?>
 
     <div class="row g-4">
         <div class="col-lg-8">
@@ -99,11 +116,6 @@ include_once __DIR__ . '/../layouts/header.php';
                         </div>
                     </div>
 
-                    <?php
-                    // ✅ FIX: si el estado es rechazado, el motivo también contiene el motivo del rechazo
-                    // El modelo BackdatingModel::rechazar() sobreescribe 'motivo' con el motivo del rechazo.
-                    // Mostramos solo si está rechazado, como aclaración.
-                    ?>
                     <?php if (($registro['estado'] ?? '') === 'rechazado'): ?>
                         <div class="mb-3">
                             <label class="text-muted small fw-semibold text-uppercase">Estado del Rechazo</label>

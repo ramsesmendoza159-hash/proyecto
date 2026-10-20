@@ -1,9 +1,10 @@
 <?php
 // views/admin/dashboard.php
-// Dashboard de administrador - VERSIÓN FINAL CORREGIDA
-// ✅ FIX 1: Se usa $orden['titulo'] en lugar de $orden['descripcion']
-// ✅ FIX 2: catch (Throwable) en vez de catch (Exception)
-// ✅ FIX 3: Gráficos con colores adaptables al tema (MutationObserver)
+// Dashboard de administrador - VERSIÓN CORREGIDA
+// ✅ FIX: NO carga modelos dentro de la vista (vienen del controlador)
+// ✅ FIX: guards para todas las variables
+// ✅ FIX: match() con strtoupper() para normalizar
+// ✅ FIX: gráficos con MutationObserver para cambios de tema
 
 // Verificar sesión
 if (!isset($_SESSION['usuario_id']) || ($_SESSION['rol'] ?? '') !== 'admin') {
@@ -14,38 +15,24 @@ if (!isset($_SESSION['usuario_id']) || ($_SESSION['rol'] ?? '') !== 'admin') {
 $seccion = 'dashboard';
 $titulo = 'Dashboard - Administrador';
 
-// Obtener estadísticas
-require_once __DIR__ . '/../../model/OrdenTrabajo.php';
-require_once __DIR__ . '/../../model/Tecnico.php';
-require_once __DIR__ . '/../../model/Supervisor.php';
-require_once __DIR__ . '/../../config/database.php';
-
-$ordenModel = new OrdenTrabajo();
-$tecnicoModel = new Tecnico();
-$supervisorModel = new Supervisor();
-
-$estadisticas_ordenes = $ordenModel->obtenerEstadisticas();
-$estadisticas_tecnicos = $tecnicoModel->obtenerEstadisticas();
-$estadisticas_supervisores = $supervisorModel->obtenerEstadisticas();
-
-// Estadísticas de usuarios manualmente
-try {
-    $db = Database::getInstance()->getConnection();
-    $sql = "SELECT 
-                COUNT(*) as total,
-                SUM(CASE WHEN estado = 'activo' THEN 1 ELSE 0 END) as activos,
-                SUM(CASE WHEN estado = 'inactivo' THEN 1 ELSE 0 END) as inactivos
-            FROM usuarios";
-    $stmt = $db->prepare($sql);
-    $stmt->execute();
-    $estadisticas_usuarios = $stmt->fetch(PDO::FETCH_ASSOC) ?: ['total' => 0, 'activos' => 0, 'inactivos' => 0];
-} catch (Throwable $e) {
-    error_log("Error al obtener estadísticas de usuarios: " . $e->getMessage());
-    $estadisticas_usuarios = ['total' => 0, 'activos' => 0, 'inactivos' => 0];
-}
-
-// Órdenes recientes
-$ordenes_recientes = $ordenModel->obtenerTodos([], 5, 0);
+// ✅ FIX: Guards - todas las variables vienen del DashboardController::adminDashboard()
+$estadisticas_ordenes = $estadisticas_ordenes ?? [
+    'total' => 0, 'pendientes' => 0, 'en_proceso' => 0,
+    'cerradas' => 0, 'canceladas' => 0, 'aprobadas' => 0,
+    'ejecutadas' => 0, 'rechazadas' => 0, 'devueltas' => 0
+];
+$estadisticas_tecnicos = $estadisticas_tecnicos ?? [
+    'total' => 0, 'activos' => 0, 'inactivos' => 0,
+    'especialidades' => 0, 'tarifa_promedio' => 0, 'total_ordenes' => 0
+];
+$estadisticas_supervisores = $estadisticas_supervisores ?? [
+    'total' => 0, 'activos' => 0, 'inactivos' => 0,
+    'areas' => 0, 'total_ordenes' => 0
+];
+$statsUsuarios = $statsUsuarios ?? ['total' => 0, 'activos' => 0, 'inactivos' => 0];
+$total_plantas = $total_plantas ?? 0;
+$total_gastado = $total_gastado ?? 0;
+$ordenes_recientes = $ordenes_recientes ?? [];
 
 include_once __DIR__ . '/../layouts/header.php';
 ?>
@@ -148,15 +135,15 @@ include_once __DIR__ . '/../layouts/header.php';
                     </div>
                     <div>
                         <div class="stat-label">Usuarios</div>
-                        <div class="stat-number-mini"><?php echo number_format($estadisticas_usuarios['total'] ?? 0); ?></div>
+                        <div class="stat-number-mini"><?php echo number_format($statsUsuarios['total'] ?? 0); ?></div>
                     </div>
                 </div>
                 <div class="mt-2 d-flex gap-1 flex-wrap">
                     <span class="badge bg-success bg-opacity-10 text-success small">
-                        <i class="fas fa-circle me-1" style="font-size:8px;"></i> <?php echo $estadisticas_usuarios['activos'] ?? 0; ?> activos
+                        <i class="fas fa-circle me-1" style="font-size:8px;"></i> <?php echo $statsUsuarios['activos'] ?? 0; ?> activos
                     </span>
                     <span class="badge bg-secondary bg-opacity-10 text-secondary small">
-                        <i class="fas fa-circle me-1" style="font-size:8px;"></i> <?php echo $estadisticas_usuarios['inactivos'] ?? 0; ?> inact.
+                        <i class="fas fa-circle me-1" style="font-size:8px;"></i> <?php echo $statsUsuarios['inactivos'] ?? 0; ?> inact.
                     </span>
                 </div>
             </div>
@@ -266,7 +253,6 @@ include_once __DIR__ . '/../layouts/header.php';
                                     <td><span class="fw-semibold">#<?php echo $orden['id']; ?></span></td>
                                     <td>
                                         <?php 
-                                        // ✅ FIX: Usar 'titulo' en lugar de 'descripcion'
                                         $titulo_orden = $orden['titulo'] ?? 'Sin título';
                                         $titulo_corto = mb_strlen($titulo_orden) > 45 
                                             ? mb_substr($titulo_orden, 0, 45) . '...' 
@@ -284,6 +270,7 @@ include_once __DIR__ . '/../layouts/header.php';
                                     <td>
                                         <?php
                                         $estado = $orden['status'] ?? $orden['estado'] ?? 'PENDIENTE';
+                                        // ✅ FIX: normalizar con strtoupper()
                                         $badge = match(strtoupper($estado)) {
                                             'PENDIENTE' => 'warning',
                                             'EN_PROCESO' => 'info',
@@ -292,12 +279,13 @@ include_once __DIR__ . '/../layouts/header.php';
                                             'CANCELADA' => 'danger',
                                             'APROBADA' => 'success',
                                             'RECHAZADA' => 'danger',
+                                            'DEVUELTA' => 'secondary',
                                             default => 'secondary'
                                         };
                                         ?>
                                         <span class="badge bg-<?php echo $badge; ?> bg-opacity-10 text-<?php echo $badge; ?> px-3 py-2">
                                             <i class="fas fa-circle me-1" style="font-size:6px;"></i>
-                                            <?php echo str_replace('_', ' ', $estado); ?>
+                                            <?php echo htmlspecialchars(str_replace('_', ' ', $estado)); ?>
                                         </span>
                                     </td>
                                     <td>
@@ -312,7 +300,7 @@ include_once __DIR__ . '/../layouts/header.php';
                                         };
                                         ?>
                                         <span class="badge bg-<?php echo $color; ?> bg-opacity-10 text-<?php echo $color; ?> px-3 py-2">
-                                            <?php echo $prioridad; ?>
+                                            <?php echo htmlspecialchars($prioridad); ?>
                                         </span>
                                     </td>
                                     <td><small><?php echo date('d/m/Y', strtotime($orden['fecha_creacion'] ?? 'now')); ?></small></td>
@@ -391,14 +379,6 @@ include_once __DIR__ . '/../layouts/header.php';
     text-transform: uppercase;
     letter-spacing: 0.5px;
     color: var(--text-secondary, #6c757d);
-}
-.badge-status {
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-weight: 500;
-    font-size: 0.75rem;
-    display: inline-flex;
-    align-items: center;
 }
 </style>
 
@@ -517,7 +497,7 @@ function crearGraficos() {
                         data: [
                             <?php echo (int)($estadisticas_tecnicos['total'] ?? 0); ?>,
                             <?php echo (int)($estadisticas_supervisores['total'] ?? 0); ?>,
-                            <?php echo (int)($estadisticas_usuarios['total'] ?? 0); ?>
+                            <?php echo (int)($statsUsuarios['total'] ?? 0); ?>
                         ],
                         backgroundColor: 'rgba(13, 110, 253, 0.85)',
                         borderColor: '#0d6efd',
@@ -530,7 +510,7 @@ function crearGraficos() {
                         data: [
                             <?php echo (int)($estadisticas_tecnicos['activos'] ?? 0); ?>,
                             <?php echo (int)($estadisticas_supervisores['activos'] ?? 0); ?>,
-                            <?php echo (int)($estadisticas_usuarios['activos'] ?? 0); ?>
+                            <?php echo (int)($statsUsuarios['activos'] ?? 0); ?>
                         ],
                         backgroundColor: 'rgba(40, 167, 69, 0.85)',
                         borderColor: '#28a745',

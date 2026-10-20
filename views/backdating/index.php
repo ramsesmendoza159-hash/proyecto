@@ -1,7 +1,7 @@
 <?php
 // views/backdating/index.php
 // Listado de registros de backdating - VERSIÓN ESTANDARIZADA
-// ✅ FIX NUEVO: contenedor .table-actions + btn-icon
+// ✅ FIX: contenedor .table-actions + btn-icon
 
 if (!isset($seccion)) $seccion = 'backdating';
 if (!isset($titulo)) $titulo = 'Registros Retroactivos';

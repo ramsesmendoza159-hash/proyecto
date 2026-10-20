@@ -1,51 +1,55 @@
 <?php
 // views/tecnicos/form.php
-// Formulario de técnicos (crear/editar) - VERSIÓN CORREGIDA CON ASTEROADMIN
+// Formulario de técnicos (crear/editar) - VERSIÓN UNIFICADA
 
-// Incluir helpers necesarios
 require_once __DIR__ . '/../../helpers/SecurityHelper.php';
-require_once __DIR__ . '/../../helpers/ValidationHelper.php';
 
-// Verificar sesión
 if (!isset($_SESSION['usuario_id']) || ($_SESSION['rol'] ?? '') !== 'admin') {
     header('Location: /proyecto/auth/login');
     exit;
 }
 
-$seccion = 'tecnicos';
-$titulo = isset($tecnico) ? 'Editar Técnico' : 'Crear Técnico';
-$accion = isset($tecnico) ? 'actualizar' : 'guardar';
-$id = isset($tecnico) ? $tecnico['id'] : '';
+// ✅ FIX: inicializar $tecnico como null si no viene del controlador
+$tecnico = $tecnico ?? null;
+
+$es_edicion = !empty($tecnico);
+$accion = $es_edicion ? 'actualizar' : 'guardar';
+$id = $es_edicion ? (int)($tecnico['id'] ?? 0) : '';
+$titulo = $es_edicion ? 'Editar Técnico' : 'Crear Técnico';
+
+$old = $_SESSION['old'] ?? [];
+unset($_SESSION['old']);
 
 include_once __DIR__ . '/../layouts/header.php';
 ?>
 
 <div class="container-fluid px-0">
 
-    <!-- ✅ Header -->
+    <!-- Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h4 class="mb-1 fw-bold">
-                <i class="fas fa-user-cog text-primary me-2"></i>
-                <?php echo isset($tecnico) ? 'Editar Técnico' : 'Crear Técnico'; ?>
+                <i class="fas fa-<?= $es_edicion ? 'user-edit text-warning' : 'user-plus text-primary' ?> me-2"></i>
+                <?= $es_edicion ? 'Editar Técnico' : 'Crear Técnico' ?>
             </h4>
             <p class="text-muted small mb-0">
                 <i class="fas fa-info-circle me-1"></i>
-                <?php echo isset($tecnico) ? 'Modifica los datos del técnico' : 'Ingresa los datos del nuevo técnico'; ?>
+                <?= $es_edicion ? 'Modifica los datos del técnico' : 'Ingresa los datos del nuevo técnico' ?>
             </p>
         </div>
-        <a href="/proyecto/tecnicos" class="btn btn-secondary">
-            <i class="fas fa-arrow-left me-1"></i> Volver
+        <a href="/proyecto/tecnicos" class="btn btn-secondary btn-header-action">
+            <i class="fas fa-arrow-left"></i> Volver
         </a>
     </div>
 
-    <!-- ✅ Mensajes de error -->
+    <!-- Mensajes -->
     <?php if (isset($_SESSION['errores']) && !empty($_SESSION['errores'])): ?>
         <div class="alert alert-danger alert-dismissible fade show">
-            <i class="fas fa-exclamation-circle me-2"></i>
-            <ul class="mb-0">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>Por favor corrige los siguientes errores:</strong>
+            <ul class="mb-0 mt-2">
                 <?php foreach ($_SESSION['errores'] as $error): ?>
-                    <li><?php echo htmlspecialchars($error); ?></li>
+                    <li><?= htmlspecialchars($error) ?></li>
                 <?php endforeach; ?>
             </ul>
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
@@ -55,25 +59,17 @@ include_once __DIR__ . '/../layouts/header.php';
 
     <?php if (isset($_SESSION['error']) && !empty($_SESSION['error'])): ?>
         <div class="alert alert-danger alert-dismissible fade show">
-            <i class="fas fa-exclamation-circle me-2"></i> <?php echo htmlspecialchars($_SESSION['error']); ?>
+            <i class="fas fa-exclamation-circle me-2"></i> <?= htmlspecialchars($_SESSION['error']) ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
         <?php unset($_SESSION['error']); ?>
     <?php endif; ?>
 
-    <?php if (isset($_SESSION['mensaje']) && !empty($_SESSION['mensaje'])): ?>
-        <div class="alert alert-success alert-dismissible fade show">
-            <i class="fas fa-check-circle me-2"></i> <?php echo htmlspecialchars($_SESSION['mensaje']); ?>
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-        <?php unset($_SESSION['mensaje']); ?>
-    <?php endif; ?>
-
-    <!-- ✅ Formulario -->
+    <!-- Formulario -->
     <div class="card border-0">
         <div class="card-body">
-            <form method="POST" action="/proyecto/tecnicos/<?php echo $accion; ?>/<?php echo $id; ?>">
-                <input type="hidden" name="csrf_token" value="<?php echo SecurityHelper::generateCSRFToken(); ?>">
+            <form method="POST" action="/proyecto/tecnicos/<?= $accion ?>/<?= $id ?>" id="formTecnico">
+                <input type="hidden" name="csrf_token" value="<?= SecurityHelper::generateCSRFToken() ?>">
                 
                 <div class="row g-4">
                     <!-- Nombre -->
@@ -82,7 +78,7 @@ include_once __DIR__ . '/../layouts/header.php';
                             <label class="form-label fw-semibold">Nombre <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="nombre" 
                                    placeholder="Nombre completo" required
-                                   value="<?php echo htmlspecialchars($tecnico['nombre'] ?? ''); ?>">
+                                   value="<?= htmlspecialchars($old['nombre'] ?? ($tecnico['nombre'] ?? '')) ?>">
                         </div>
                     </div>
                     
@@ -92,7 +88,7 @@ include_once __DIR__ . '/../layouts/header.php';
                             <label class="form-label fw-semibold">Email <span class="text-danger">*</span></label>
                             <input type="email" class="form-control" name="email" 
                                    placeholder="correo@ejemplo.com" required
-                                   value="<?php echo htmlspecialchars($tecnico['email'] ?? ''); ?>">
+                                   value="<?= htmlspecialchars($old['email'] ?? ($tecnico['email'] ?? '')) ?>">
                         </div>
                     </div>
 
@@ -100,11 +96,11 @@ include_once __DIR__ . '/../layouts/header.php';
                     <div class="col-md-6">
                         <div class="form-group">
                             <label class="form-label fw-semibold">
-                                <?php echo isset($tecnico) ? 'Nueva Contraseña (opcional)' : 'Contraseña <span class="text-danger">*</span>'; ?>
+                                <?= $es_edicion ? 'Nueva Contraseña (opcional)' : 'Contraseña <span class="text-danger">*</span>' ?>
                             </label>
                             <input type="password" class="form-control" name="password" 
-                                   placeholder="<?php echo isset($tecnico) ? 'Dejar vacío para mantener' : 'Mínimo 6 caracteres'; ?>"
-                                   <?php echo isset($tecnico) ? '' : 'required'; ?>>
+                                   placeholder="<?= $es_edicion ? 'Dejar vacío para mantener' : 'Mínimo 6 caracteres' ?>"
+                                   <?= $es_edicion ? '' : 'required' ?>>
                             <small class="text-muted">Mínimo 6 caracteres</small>
                         </div>
                     </div>
@@ -124,7 +120,7 @@ include_once __DIR__ . '/../layouts/header.php';
                             <label class="form-label fw-semibold">Especialidad</label>
                             <input type="text" class="form-control" name="especialidad" 
                                    placeholder="Ej: Mecánica, Eléctrica, Refrigeración"
-                                   value="<?php echo htmlspecialchars($tecnico['especialidad'] ?? ''); ?>">
+                                   value="<?= htmlspecialchars($old['especialidad'] ?? ($tecnico['especialidad'] ?? '')) ?>">
                         </div>
                     </div>
                     
@@ -134,7 +130,7 @@ include_once __DIR__ . '/../layouts/header.php';
                             <label class="form-label fw-semibold">Tarifa (S/ hora)</label>
                             <input type="number" step="0.01" class="form-control" name="tarifa" 
                                    placeholder="0.00" min="0"
-                                   value="<?php echo htmlspecialchars($tecnico['tarifa'] ?? 0); ?>">
+                                   value="<?= htmlspecialchars($old['tarifa'] ?? ($tecnico['tarifa'] ?? 0)) ?>">
                         </div>
                     </div>
                     
@@ -144,7 +140,7 @@ include_once __DIR__ . '/../layouts/header.php';
                             <label class="form-label fw-semibold">Teléfono</label>
                             <input type="text" class="form-control" name="telefono" 
                                    placeholder="999 999 999"
-                                   value="<?php echo htmlspecialchars($tecnico['telefono'] ?? ''); ?>">
+                                   value="<?= htmlspecialchars($old['telefono'] ?? ($tecnico['telefono'] ?? '')) ?>">
                         </div>
                     </div>
 
@@ -153,17 +149,17 @@ include_once __DIR__ . '/../layouts/header.php';
                         <div class="form-group">
                             <label class="form-label fw-semibold">Estado</label>
                             <select class="form-select" name="estado">
-                                <option value="activo" <?php echo (isset($tecnico['estado']) && $tecnico['estado'] === 'activo') ? 'selected' : ''; ?>>Activo</option>
-                                <option value="inactivo" <?php echo (isset($tecnico['estado']) && $tecnico['estado'] === 'inactivo') ? 'selected' : ''; ?>>Inactivo</option>
+                                <option value="activo" <?= ($old['estado'] ?? ($tecnico['estado'] ?? 'activo')) === 'activo' ? 'selected' : '' ?>>Activo</option>
+                                <option value="inactivo" <?= ($old['estado'] ?? ($tecnico['estado'] ?? '')) === 'inactivo' ? 'selected' : '' ?>>Inactivo</option>
                             </select>
                         </div>
                     </div>
                     
                     <!-- Botón -->
                     <div class="col-md-6 d-flex align-items-end">
-                        <button type="submit" class="btn btn-primary w-100">
+                        <button type="submit" class="btn btn-primary w-100" id="btnGuardar">
                             <i class="fas fa-save me-2"></i> 
-                            <?php echo isset($tecnico) ? 'Actualizar Técnico' : 'Guardar Técnico'; ?>
+                            <?= $es_edicion ? 'Actualizar Técnico' : 'Guardar Técnico' ?>
                         </button>
                     </div>
                 </div>
@@ -173,11 +169,8 @@ include_once __DIR__ . '/../layouts/header.php';
 
 </div>
 
-<!-- ✅ Estilos -->
 <style>
-.form-group {
-    margin-bottom: 0;
-}
+.form-group { margin-bottom: 0; }
 .form-label {
     font-size: 0.85rem;
     margin-bottom: 0.4rem;
@@ -185,7 +178,9 @@ include_once __DIR__ . '/../layouts/header.php';
 .form-control, .form-select {
     border-radius: 10px;
     padding: 10px 14px;
-    border: 2px solid #e9ecef;
+    border: 2px solid var(--border-color);
+    background: var(--bg-input);
+    color: var(--text-primary);
     transition: all 0.3s ease;
 }
 .form-control:focus, .form-select:focus {
@@ -194,32 +189,73 @@ include_once __DIR__ . '/../layouts/header.php';
 }
 .card {
     border-radius: 16px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+    box-shadow: 0 2px 12px var(--shadow-color);
 }
 </style>
 
-<!-- ✅ Validación de contraseña -->
 <script>
-document.querySelector('form').addEventListener('submit', function(e) {
-    var password = document.querySelector('[name="password"]');
-    var confirmar = document.querySelector('[name="confirmar_password"]');
-    
-    if (password && confirmar) {
-        var pwd = password.value;
-        var conf = confirmar.value;
-        
-        if (pwd || conf) {
-            if (pwd !== conf) {
-                e.preventDefault();
-                alert('❌ Las contraseñas no coinciden.');
-                return false;
-            }
-            if (pwd.length < 6) {
-                e.preventDefault();
-                alert('❌ La contraseña debe tener al menos 6 caracteres.');
-                return false;
-            }
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('formTecnico');
+    const password = document.querySelector('[name="password"]');
+    const confirmPassword = document.querySelector('[name="confirmar_password"]');
+    const btnGuardar = document.getElementById('btnGuardar');
+
+    function mostrarToast(tipo, mensaje) {
+        if (typeof window.showToast === 'function') {
+            window.showToast(tipo, mensaje);
         }
+    }
+
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            let isValid = true;
+
+            const nombre = document.querySelector('[name="nombre"]');
+            if (!nombre.value.trim()) {
+                nombre.classList.add('is-invalid');
+                isValid = false;
+            } else {
+                nombre.classList.remove('is-invalid');
+            }
+
+            const email = document.querySelector('[name="email"]');
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email.value.trim())) {
+                email.classList.add('is-invalid');
+                isValid = false;
+            } else {
+                email.classList.remove('is-invalid');
+            }
+
+            if (password.value || confirmPassword.value) {
+                if (password.value !== confirmPassword.value) {
+                    e.preventDefault();
+                    mostrarToast('error', 'Las contraseñas no coinciden');
+                    confirmPassword.focus();
+                    return false;
+                }
+                if (password.value.length < 6) {
+                    e.preventDefault();
+                    mostrarToast('error', 'La contraseña debe tener al menos 6 caracteres');
+                    password.focus();
+                    return false;
+                }
+            }
+
+            if (!isValid) {
+                e.preventDefault();
+                const firstError = document.querySelector('.is-invalid');
+                if (firstError) {
+                    firstError.focus();
+                    firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                mostrarToast('warning', 'Por favor corrige los errores en el formulario');
+                return false;
+            }
+
+            btnGuardar.disabled = true;
+            btnGuardar.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Guardando...';
+        });
     }
 });
 </script>

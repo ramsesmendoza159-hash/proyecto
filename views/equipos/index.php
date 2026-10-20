@@ -1,7 +1,6 @@
 <?php
 // views/equipos/index.php
 // Gestión de Equipos - Listado - VERSIÓN ESTANDARIZADA
-// ✅ FIX: botón "Ver" cambiado a btn-outline-info
 // ✅ FIX: contenedor .table-actions + btn-icon + btn-header-action
 
 if (!isset($seccion)) $seccion = 'equipos';
@@ -210,10 +209,13 @@ include_once __DIR__ . '/../layouts/header.php';
                                     <td>
                                         <?php
                                         $estadoOp = $equipo['estado_operativo'] ?? 'Operativo';
-                                        $color = 'success';
-                                        if ($estadoOp === 'En Mantenimiento') $color = 'warning';
-                                        elseif ($estadoOp === 'Averiado') $color = 'danger';
-                                        elseif ($estadoOp === 'Fuera de Servicio') $color = 'secondary';
+                                        $color = match($estadoOp) {
+                                            'Operativo' => 'success',
+                                            'En Mantenimiento' => 'warning',
+                                            'Averiado' => 'danger',
+                                            'Fuera de Servicio' => 'secondary',
+                                            default => 'secondary'
+                                        };
                                         ?>
                                         <span class="badge bg-<?= $color ?> bg-opacity-10 text-<?= $color ?> px-3 py-2">
                                             <i class="fas fa-circle me-1" style="font-size:6px;"></i>
@@ -264,7 +266,6 @@ include_once __DIR__ . '/../layouts/header.php';
 
 </div>
 
-<!-- Estilos -->
 <style>
 .stat-card-modern {
     background: var(--bg-card) !important;
@@ -305,7 +306,7 @@ include_once __DIR__ . '/../layouts/header.php';
 }
 .card {
     border-radius: 16px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+    box-shadow: 0 2px 12px var(--shadow-color);
 }
 </style>
 

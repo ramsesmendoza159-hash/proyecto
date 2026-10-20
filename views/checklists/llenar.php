@@ -2,10 +2,9 @@
 // views/checklists/llenar.php
 // Renderiza dinámicamente las secciones según layout_tipo
 // ✅ FIX: usa $seccion_data (NO $seccion) para no sobreescribir el sidebar
-// ✅ FIX: pasa $matriz, $registro, $puede_editar a los layouts
-// ✅ FIX: validación de path traversal en $layout
-// ✅ FIX: guardarLectura() con response.ok check
-// ✅ FIX: warning visible si falta layout
+// ✅ FIX: valida path traversal en $layout
+// ✅ FIX: blindaje de accesos a $registro['xxx'] con ?? default
+// ✅ NOTA: el controlador debe inyectar $sec['horarios'] con los horarios configurados
 
 if (!isset($seccion)) $seccion = 'checklists';
 if (!isset($titulo)) $titulo = 'Llenar Checklist';
@@ -16,9 +15,16 @@ if (!$registro) {
     exit;
 }
 
+// ✅ FIX: blindar TODOS los accesos
 $secciones = $registro['secciones'] ?? [];
-$matriz = $registro['matriz'] ?? [];
-$estado = $registro['estado'] ?? 'BORRADOR';
+$matriz    = $registro['matriz'] ?? [];
+$estado    = $registro['estado'] ?? 'BORRADOR';
+$reg_id    = (int)($registro['id'] ?? 0);
+$tipo_nom  = $registro['tipo_nombre'] ?? 'Checklist';
+$fecha     = $registro['fecha'] ?? null;
+$turno     = $registro['turno'] ?? null;
+
+$fecha_valida = !empty($fecha) && strtotime($fecha) !== false;
 $puede_editar = ($estado === 'BORRADOR');
 $csrf = SecurityHelper::generateCSRFToken();
 
@@ -35,14 +41,14 @@ include_once __DIR__ . '/../layouts/header.php';
         <div>
             <h4 class="mb-1 fw-bold">
                 <i class="fas fa-clipboard-check text-primary me-2"></i>
-                <?= htmlspecialchars($registro['tipo_nombre'] ?? 'Checklist') ?>
+                <?= htmlspecialchars($tipo_nom) ?>
             </h4>
             <p class="text-muted small mb-0">
                 <i class="fas fa-calendar me-1"></i>
-                <?= date('d/m/Y', strtotime($registro['fecha'] ?? 'now')) ?>
-                <?php if (!empty($registro['turno'])): ?>
+                <?= $fecha_valida ? date('d/m/Y', strtotime($fecha)) : 'N/A' ?>
+                <?php if (!empty($turno)): ?>
                     <span class="mx-2">|</span>
-                    <span class="badge bg-dark"><?= htmlspecialchars($registro['turno']) ?></span>
+                    <span class="badge bg-dark"><?= htmlspecialchars($turno) ?></span>
                 <?php endif; ?>
                 <span class="mx-2">|</span>
                 <span class="badge bg-<?= $estado === 'BORRADOR' ? 'warning' : 'info' ?>">
@@ -51,21 +57,22 @@ include_once __DIR__ . '/../layouts/header.php';
             </p>
         </div>
         <div class="d-flex gap-2">
-            <a href="/proyecto/checklists/mis-checklists" class="btn btn-secondary">
-                <i class="fas fa-arrow-left me-1"></i> Volver
+            <a href="/proyecto/checklists/mis-checklists" class="btn btn-secondary btn-header-action">
+                <i class="fas fa-arrow-left"></i> Volver
             </a>
             <?php if ($puede_editar): ?>
-                <form method="POST" action="/proyecto/checklists/cerrar/<?= (int)$registro['id'] ?>"
+                <form method="POST" action="/proyecto/checklists/cerrar/<?= $reg_id ?>"
                       id="formCerrar" class="d-inline">
                     <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
-                    <button type="submit" class="btn btn-success">
-                        <i class="fas fa-check-circle me-1"></i> Cerrar
+                    <button type="submit" class="btn btn-success btn-header-action">
+                        <i class="fas fa-check-circle"></i> Cerrar
                     </button>
                 </form>
             <?php endif; ?>
         </div>
     </div>
 
+    <!-- Mensajes -->
     <?php if (isset($_SESSION['mensaje'])): ?>
         <div class="alert alert-<?= $_SESSION['mensaje_tipo'] ?? 'success' ?> alert-dismissible fade show">
             <i class="fas fa-check-circle me-2"></i> <?= htmlspecialchars($_SESSION['mensaje']) ?>
@@ -86,7 +93,7 @@ include_once __DIR__ . '/../layouts/header.php';
         <div class="alert alert-info">
             <i class="fas fa-info-circle me-2"></i>
             Este registro está en estado <strong><?= htmlspecialchars($estado) ?></strong> y no puede editarse.
-            <a href="/proyecto/checklists/ver/<?= (int)$registro['id'] ?>">Ver detalle</a>.
+            <a href="/proyecto/checklists/ver/<?= $reg_id ?>">Ver detalle</a>.
         </div>
     <?php endif; ?>
 
@@ -97,39 +104,36 @@ include_once __DIR__ . '/../layouts/header.php';
             Este checklist no tiene secciones configuradas.
         </div>
     <?php else: ?>
-        <?php foreach ($secciones as $sec): ?>
-            <?php
-                $layout = $sec['layout_tipo'] ?? '';
+        <?php foreach ($secciones as $sec):
+            $layout = $sec['layout_tipo'] ?? '';
 
-                // ✅ FIX: validar path traversal
-                if (!preg_match('/^[a-z_]+$/', $layout)) {
-                    error_log("Layout inválido en checklist: {$layout}");
-                    echo '<div class="alert alert-danger">Layout inválido: ' . htmlspecialchars($layout) . '</div>';
-                    continue;
-                }
+            // ✅ FIX: validar path traversal
+            if (!preg_match('/^[a-z_]+$/', $layout)) {
+                error_log("Layout inválido en checklist: {$layout}");
+                echo '<div class="alert alert-danger">Layout inválido: ' . htmlspecialchars($layout) . '</div>';
+                continue;
+            }
 
-                $layout_file = __DIR__ . '/layouts/' . $layout . '.php';
+            $layout_file = __DIR__ . '/layouts/' . $layout . '.php';
 
-                // ✅ FIX: usar $seccion_data (NO $seccion) para no romper el sidebar
-                $seccion_data = $sec;
+            // ✅ FIX: usar $seccion_data (NO $seccion) para no romper el sidebar
+            $seccion_data = $sec;
 
-                if (file_exists($layout_file)) {
-                    // ✅ FIX: pasar variables necesarias al layout
-                    // $seccion_data, $matriz, $registro, $puede_editar están disponibles
-                    include $layout_file;
-                } else {
-                    error_log("Layout no encontrado: {$layout_file}");
-                    echo '<div class="alert alert-warning">Layout no encontrado: ' . htmlspecialchars($layout) . '</div>';
-                }
-            ?>
-        <?php endforeach; ?>
+            if (file_exists($layout_file)) {
+                // $seccion_data, $matriz, $registro, $puede_editar están disponibles
+                include $layout_file;
+            } else {
+                error_log("Layout no encontrado: {$layout_file}");
+                echo '<div class="alert alert-warning">Layout no encontrado: ' . htmlspecialchars($layout) . '</div>';
+            }
+        endforeach; ?>
     <?php endif; ?>
 
 </div>
 
 <!-- Variables globales para JS -->
 <input type="hidden" id="csrf_token_global" value="<?= $csrf ?>">
-<input type="hidden" id="registro_id_global" value="<?= (int)$registro['id'] ?>">
+<input type="hidden" id="registro_id_global" value="<?= $reg_id ?>">
 
 <style>
 .card { border-radius: 16px; box-shadow: 0 2px 12px var(--shadow-color); }

@@ -1,15 +1,20 @@
 <?php
 // views/mantenimiento/panel.php
 // Panel de control del mantenimiento preventivo
-// ✅ FIX: botones en outline-* según la regla
-// ✅ FIX NUEVO: contenedor .table-actions + btn-icon + btn-header-action
-
+    
 if (!isset($seccion)) $seccion = 'mantenimiento';
 if (!isset($titulo)) $titulo = 'Panel de Mantenimiento Preventivo';
 
 $alertas = $alertas ?? [];
-$resumen = $resumen ?? ['vencidos_horas' => 0, 'vencidos_fecha' => 0, 'proximos_horas' => 0, 'proximos_fecha' => 0, 'total_alertas' => 0];
-$estadisticas = $estadisticas ?? ['total_equipos' => 0, 'total_planes' => 0, 'mantenimientos_mes' => 0, 'costo_mes' => 0];
+$resumen = $resumen ?? [
+    'vencidos_horas' => 0, 'vencidos_fecha' => 0,
+    'proximos_horas' => 0, 'proximos_fecha' => 0,
+    'total_alertas' => 0
+];
+$estadisticas = $estadisticas ?? [
+    'total_equipos' => 0, 'total_planes' => 0,
+    'mantenimientos_mes' => 0, 'costo_mes' => 0
+];
 $historial_reciente = $historial_reciente ?? [];
 
 include_once __DIR__ . '/../layouts/header.php';
@@ -24,7 +29,7 @@ include_once __DIR__ . '/../layouts/header.php';
             </h4>
             <p class="text-muted small mb-0">
                 <i class="fas fa-info-circle me-1"></i> Control de mantenimiento por horas de uso
-                <?php if ($resumen['total_alertas'] > 0): ?>
+                <?php if (($resumen['total_alertas'] ?? 0) > 0): ?>
                     <span class="badge bg-danger ms-2"><?= $resumen['total_alertas'] ?> alertas</span>
                 <?php endif; ?>
             </p>
@@ -37,7 +42,7 @@ include_once __DIR__ . '/../layouts/header.php';
     <!-- Mensajes -->
     <?php if (isset($_SESSION['mensaje'])): ?>
         <div class="alert alert-<?= $_SESSION['mensaje_tipo'] ?? 'success' ?> alert-dismissible fade show">
-            <i class="fas fa-check-circle me-2"></i> <?= $_SESSION['mensaje'] ?>
+            <i class="fas fa-check-circle me-2"></i> <?= htmlspecialchars($_SESSION['mensaje']) ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
         <?php unset($_SESSION['mensaje'], $_SESSION['mensaje_tipo']); ?>
@@ -108,9 +113,9 @@ include_once __DIR__ . '/../layouts/header.php';
     </div>
 
     <!-- Resumen de Alertas -->
-    <?php if ($resumen['total_alertas'] > 0): ?>
+    <?php if (($resumen['total_alertas'] ?? 0) > 0): ?>
     <div class="row g-3 mb-4">
-        <?php if ($resumen['vencidos_horas'] > 0): ?>
+        <?php if (($resumen['vencidos_horas'] ?? 0) > 0): ?>
         <div class="col-md-3">
             <div class="alert alert-danger mb-0">
                 <div class="d-flex align-items-center gap-2">
@@ -124,7 +129,7 @@ include_once __DIR__ . '/../layouts/header.php';
         </div>
         <?php endif; ?>
 
-        <?php if ($resumen['vencidos_fecha'] > 0): ?>
+        <?php if (($resumen['vencidos_fecha'] ?? 0) > 0): ?>
         <div class="col-md-3">
             <div class="alert alert-warning mb-0">
                 <div class="d-flex align-items-center gap-2">
@@ -138,7 +143,7 @@ include_once __DIR__ . '/../layouts/header.php';
         </div>
         <?php endif; ?>
 
-        <?php if ($resumen['proximos_horas'] > 0): ?>
+        <?php if (($resumen['proximos_horas'] ?? 0) > 0): ?>
         <div class="col-md-3">
             <div class="alert alert-info mb-0">
                 <div class="d-flex align-items-center gap-2">
@@ -152,7 +157,7 @@ include_once __DIR__ . '/../layouts/header.php';
         </div>
         <?php endif; ?>
 
-        <?php if ($resumen['proximos_fecha'] > 0): ?>
+        <?php if (($resumen['proximos_fecha'] ?? 0) > 0): ?>
         <div class="col-md-3">
             <div class="alert alert-secondary mb-0">
                 <div class="d-flex align-items-center gap-2">
@@ -200,14 +205,30 @@ include_once __DIR__ . '/../layouts/header.php';
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($alertas as $alerta): 
+                            <?php foreach ($alertas as $alerta):
+                                // ✅ FIX: blindar TODOS los accesos
+                                $alerta_id       = (int)($alerta['id'] ?? 0);
+                                $alerta_nombre   = $alerta['nombre_equipo'] ?? 'N/A';
+                                $alerta_codigo   = $alerta['codigo'] ?? 'N/A';
+                                $alerta_tarea    = $alerta['nombre_tarea'] ?? 'N/A';
+                                $alerta_frec_h   = $alerta['frecuencia_horas'] ?? null;
+                                $alerta_frec_d   = $alerta['frecuencia_dias'] ?? null;
+                                $alerta_estado   = $alerta['estado_alerta'] ?? 'AL_DIA';
+                                $alerta_horas_r  = $alerta['horas_restantes'] ?? null;
+                                $alerta_dias_r   = $alerta['dias_restantes'] ?? null;
+                                $alerta_resp     = $alerta['responsable'] ?? 'TECNICO_INTERNO';
+                                $alerta_prov     = $alerta['proveedor_nombre'] ?? 'Proveedor';
+                                $alerta_id_eq    = (int)($alerta['id_equipo'] ?? 0);
+                                $alerta_horom    = (int)($alerta['horometro_actual'] ?? 0);
+                                $alerta_costo_est = $alerta['costo_estimado'] ?? 0;
+
                                 $estado_colores = [
                                     'VENCIDO_POR_HORAS' => ['danger', 'fa-exclamation-triangle', 'Vencido (Horas)'],
                                     'VENCIDO_POR_FECHA' => ['danger', 'fa-calendar-times', 'Vencido (Fecha)'],
                                     'PROXIMO_POR_HORAS' => ['warning', 'fa-clock', 'Próximo (Horas)'],
                                     'PROXIMO_POR_FECHA' => ['info', 'fa-calendar-alt', 'Próximo (Fecha)'],
                                 ];
-                                $estado_info = $estado_colores[$alerta['estado_alerta']] ?? ['secondary', 'fa-info-circle', 'Al día'];
+                                $estado_info = $estado_colores[$alerta_estado] ?? ['secondary', 'fa-info-circle', 'Al día'];
                                 list($color, $icono, $texto) = $estado_info;
                             ?>
                                 <tr>
@@ -217,18 +238,18 @@ include_once __DIR__ . '/../layouts/header.php';
                                                 <i class="fas fa-industry"></i>
                                             </div>
                                             <div>
-                                                <div class="fw-semibold"><?= htmlspecialchars($alerta['nombre_equipo']) ?></div>
-                                                <small class="text-muted"><?= htmlspecialchars($alerta['codigo'] ?? 'N/A') ?></small>
+                                                <div class="fw-semibold"><?= htmlspecialchars($alerta_nombre) ?></div>
+                                                <small class="text-muted"><?= htmlspecialchars($alerta_codigo) ?></small>
                                             </div>
                                         </div>
                                     </td>
-                                    <td><?= htmlspecialchars($alerta['nombre_tarea']) ?></td>
+                                    <td><?= htmlspecialchars($alerta_tarea) ?></td>
                                     <td>
-                                        <?php if (!empty($alerta['frecuencia_horas'])): ?>
-                                            <span class="badge bg-primary"><?= $alerta['frecuencia_horas'] ?> h</span>
+                                        <?php if (!empty($alerta_frec_h)): ?>
+                                            <span class="badge bg-primary"><?= $alerta_frec_h ?> h</span>
                                         <?php endif; ?>
-                                        <?php if (!empty($alerta['frecuencia_dias'])): ?>
-                                            <span class="badge bg-info"><?= $alerta['frecuencia_dias'] ?> días</span>
+                                        <?php if (!empty($alerta_frec_d)): ?>
+                                            <span class="badge bg-info"><?= $alerta_frec_d ?> días</span>
                                         <?php endif; ?>
                                     </td>
                                     <td>
@@ -237,21 +258,21 @@ include_once __DIR__ . '/../layouts/header.php';
                                         </span>
                                     </td>
                                     <td>
-                                        <?php if ($alerta['horas_restantes'] !== null): ?>
-                                            <div class="fw-semibold <?= $alerta['horas_restantes'] <= 0 ? 'text-danger' : 'text-warning' ?>">
-                                                <?= number_format($alerta['horas_restantes']) ?> h
+                                        <?php if ($alerta_horas_r !== null): ?>
+                                            <div class="fw-semibold <?= $alerta_horas_r <= 0 ? 'text-danger' : 'text-warning' ?>">
+                                                <?= number_format($alerta_horas_r) ?> h
                                             </div>
                                         <?php endif; ?>
-                                        <?php if ($alerta['dias_restantes'] !== null): ?>
-                                            <div class="small <?= $alerta['dias_restantes'] <= 0 ? 'text-danger' : 'text-muted' ?>">
-                                                <?= $alerta['dias_restantes'] ?> días
+                                        <?php if ($alerta_dias_r !== null): ?>
+                                            <div class="small <?= $alerta_dias_r <= 0 ? 'text-danger' : 'text-muted' ?>">
+                                                <?= $alerta_dias_r ?> días
                                             </div>
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <?php if ($alerta['responsable'] === 'PROVEEDOR_EXTERNO'): ?>
+                                        <?php if ($alerta_resp === 'PROVEEDOR_EXTERNO'): ?>
                                             <span class="badge bg-warning bg-opacity-10 text-warning">
-                                                <i class="fas fa-truck me-1"></i><?= htmlspecialchars($alerta['proveedor_nombre'] ?? 'Proveedor') ?>
+                                                <i class="fas fa-truck me-1"></i><?= htmlspecialchars($alerta_prov) ?>
                                             </span>
                                         <?php else: ?>
                                             <span class="badge bg-info bg-opacity-10 text-info">
@@ -261,16 +282,13 @@ include_once __DIR__ . '/../layouts/header.php';
                                     </td>
                                     <td>
                                         <div class="table-actions">
-                                            <a href="/proyecto/mantenimiento/equipo/<?= (int)$alerta['id_equipo'] ?>" 
+                                            <a href="/proyecto/mantenimiento/equipo/<?= $alerta_id_eq ?>" 
                                                class="btn btn-sm btn-outline-info btn-icon" 
                                                title="Ver Equipo"
                                                aria-label="Ver equipo">
                                                 <i class="fas fa-eye"></i>
                                             </a>
-                                            <?php
-                                            $alerta_id = (int)($alerta['id'] ?? 0);
-                                            if ($alerta_id > 0):
-                                            ?>
+                                            <?php if ($alerta_id > 0): ?>
                                                 <button class="btn btn-sm btn-outline-success btn-icon" 
                                                         data-bs-toggle="modal" 
                                                         data-bs-target="#modalCompletar<?= $alerta_id ?>"
@@ -317,18 +335,29 @@ include_once __DIR__ . '/../layouts/header.php';
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($historial_reciente as $mant): ?>
+                            <?php foreach ($historial_reciente as $mant):
+                                // ✅ FIX: blindar TODOS los accesos
+                                $mant_fecha   = $mant['fecha_mantenimiento'] ?? null;
+                                $mant_equipo  = $mant['nombre_equipo'] ?? 'N/A';
+                                $mant_tipo    = $mant['tipo'] ?? 'N/A';
+                                $mant_desc    = $mant['descripcion'] ?? '';
+                                $mant_horas   = (int)($mant['horas_equipo'] ?? 0);
+                                $mant_costo   = (float)($mant['costo'] ?? 0);
+
+                                $fecha_valida = !empty($mant_fecha) && strtotime($mant_fecha) !== false;
+                                $fecha_fmt = $fecha_valida ? date('d/m/Y H:i', strtotime($mant_fecha)) : 'N/A';
+                            ?>
                                 <tr>
-                                    <td><small><?= date('d/m/Y H:i', strtotime($mant['fecha_mantenimiento'])) ?></small></td>
-                                    <td><?= htmlspecialchars($mant['nombre_equipo']) ?></td>
+                                    <td><small><?= $fecha_fmt ?></small></td>
+                                    <td><?= htmlspecialchars($mant_equipo) ?></td>
                                     <td>
                                         <span class="badge bg-info bg-opacity-10 text-info">
-                                            <?= htmlspecialchars($mant['tipo'] ?? 'N/A') ?>
+                                            <?= htmlspecialchars($mant_tipo) ?>
                                         </span>
                                     </td>
-                                    <td><?= htmlspecialchars(substr($mant['descripcion'] ?? '', 0, 50)) ?></td>
-                                    <td><?= number_format($mant['horas_equipo'] ?? 0) ?> h</td>
-                                    <td>S/ <?= number_format($mant['costo'] ?? 0, 2) ?></td>
+                                    <td><?= htmlspecialchars(mb_substr($mant_desc, 0, 50)) ?></td>
+                                    <td><?= number_format($mant_horas) ?> h</td>
+                                    <td>S/ <?= number_format($mant_costo, 2) ?></td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
@@ -341,15 +370,15 @@ include_once __DIR__ . '/../layouts/header.php';
 </div>
 
 <!-- Modales de Completar -->
-<?php foreach ($alertas as $alerta): ?>
-    <?php
-    // ✅ FIX: guard contra alertas sin ID (evita colisión de IDs en modales)
+<?php foreach ($alertas as $alerta):
     $alerta_id = (int)($alerta['id'] ?? 0);
-    if ($alerta_id <= 0) {
-        error_log("Mantenimiento panel: alerta sin ID válido, se omite modal");
-        continue;
-    }
-    ?>
+    if ($alerta_id <= 0) continue;
+
+    $modal_nombre = $alerta['nombre_equipo'] ?? 'N/A';
+    $modal_tarea  = $alerta['nombre_tarea'] ?? 'N/A';
+    $modal_horom  = (int)($alerta['horometro_actual'] ?? 0);
+    $modal_costo  = $alerta['costo_estimado'] ?? 0;
+?>
 <div class="modal fade" id="modalCompletar<?= $alerta_id ?>" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -363,22 +392,22 @@ include_once __DIR__ . '/../layouts/header.php';
                 </div>
                 <div class="modal-body">
                     <div class="alert alert-info">
-                        <strong>Equipo:</strong> <?= htmlspecialchars($alerta['nombre_equipo']) ?><br>
-                        <strong>Tarea:</strong> <?= htmlspecialchars($alerta['nombre_tarea']) ?><br>
-                        <strong>Horómetro actual:</strong> <?= number_format($alerta['horometro_actual']) ?> h
+                        <strong>Equipo:</strong> <?= htmlspecialchars($modal_nombre) ?><br>
+                        <strong>Tarea:</strong> <?= htmlspecialchars($modal_tarea) ?><br>
+                        <strong>Horómetro actual:</strong> <?= number_format($modal_horom) ?> h
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Descripción del trabajo realizado</label>
                         <textarea class="form-control" name="descripcion" rows="3" 
-                                  placeholder="Detalles del mantenimiento..."><?= htmlspecialchars($alerta['nombre_tarea']) ?></textarea>
+                                  placeholder="Detalles del mantenimiento..."><?= htmlspecialchars($modal_tarea) ?></textarea>
                     </div>
 
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Costo (S/)</label>
                             <input type="number" step="0.01" class="form-control" 
-                                   name="costo" min="0" value="<?= $alerta['costo_estimado'] ?? 0 ?>">
+                                   name="costo" min="0" value="<?= $modal_costo ?>">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Repuestos usados</label>

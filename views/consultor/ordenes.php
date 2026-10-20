@@ -1,7 +1,6 @@
 <?php
 // views/consultor/ordenes.php
 // Órdenes - Consultor (solo lectura) - VERSIÓN OFICIAL
-// ✅ FIX: contenedor .table-actions + btn-icon
 
 if (!isset($seccion)) {
     $seccion = 'consultor';
@@ -58,15 +57,25 @@ include_once __DIR__ . '/../layouts/header.php';
                             </tr>
                         <?php else: ?>
                             <?php foreach ($ordenes as $orden):
-                                $estadoColor = match($orden['status'] ?? 'PENDIENTE') {
+                                // ✅ FIX: blindar todos los accesos
+                                $orden_id   = (int)($orden['id'] ?? 0);
+                                $titulo_om  = $orden['titulo'] ?? 'Sin título';
+                                $area_om    = $orden['nombre_area'] ?? 'N/A';
+                                $tecnico_om = $orden['tecnico_nombre'] ?? 'Sin asignar';
+                                $status_om  = strtoupper($orden['status'] ?? 'PENDIENTE');
+                                $prioridad  = $orden['prioridad'] ?? 'Media';
+                                $fecha_om   = $orden['fecha_creacion'] ?? null;
+
+                                $estadoColor = match($status_om) {
                                     'PENDIENTE'  => 'warning',
                                     'EN_PROCESO' => 'info',
                                     'EJECUTADA'  => 'primary',
                                     'CERRADA', 'APROBADA' => 'success',
                                     'CANCELADA', 'RECHAZADA' => 'danger',
+                                    'DEVUELTA'   => 'secondary',
                                     default      => 'secondary'
                                 };
-                                $prioridadColor = match($orden['prioridad'] ?? 'Media') {
+                                $prioridadColor = match($prioridad) {
                                     'Baja'    => 'success',
                                     'Media'   => 'info',
                                     'Alta'    => 'warning',
@@ -75,28 +84,34 @@ include_once __DIR__ . '/../layouts/header.php';
                                 };
                             ?>
                                 <tr>
-                                    <td><span class="fw-semibold">#<?= (int)$orden['id'] ?></span></td>
-                                    <td><?= htmlspecialchars($orden['titulo'] ?? 'Sin título') ?></td>
-                                    <td><?= htmlspecialchars($orden['nombre_area'] ?? 'N/A') ?></td>
-                                    <td><?= htmlspecialchars($orden['tecnico_nombre'] ?? 'Sin asignar') ?></td>
+                                    <td><span class="fw-semibold">#<?= $orden_id ?></span></td>
+                                    <td><?= htmlspecialchars($titulo_om) ?></td>
+                                    <td><?= htmlspecialchars($area_om) ?></td>
+                                    <td><?= htmlspecialchars($tecnico_om) ?></td>
                                     <td>
                                         <span class="badge-status bg-<?= $estadoColor ?> bg-opacity-10 text-<?= $estadoColor ?>">
                                             <i class="fas fa-circle me-1" style="font-size:6px;"></i>
-                                            <?= htmlspecialchars($orden['status'] ?? 'PENDIENTE') ?>
+                                            <?= htmlspecialchars($status_om) ?>
                                         </span>
                                     </td>
                                     <td>
                                         <span class="badge bg-<?= $prioridadColor ?> bg-opacity-10 text-<?= $prioridadColor ?>">
-                                            <?= htmlspecialchars($orden['prioridad'] ?? 'Media') ?>
+                                            <?= htmlspecialchars($prioridad) ?>
                                         </span>
                                     </td>
-                                    <td><small><?= date('d/m/Y', strtotime($orden['fecha_creacion'] ?? 'now')) ?></small></td>
+                                    <td>
+                                        <small>
+                                            <?= $fecha_om && strtotime($fecha_om) !== false
+                                                ? date('d/m/Y', strtotime($fecha_om))
+                                                : 'N/A' ?>
+                                        </small>
+                                    </td>
                                     <td>
                                         <div class="table-actions">
-                                            <a href="/proyecto/consultor/ver_orden/<?= (int)$orden['id'] ?>"
+                                            <a href="/proyecto/consultor/ver_orden/<?= $orden_id ?>"
                                                class="btn btn-sm btn-outline-info btn-icon"
-                                               title="Ver"
-                                               aria-label="Ver orden">
+                                               title="Ver detalle"
+                                               aria-label="Ver detalle de orden">
                                                 <i class="fas fa-eye"></i>
                                             </a>
                                         </div>

@@ -1,6 +1,7 @@
 <?php
 // views/equipos/crear.php
 // Crear Equipo
+// ✅ Guards para $areas, $plantas, $old
 
 if (!isset($seccion)) $seccion = 'equipos';
 if (!isset($titulo)) $titulo = 'Nuevo Equipo';
@@ -24,8 +25,8 @@ include_once __DIR__ . '/../layouts/header.php';
                 <i class="fas fa-info-circle me-1"></i> Registra un nuevo equipo o máquina
             </p>
         </div>
-        <a href="/proyecto/equipos" class="btn btn-secondary">
-            <i class="fas fa-arrow-left me-1"></i> Volver
+        <a href="/proyecto/equipos" class="btn btn-secondary btn-header-action">
+            <i class="fas fa-arrow-left"></i> Volver
         </a>
     </div>
 
@@ -197,7 +198,10 @@ include_once __DIR__ . '/../layouts/header.php';
 .form-control, .form-select {
     border-radius: 10px;
     padding: 10px 14px;
-    border: 2px solid #e9ecef;
+    border: 2px solid var(--border-color);
+    background: var(--bg-input);
+    color: var(--text-primary);
+    transition: all 0.3s ease;
 }
 .form-control:focus, .form-select:focus {
     border-color: #0d6efd;
@@ -205,7 +209,7 @@ include_once __DIR__ . '/../layouts/header.php';
 }
 .card {
     border-radius: 16px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+    box-shadow: 0 2px 12px var(--shadow-color);
 }
 </style>
 

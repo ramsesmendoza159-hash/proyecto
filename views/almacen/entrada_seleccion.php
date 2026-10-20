@@ -1,6 +1,7 @@
 <?php
 // views/almacen/entrada_seleccion.php
 // Seleccionar producto para entrada - VERSIÓN COMPLETA
+// ✅ Guards para $productos
 
 if (!isset($_SESSION['usuario_id'])) {
     header('Location: /proyecto/auth/login');
@@ -34,8 +35,8 @@ include_once __DIR__ . '/../layouts/header.php';
                 <i class="fas fa-info-circle me-1"></i> Selecciona el producto al que quieres agregar stock
             </p>
         </div>
-        <a href="/proyecto/almacen" class="btn btn-secondary">
-            <i class="fas fa-arrow-left me-1"></i> Volver
+        <a href="/proyecto/almacen" class="btn btn-secondary btn-header-action">
+            <i class="fas fa-arrow-left"></i> Volver
         </a>
     </div>
 
@@ -148,15 +149,20 @@ include_once __DIR__ . '/../layouts/header.php';
                     </tbody>
                 </table>
             </div>
-            <div class="mt-3 text-muted small">
-                <i class="fas fa-list me-1"></i> Mostrando <span id="totalVisible"><?= count($productos) ?></span> producto(s)
+            <div class="card-footer bg-transparent">
+                <span class="text-muted small">
+                    <i class="fas fa-list me-1"></i> Mostrando <span id="totalVisible"><?= count($productos) ?></span> producto(s)
+                </span>
             </div>
         </div>
     </div>
 
 </div>
 
-<!-- Scripts -->
+<style>
+.card { border-radius: 16px; box-shadow: 0 2px 12px var(--shadow-color); }
+</style>
+
 <script>
 function filtrarProductos() {
     const search = document.getElementById('searchInput').value.toLowerCase();
@@ -191,4 +197,3 @@ function resetFiltros() {
 </script>
 
 <?php include_once __DIR__ . '/../layouts/footer.php'; ?>
-                                            

@@ -1,10 +1,6 @@
 <?php
 // views/operador/index.php
 // Panel de Operador - VERSIÓN ESTANDARIZADA
-// ✅ FIX: cards usan variables CSS (funciona en modo claro y oscuro)
-// ✅ FIX: agregada clase .stat-label
-// ✅ FIX NUEVO: botones del header con btn-header-action
-// ✅ FIX NUEVO: botón "Estadísticas" agregado (acceso directo al dashboard de admin)
 
 if (!isset($seccion)) {
     $seccion = 'operador';
@@ -53,7 +49,7 @@ include_once __DIR__ . '/../layouts/header.php';
                     </div>
                     <div>
                         <div class="stat-label-modern">Total Órdenes</div>
-                        <div class="stat-number-modern"><?php echo $estadisticas['total'] ?? 0; ?></div>
+                        <div class="stat-number-modern"><?= $estadisticas['total'] ?? 0 ?></div>
                     </div>
                 </div>
             </div>
@@ -66,7 +62,7 @@ include_once __DIR__ . '/../layouts/header.php';
                     </div>
                     <div>
                         <div class="stat-label-modern">Pendientes</div>
-                        <div class="stat-number-modern"><?php echo $estadisticas['pendientes'] ?? 0; ?></div>
+                        <div class="stat-number-modern"><?= $estadisticas['pendientes'] ?? 0 ?></div>
                     </div>
                 </div>
             </div>
@@ -79,7 +75,7 @@ include_once __DIR__ . '/../layouts/header.php';
                     </div>
                     <div>
                         <div class="stat-label-modern">En Proceso</div>
-                        <div class="stat-number-modern"><?php echo $estadisticas['en_proceso'] ?? 0; ?></div>
+                        <div class="stat-number-modern"><?= $estadisticas['en_proceso'] ?? 0 ?></div>
                     </div>
                 </div>
             </div>
@@ -92,7 +88,7 @@ include_once __DIR__ . '/../layouts/header.php';
                     </div>
                     <div>
                         <div class="stat-label-modern">Completadas</div>
-                        <div class="stat-number-modern"><?php echo $estadisticas['completadas'] ?? 0; ?></div>
+                        <div class="stat-number-modern"><?= $estadisticas['completadas'] ?? 0 ?></div>
                     </div>
                 </div>
             </div>
@@ -101,7 +97,6 @@ include_once __DIR__ . '/../layouts/header.php';
 
 </div>
 
-<!-- Estilos -->
 <style>
 .stat-card-modern {
     background: var(--bg-card) !important;

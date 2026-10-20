@@ -1,13 +1,11 @@
 <?php
 // views/firmas/configuracion.php
 // Configuración de la secuencia de firmas (solo admin)
-// ✅ FIX: Agregado <?php al inicio (antes era ?php)
-// ✅ FIX: Verificación de sesión y rol
-// ✅ FIX: Guard para $secuencia
-// ✅ FIX: checkbox "activo" respeta el valor de la BD
-// ✅ FIX: htmlspecialchars con ?? '' en todos los campos
+// ✅ Validación de sesión y rol
+// ✅ Guard para $secuencia
+// ✅ Checkbox "activo" respeta el valor de la BD
+// ✅ htmlspecialchars con ?? '' en todos los campos
 
-// ✅ Validar sesión y rol
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -23,7 +21,7 @@ if (($_SESSION['rol'] ?? '') !== 'admin') {
     exit;
 }
 
-// ✅ Guard: si $secuencia no viene del controlador, inicializarla vacía
+// Guard: si $secuencia no viene del controlador, inicializarla vacía
 $secuencia = $secuencia ?? [];
 
 // Roles permitidos en la secuencia de firmas
@@ -34,6 +32,9 @@ $roles_disponibles = [
     'supervisor' => 'Supervisor',
     'seguridad'  => 'Seguridad',
 ];
+
+if (!isset($seccion)) $seccion = 'firmas';
+if (!isset($titulo)) $titulo = 'Configuración de Secuencia de Firmas';
 
 include_once __DIR__ . '/../layouts/header.php';
 ?>
@@ -47,11 +48,12 @@ include_once __DIR__ . '/../layouts/header.php';
                 <i class="fas fa-cog text-primary me-2"></i>Configuración de Secuencia de Firmas
             </h4>
             <p class="text-muted small mb-0">
+                <i class="fas fa-info-circle me-1"></i>
                 Define el orden y los roles que deben firmar cada orden
             </p>
         </div>
-        <a href="/proyecto/dashboard" class="btn btn-secondary">
-            <i class="fas fa-arrow-left me-1"></i> Volver
+        <a href="/proyecto/dashboard" class="btn btn-secondary btn-header-action">
+            <i class="fas fa-arrow-left"></i> Volver
         </a>
     </div>
 
@@ -183,7 +185,7 @@ include_once __DIR__ . '/../layouts/header.php';
 <style>
 .card {
     border-radius: 16px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+    box-shadow: 0 2px 12px var(--shadow-color);
 }
 .form-check-input:checked {
     background-color: #0d6efd;

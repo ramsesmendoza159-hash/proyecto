@@ -1,6 +1,7 @@
 <?php
 // views/supervision/editar.php
 // Editar Supervisión - VERSIÓN CORREGIDA
+
 require_once __DIR__ . '/../../helpers/SecurityHelper.php';
 
 if (!SecurityHelper::verificarSesion()) {
@@ -27,14 +28,23 @@ if (!$supervision) {
 $ordenes = $ordenes ?? [];
 $supervisores = $supervisores ?? [];
 
-$estado = $supervision['estado'] ?? 'PENDIENTE';
+// ✅ FIX: blindar TODOS los accesos
+$sup_id        = (int)($supervision['id'] ?? 0);
+$sup_orden_id  = (int)($supervision['orden_id'] ?? 0);
+$sup_sup_id    = (int)($supervision['supervisor_id'] ?? 0);
+$sup_calif     = $supervision['calificacion'] ?? '';
+$sup_estado    = $supervision['estado'] ?? 'PENDIENTE';
+$sup_obs       = $supervision['observaciones'] ?? '';
+$sup_cumple    = !empty($supervision['cumple']);
+$sup_fecha_sup = $supervision['fecha_supervision'] ?? null;
+$sup_fecha_cre = $supervision['fecha_creacion'] ?? null;
 
 // Formatear fecha para datetime-local
 $fecha_supervision_valor = '';
-if (!empty($supervision['fecha_supervision'])) {
-    $fecha_supervision_valor = date('Y-m-d\TH:i', strtotime($supervision['fecha_supervision']));
-} elseif (!empty($supervision['fecha_creacion'])) {
-    $fecha_supervision_valor = date('Y-m-d\TH:i', strtotime($supervision['fecha_creacion']));
+if (!empty($sup_fecha_sup) && strtotime($sup_fecha_sup) !== false) {
+    $fecha_supervision_valor = date('Y-m-d\TH:i', strtotime($sup_fecha_sup));
+} elseif (!empty($sup_fecha_cre) && strtotime($sup_fecha_cre) !== false) {
+    $fecha_supervision_valor = date('Y-m-d\TH:i', strtotime($sup_fecha_cre));
 } else {
     $fecha_supervision_valor = date('Y-m-d\TH:i');
 }
@@ -46,21 +56,21 @@ if (!empty($supervision['fecha_supervision'])) {
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h4 class="mb-1 fw-bold">
-                <i class="fas fa-edit text-warning me-2"></i>Editar Supervisión #<?= htmlspecialchars($supervision['id'] ?? '', ENT_QUOTES, 'UTF-8') ?>
+                <i class="fas fa-edit text-warning me-2"></i>Editar Supervisión #<?= $sup_id ?>
             </h4>
             <p class="text-muted small mb-0">
                 <i class="fas fa-info-circle me-1"></i> Modifica los datos de la supervisión
             </p>
         </div>
-        <a href="/proyecto/supervision" class="btn btn-secondary">
-            <i class="fas fa-arrow-left me-1"></i> Volver
+        <a href="/proyecto/supervision" class="btn btn-secondary btn-header-action">
+            <i class="fas fa-arrow-left"></i> Volver
         </a>
     </div>
 
     <!-- Formulario -->
     <div class="card border-0">
         <div class="card-body">
-            <form action="/proyecto/supervision/actualizar/<?= htmlspecialchars($supervision['id'] ?? '', ENT_QUOTES, 'UTF-8') ?>" method="POST">
+            <form action="/proyecto/supervision/actualizar/<?= $sup_id ?>" method="POST">
                 <input type="hidden" name="csrf_token" value="<?= SecurityHelper::generateCSRFToken(); ?>">
 
                 <div class="row g-4">
@@ -70,10 +80,13 @@ if (!empty($supervision['fecha_supervision'])) {
                             <select class="form-select" id="orden_id" name="orden_id" required>
                                 <option value="">Seleccionar orden...</option>
                                 <?php if (!empty($ordenes)): ?>
-                                    <?php foreach ($ordenes as $orden): ?>
-                                        <option value="<?= (int)$orden['id'] ?>"
-                                            <?= ($supervision['orden_id'] ?? '') == $orden['id'] ? 'selected' : '' ?>>
-                                            #<?= (int)$orden['id'] ?> - <?= htmlspecialchars($orden['titulo'] ?? 'Sin título') ?>
+                                    <?php foreach ($ordenes as $orden):
+                                        $ord_id = (int)($orden['id'] ?? 0);
+                                        $ord_tit = $orden['titulo'] ?? 'Sin título';
+                                    ?>
+                                        <option value="<?= $ord_id ?>"
+                                            <?= $sup_orden_id == $ord_id ? 'selected' : '' ?>>
+                                            #<?= $ord_id ?> - <?= htmlspecialchars($ord_tit) ?>
                                         </option>
                                     <?php endforeach; ?>
                                 <?php else: ?>
@@ -88,10 +101,13 @@ if (!empty($supervision['fecha_supervision'])) {
                             <select class="form-select" id="supervisor_id" name="supervisor_id" required>
                                 <option value="">Seleccionar supervisor...</option>
                                 <?php if (!empty($supervisores)): ?>
-                                    <?php foreach ($supervisores as $supervisor): ?>
-                                        <option value="<?= (int)$supervisor['id'] ?>"
-                                            <?= ($supervision['supervisor_id'] ?? '') == $supervisor['id'] ? 'selected' : '' ?>>
-                                            <?= htmlspecialchars($supervisor['nombre']) ?>
+                                    <?php foreach ($supervisores as $supervisor):
+                                        $sup_row_id = (int)($supervisor['id'] ?? 0);
+                                        $sup_nom = $supervisor['nombre'] ?? '';
+                                    ?>
+                                        <option value="<?= $sup_row_id ?>"
+                                            <?= $sup_sup_id == $sup_row_id ? 'selected' : '' ?>>
+                                            <?= htmlspecialchars($sup_nom) ?>
                                         </option>
                                     <?php endforeach; ?>
                                 <?php else: ?>
@@ -104,7 +120,7 @@ if (!empty($supervision['fecha_supervision'])) {
                         <div class="form-group">
                             <label for="observaciones" class="form-label fw-semibold">Observaciones</label>
                             <textarea class="form-control" id="observaciones" name="observaciones" rows="4"
-                                      placeholder="Observaciones de la supervisión..."><?= htmlspecialchars($supervision['observaciones'] ?? '', ENT_QUOTES, 'UTF-8') ?></textarea>
+                                      placeholder="Observaciones de la supervisión..."><?= htmlspecialchars($sup_obs) ?></textarea>
                         </div>
                     </div>
                     <div class="col-md-4">
@@ -112,11 +128,11 @@ if (!empty($supervision['fecha_supervision'])) {
                             <label for="calificacion" class="form-label fw-semibold">Calificación</label>
                             <select class="form-select" id="calificacion" name="calificacion">
                                 <option value="">Sin calificar</option>
-                                <option value="1" <?= ($supervision['calificacion'] ?? '') == 1 ? 'selected' : '' ?>>⭐ 1 - Muy malo</option>
-                                <option value="2" <?= ($supervision['calificacion'] ?? '') == 2 ? 'selected' : '' ?>>⭐⭐ 2 - Malo</option>
-                                <option value="3" <?= ($supervision['calificacion'] ?? '') == 3 ? 'selected' : '' ?>>⭐⭐⭐ 3 - Regular</option>
-                                <option value="4" <?= ($supervision['calificacion'] ?? '') == 4 ? 'selected' : '' ?>>⭐⭐⭐⭐ 4 - Bueno</option>
-                                <option value="5" <?= ($supervision['calificacion'] ?? '') == 5 ? 'selected' : '' ?>>⭐⭐⭐⭐⭐ 5 - Excelente</option>
+                                <option value="1" <?= $sup_calif == 1 ? 'selected' : '' ?>>⭐ 1 - Muy malo</option>
+                                <option value="2" <?= $sup_calif == 2 ? 'selected' : '' ?>>⭐⭐ 2 - Malo</option>
+                                <option value="3" <?= $sup_calif == 3 ? 'selected' : '' ?>>⭐⭐⭐ 3 - Regular</option>
+                                <option value="4" <?= $sup_calif == 4 ? 'selected' : '' ?>>⭐⭐⭐⭐ 4 - Bueno</option>
+                                <option value="5" <?= $sup_calif == 5 ? 'selected' : '' ?>>⭐⭐⭐⭐⭐ 5 - Excelente</option>
                             </select>
                         </div>
                     </div>
@@ -124,9 +140,9 @@ if (!empty($supervision['fecha_supervision'])) {
                         <div class="form-group">
                             <label for="estado" class="form-label fw-semibold">Estado</label>
                             <select class="form-select" id="estado" name="estado">
-                                <option value="PENDIENTE" <?= ($supervision['estado'] ?? '') === 'PENDIENTE' ? 'selected' : '' ?>>Pendiente</option>
-                                <option value="APROBADA" <?= ($supervision['estado'] ?? '') === 'APROBADA' ? 'selected' : '' ?>>✅ Aprobada</option>
-                                <option value="RECHAZADA" <?= ($supervision['estado'] ?? '') === 'RECHAZADA' ? 'selected' : '' ?>>❌ Rechazada</option>
+                                <option value="PENDIENTE" <?= $sup_estado === 'PENDIENTE' ? 'selected' : '' ?>>Pendiente</option>
+                                <option value="APROBADA" <?= $sup_estado === 'APROBADA' ? 'selected' : '' ?>>✅ Aprobada</option>
+                                <option value="RECHAZADA" <?= $sup_estado === 'RECHAZADA' ? 'selected' : '' ?>>❌ Rechazada</option>
                             </select>
                         </div>
                     </div>
@@ -141,7 +157,7 @@ if (!empty($supervision['fecha_supervision'])) {
                     <div class="col-12">
                         <div class="form-check">
                             <input type="checkbox" class="form-check-input" id="cumple" name="cumple"
-                                   <?= ($supervision['cumple'] ?? 0) ? 'checked' : '' ?>>
+                                   <?= $sup_cumple ? 'checked' : '' ?>>
                             <label class="form-check-label" for="cumple">
                                 Cumple con los estándares de calidad
                             </label>
@@ -165,9 +181,7 @@ if (!empty($supervision['fecha_supervision'])) {
 </div>
 
 <style>
-.form-group {
-    margin-bottom: 0;
-}
+.form-group { margin-bottom: 0; }
 .form-label {
     font-size: 0.85rem;
     margin-bottom: 0.4rem;
@@ -175,7 +189,9 @@ if (!empty($supervision['fecha_supervision'])) {
 .form-control, .form-select {
     border-radius: 10px;
     padding: 10px 14px;
-    border: 2px solid #e9ecef;
+    border: 2px solid var(--border-color);
+    background: var(--bg-input);
+    color: var(--text-primary);
     transition: all 0.3s ease;
 }
 .form-control:focus, .form-select:focus {
@@ -184,7 +200,7 @@ if (!empty($supervision['fecha_supervision'])) {
 }
 .card {
     border-radius: 16px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+    box-shadow: 0 2px 12px var(--shadow-color);
 }
 </style>
 

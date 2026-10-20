@@ -1,10 +1,10 @@
 <?php
 // views/almacen/permanencia.php
-// Control de Permanencia - VERSIÓN CORREGIDA
-// ✅ FIX: $seccion = 'permanencia' (antes 'almacen')
+// Control de Permanencia - VERSIÓN FINAL BLINDADA
+// ✅ FIX: $seccion = 'permanencia'
+// ✅ FIX: blindaje de TODOS los accesos a $item['xxx'] y $resumen['xxx']
 
 if (!isset($seccion)) {
-    // ✅ FIX: Sección correcta para resaltar en el sidebar
     $seccion = 'permanencia';
 }
 if (!isset($titulo)) {
@@ -37,15 +37,15 @@ include_once __DIR__ . '/../layouts/header.php';
                 Productos con mayor tiempo en almacén sin movimiento
             </p>
         </div>
-        <a href="/proyecto/almacen" class="btn btn-secondary">
-            <i class="fas fa-arrow-left me-1"></i> Volver
+        <a href="/proyecto/almacen" class="btn btn-secondary btn-header-action">
+            <i class="fas fa-arrow-left"></i> Volver
         </a>
     </div>
 
-    <!-- ✅ Mensajes -->
+    <!-- Mensajes -->
     <?php if (isset($_SESSION['mensaje']) && !empty($_SESSION['mensaje'])): ?>
-        <div class="alert alert-<?php echo $_SESSION['mensaje_tipo'] ?? 'success'; ?> alert-dismissible fade show">
-            <i class="fas fa-check-circle me-2"></i> <?php echo htmlspecialchars($_SESSION['mensaje']); ?>
+        <div class="alert alert-<?= $_SESSION['mensaje_tipo'] ?? 'success' ?> alert-dismissible fade show">
+            <i class="fas fa-check-circle me-2"></i> <?= htmlspecialchars($_SESSION['mensaje']) ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
         <?php unset($_SESSION['mensaje'], $_SESSION['mensaje_tipo']); ?>
@@ -53,13 +53,13 @@ include_once __DIR__ . '/../layouts/header.php';
 
     <?php if (isset($_SESSION['error']) && !empty($_SESSION['error'])): ?>
         <div class="alert alert-danger alert-dismissible fade show">
-            <i class="fas fa-exclamation-circle me-2"></i> <?php echo htmlspecialchars($_SESSION['error']); ?>
+            <i class="fas fa-exclamation-circle me-2"></i> <?= htmlspecialchars($_SESSION['error']) ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
         <?php unset($_SESSION['error']); ?>
     <?php endif; ?>
 
-    <!-- ✅ Resumen -->
+    <!-- Resumen -->
     <div class="row g-3 mb-4">
         <div class="col-xl-2 col-lg-4 col-md-6">
             <div class="stat-card-mini">
@@ -69,7 +69,7 @@ include_once __DIR__ . '/../layouts/header.php';
                     </div>
                     <div>
                         <div class="stat-label">Total Productos</div>
-                        <div class="stat-number-mini"><?php echo number_format($resumen['total'] ?? 0); ?></div>
+                        <div class="stat-number-mini"><?= number_format($resumen['total'] ?? 0) ?></div>
                     </div>
                 </div>
             </div>
@@ -81,8 +81,8 @@ include_once __DIR__ . '/../layouts/header.php';
                         <i class="fas fa-exclamation-triangle"></i>
                     </div>
                     <div>
-                        <div class="stat-label"> Críticos (>30 días)</div>
-                        <div class="stat-number-mini"><?php echo number_format($resumen['criticos'] ?? 0); ?></div>
+                        <div class="stat-label">Críticos (>30 días)</div>
+                        <div class="stat-number-mini"><?= number_format($resumen['criticos'] ?? 0) ?></div>
                     </div>
                 </div>
             </div>
@@ -94,8 +94,8 @@ include_once __DIR__ . '/../layouts/header.php';
                         <i class="fas fa-clock"></i>
                     </div>
                     <div>
-                        <div class="stat-label"> Normal (15-30 días)</div>
-                        <div class="stat-number-mini"><?php echo number_format($resumen['normales'] ?? 0); ?></div>
+                        <div class="stat-label">Normal (15-30 días)</div>
+                        <div class="stat-number-mini"><?= number_format($resumen['normales'] ?? 0) ?></div>
                     </div>
                 </div>
             </div>
@@ -107,8 +107,8 @@ include_once __DIR__ . '/../layouts/header.php';
                         <i class="fas fa-hourglass-half"></i>
                     </div>
                     <div>
-                        <div class="stat-label"> Reciente (7-15 días)</div>
-                        <div class="stat-number-mini"><?php echo number_format($resumen['recientes'] ?? 0); ?></div>
+                        <div class="stat-label">Reciente (7-15 días)</div>
+                        <div class="stat-number-mini"><?= number_format($resumen['recientes'] ?? 0) ?></div>
                     </div>
                 </div>
             </div>
@@ -120,8 +120,8 @@ include_once __DIR__ . '/../layouts/header.php';
                         <i class="fas fa-check-circle"></i>
                     </div>
                     <div>
-                        <div class="stat-label"> Nuevo (<7 días)</div>
-                        <div class="stat-number-mini"><?php echo number_format($resumen['nuevos'] ?? 0); ?></div>
+                        <div class="stat-label">Nuevo (<7 días)</div>
+                        <div class="stat-number-mini"><?= number_format($resumen['nuevos'] ?? 0) ?></div>
                     </div>
                 </div>
             </div>
@@ -134,14 +134,14 @@ include_once __DIR__ . '/../layouts/header.php';
                     </div>
                     <div>
                         <div class="stat-label">Promedio Días</div>
-                        <div class="stat-number-mini"><?php echo number_format($resumen['promedio_dias'] ?? 0, 1); ?></div>
+                        <div class="stat-number-mini"><?= number_format($resumen['promedio_dias'] ?? 0, 1) ?></div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- ✅ Tabla de productos -->
+    <!-- Tabla de productos -->
     <div class="card border-0">
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -168,60 +168,55 @@ include_once __DIR__ . '/../layouts/header.php';
                                 </td>
                             </tr>
                         <?php else: ?>
-                            <?php foreach ($productos as $index => $item): ?>
+                            <?php foreach ($productos as $index => $item):
+                                // ✅ FIX: blindar TODOS los accesos
+                                $it_codigo   = $item['codigo'] ?? 'N/A';
+                                $it_nombre   = $item['nombre'] ?? 'N/A';
+                                $it_cat      = $item['categoria'] ?? 'General';
+                                $it_cant     = (int)($item['cantidad'] ?? 0);
+                                $it_ubic     = $item['ubicacion'] ?? 'N/A';
+                                $it_fecha    = $item['fecha_ultima_entrada'] ?? null;
+                                $it_dias     = (int)($item['dias_permanencia'] ?? 0);
+                                $it_estado   = $item['estado_permanencia'] ?? 'Nuevo';
+
+                                $fecha_val = !empty($it_fecha) && strtotime($it_fecha) !== false;
+
+                                $badgeColor = match(true) {
+                                    strpos($it_estado, 'Crítico') !== false => 'danger',
+                                    strpos($it_estado, 'Normal') !== false => 'warning',
+                                    strpos($it_estado, 'Reciente') !== false => 'info',
+                                    strpos($it_estado, 'Nuevo') !== false => 'success',
+                                    default => 'secondary'
+                                };
+                            ?>
                                 <tr>
-                                    <td><?php echo $index + 1; ?></td>
-                                    <td><code><?php echo htmlspecialchars($item['codigo'] ?? 'N/A'); ?></code></td>
-                                    <td><span class="fw-semibold"><?php echo htmlspecialchars($item['nombre'] ?? 'N/A'); ?></span></td>
+                                    <td><?= $index + 1 ?></td>
+                                    <td><code><?= htmlspecialchars($it_codigo) ?></code></td>
+                                    <td><span class="fw-semibold"><?= htmlspecialchars($it_nombre) ?></span></td>
                                     <td>
                                         <span class="badge bg-info bg-opacity-10 text-info">
-                                            <?php echo htmlspecialchars($item['categoria'] ?? 'General'); ?>
+                                            <?= htmlspecialchars($it_cat) ?>
                                         </span>
                                     </td>
                                     <td>
-                                        <?php if (($item['cantidad'] ?? 0) <= 0): ?>
+                                        <?php if ($it_cant <= 0): ?>
                                             <span class="badge bg-danger bg-opacity-10 text-danger">Agotado</span>
-                                        <?php elseif (($item['cantidad'] ?? 0) <= 5): ?>
-                                            <span class="badge bg-warning bg-opacity-10 text-warning"><?php echo $item['cantidad']; ?></span>
+                                        <?php elseif ($it_cant <= 5): ?>
+                                            <span class="badge bg-warning bg-opacity-10 text-warning"><?= $it_cant ?></span>
                                         <?php else: ?>
-                                            <span class="badge bg-success bg-opacity-10 text-success"><?php echo $item['cantidad']; ?></span>
+                                            <span class="badge bg-success bg-opacity-10 text-success"><?= $it_cant ?></span>
                                         <?php endif; ?>
                                     </td>
-                                    <td><?php echo htmlspecialchars($item['ubicacion'] ?? 'N/A'); ?></td>
+                                    <td><?= htmlspecialchars($it_ubic) ?></td>
                                     <td>
-                                        <?php if (!empty($item['fecha_ultima_entrada'])): ?>
-                                            <?php echo date('d/m/Y', strtotime($item['fecha_ultima_entrada'])); ?>
-                                        <?php else: ?>
-                                            <span class="text-muted">N/A</span>
-                                        <?php endif; ?>
+                                        <?= $fecha_val ? date('d/m/Y', strtotime($it_fecha)) : 'N/A' ?>
                                     </td>
-                                    <td class="fw-bold <?php echo ($item['dias_permanencia'] ?? 0) >= 30 ? 'text-danger' : (($item['dias_permanencia'] ?? 0) >= 15 ? 'text-warning' : 'text-success'); ?>">
-                                        <?php echo $item['dias_permanencia'] ?? 0; ?> días
+                                    <td class="fw-bold <?= $it_dias >= 30 ? 'text-danger' : ($it_dias >= 15 ? 'text-warning' : 'text-success') ?>">
+                                        <?= $it_dias ?> días
                                     </td>
                                     <td>
-                                        <?php
-                                        $estado = $item['estado_permanencia'] ?? '✅ Nuevo';
-                                        // ✅ CORREGIDO: Usar switch en lugar de match para compatibilidad PHP 7.4
-                                        switch ($estado) {
-                                            case '⚠️ Crítico':
-                                                $badgeColor = 'danger';
-                                                break;
-                                            case '🟡 Normal':
-                                                $badgeColor = 'warning';
-                                                break;
-                                            case '🟢 Reciente':
-                                                $badgeColor = 'info';
-                                                break;
-                                            case '✅ Nuevo':
-                                                $badgeColor = 'success';
-                                                break;
-                                            default:
-                                                $badgeColor = 'secondary';
-                                                break;
-                                        }
-                                        ?>
-                                        <span class="badge bg-<?php echo $badgeColor; ?> bg-opacity-10 text-<?php echo $badgeColor; ?> px-3 py-2">
-                                            <?php echo $estado; ?>
+                                        <span class="badge bg-<?= $badgeColor ?> bg-opacity-10 text-<?= $badgeColor ?> px-3 py-2">
+                                            <?= htmlspecialchars($it_estado) ?>
                                         </span>
                                     </td>
                                 </tr>
@@ -230,26 +225,27 @@ include_once __DIR__ . '/../layouts/header.php';
                     </tbody>
                 </table>
             </div>
-            <div class="mt-3 text-muted small">
-                <i class="fas fa-list me-1"></i> Mostrando <?php echo count($productos); ?> producto(s)
+            <div class="card-footer bg-transparent">
+                <span class="text-muted small">
+                    <i class="fas fa-list me-1"></i> Mostrando <?= count($productos) ?> producto(s)
+                </span>
             </div>
         </div>
     </div>
 
 </div>
 
-<!-- ✅ Estilos -->
 <style>
 .stat-card-mini {
-    background: #fff;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
     border-radius: 12px;
     padding: 16px 20px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
     transition: all 0.3s ease;
 }
 .stat-card-mini:hover {
     transform: translateY(-3px);
-    box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+    box-shadow: 0 8px 25px var(--shadow-hover);
 }
 .stat-card-mini .stat-icon-mini {
     width: 44px;
@@ -265,18 +261,18 @@ include_once __DIR__ . '/../layouts/header.php';
     font-size: 0.65rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    color: #6c757d;
+    color: var(--text-secondary);
     font-weight: 600;
 }
 .stat-card-mini .stat-number-mini {
     font-size: 1.5rem;
     font-weight: 700;
-    color: #1a1a2e;
+    color: var(--text-primary);
     line-height: 1.2;
 }
 .card {
     border-radius: 16px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+    box-shadow: 0 2px 12px var(--shadow-color);
 }
 </style>
 

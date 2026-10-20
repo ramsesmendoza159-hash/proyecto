@@ -1,7 +1,7 @@
 <?php
 // views/checklists/asignar.php
 // Formulario para que admin/operador asigne un checklist a un técnico específico
-// ✅ NUEVO
+
 
 if (!isset($seccion)) $seccion = 'checklists';
 if (!isset($titulo)) $titulo = 'Asignar Checklist';
@@ -203,7 +203,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('formAsignar');
     const btnAsignar = document.getElementById('btnAsignar');
 
-    // Mostrar/ocultar turno según el tipo seleccionado
+    function mostrarToast(tipo, mensaje) {
+        if (typeof window.showToast === 'function') {
+            window.showToast(tipo, mensaje);
+        }
+    }
+
     function actualizarTurno() {
         const opt = selectTipo.options[selectTipo.selectedIndex];
         const requiere = opt ? parseInt(opt.getAttribute('data-requiere-turno') || '0') : 0;
@@ -221,14 +226,13 @@ document.addEventListener('DOMContentLoaded', function() {
     selectTipo.addEventListener('change', actualizarTurno);
     actualizarTurno();
 
-    // Validación antes de enviar
     form.addEventListener('submit', function(e) {
         const tipo = selectTipo.value;
         const asignado = document.getElementById('asignado_a_id').value;
         
         if (!tipo || !asignado) {
             e.preventDefault();
-            alert(' Debes seleccionar tipo y técnico');
+            mostrarToast('warning', 'Debes seleccionar tipo y técnico');
             return false;
         }
         
@@ -236,7 +240,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const requiere = opt ? parseInt(opt.getAttribute('data-requiere-turno') || '0') : 0;
         if (requiere === 1 && !selectTurno.value) {
             e.preventDefault();
-            alert(' Este tipo de checklist requiere que indiques el turno');
+            mostrarToast('warning', 'Este tipo de checklist requiere que indiques el turno');
             selectTurno.focus();
             return false;
         }

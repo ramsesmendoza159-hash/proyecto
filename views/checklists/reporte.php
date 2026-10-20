@@ -1,11 +1,7 @@
 <?php
 // views/checklists/reporte.php
 // Vista imprimible de un registro de checklist
-// ✅ FIX: validar autenticación
-// ✅ FIX: usar SVGSanitizer centralizado (antes usaba función inline)
-// ✅ FIX: rowspan seguro en batch_por_equipo
 
-// Validar sesión
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -18,7 +14,6 @@ if (!isset($registro) || !$registro) {
     die('Registro no disponible');
 }
 
-// ✅ Usar el helper centralizado
 require_once __DIR__ . '/../../helpers/SVGSanitizer.php';
 
 $secciones = $registro['secciones'] ?? [];
@@ -30,6 +25,11 @@ $fecha     = $registro['fecha'] ?? date('Y-m-d');
 $turno     = $registro['turno'] ?? null;
 $operador  = $registro['operador_nombre'] ?? 'N/A';
 $estado    = $registro['estado'] ?? 'BORRADOR';
+$reg_id    = (int)($registro['id'] ?? 0);
+$fecha_cre = $registro['fecha_creacion'] ?? null;
+
+$fecha_valida = !empty($fecha) && strtotime($fecha) !== false;
+$fecha_cre_valida = !empty($fecha_cre) && strtotime($fecha_cre) !== false;
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -87,7 +87,7 @@ $estado    = $registro['estado'] ?? 'BORRADOR';
     <button onclick="window.print()" class="btn btn-primary">
         <i class="fas fa-print"></i> Imprimir / PDF
     </button>
-    <a href="/proyecto/checklists/ver/<?= (int)$registro['id'] ?>" class="btn btn-secondary">
+    <a href="/proyecto/checklists/ver/<?= $reg_id ?>" class="btn btn-secondary">
         <i class="fas fa-arrow-left"></i> Volver
     </a>
 </div>
@@ -103,14 +103,14 @@ $estado    = $registro['estado'] ?? 'BORRADOR';
         <p><strong><?= htmlspecialchars($codigo) ?></strong></p>
     </div>
     <div class="header-right">
-        <p>Registro #<?= (int)$registro['id'] ?></p>
-        <p>Fecha: <?= date('d/m/Y H:i', strtotime($registro['fecha_creacion'] ?? 'now')) ?></p>
+        <p>Registro #<?= $reg_id ?></p>
+        <p>Fecha: <?= $fecha_cre_valida ? date('d/m/Y H:i', strtotime($fecha_cre)) : 'N/A' ?></p>
     </div>
 </div>
 
 <!-- Info general -->
 <div class="info-line">
-    <span><strong>Fecha:</strong> <?= date('d/m/Y', strtotime($fecha)) ?></span>
+    <span><strong>Fecha:</strong> <?= $fecha_valida ? date('d/m/Y', strtotime($fecha)) : 'N/A' ?></span>
     <?php if (!empty($turno)): ?>
         <span><strong>Turno:</strong> <?= htmlspecialchars($turno) ?></span>
     <?php endif; ?>
@@ -124,20 +124,21 @@ $estado    = $registro['estado'] ?? 'BORRADOR';
 </div>
 
 <!-- Renderizar secciones -->
-<?php foreach ($secciones as $sec): ?>
-    <?php
-    $sec_id = (int)$sec['id'];
+<?php foreach ($secciones as $sec):
+    $sec_id = (int)($sec['id'] ?? 0);
     $layout = $sec['layout_tipo'] ?? '';
+    $sec_nombre = $sec['nombre'] ?? '';
     $equipos_sec = $sec['equipos'] ?? [];
     $campos_sec = $sec['campos'] ?? [];
-    ?>
+    
+    if ($sec_id <= 0) continue;
+?>
     <div style="margin-bottom: 20px; page-break-inside: avoid;">
         <h5 style="background: #0d6efd; color: #fff; padding: 6px 12px; margin: 0 0 8px 0; font-size: 0.9rem; border-radius: 4px;">
-            <?= htmlspecialchars($sec['nombre'] ?? '') ?>
+            <?= htmlspecialchars($sec_nombre) ?>
         </h5>
 
-        <?php if ($layout === 'grid_horarios'): ?>
-            <?php
+        <?php if ($layout === 'grid_horarios'):
             $horarios = [];
             foreach ($matriz as $lec) {
                 if ((int)($lec['seccion_id'] ?? 0) === $sec_id && !empty($lec['hora'])) {
@@ -146,7 +147,7 @@ $estado    = $registro['estado'] ?? 'BORRADOR';
             }
             $horarios = array_keys($horarios);
             sort($horarios);
-            ?>
+        ?>
             <table class="grilla-reporte">
                 <thead>
                     <tr>
@@ -159,11 +160,10 @@ $estado    = $registro['estado'] ?? 'BORRADOR';
                 <tbody>
                     <?php foreach ($equipos_sec as $eq):
                         $id_eq = (int)($eq['id_equipo'] ?? 0);
+                        $eq_nom = $eq['nombre_display'] ?? ($eq['nombre_equipo'] ?? '');
                     ?>
                         <tr>
-                            <td class="equipo-cell">
-                                <?= htmlspecialchars($eq['nombre_display'] ?? $eq['nombre_equipo'] ?? '') ?>
-                            </td>
+                            <td class="equipo-cell"><?= htmlspecialchars($eq_nom) ?></td>
                             <?php foreach ($horarios as $hora):
                                 $campo_id = (int)($campos_sec[0]['id'] ?? 0);
                                 $key = $sec_id . '_' . $id_eq . '_' . $hora . '_' . $campo_id . '_0';
@@ -207,11 +207,10 @@ $estado    = $registro['estado'] ?? 'BORRADOR';
                 <tbody>
                     <?php foreach ($equipos_sec as $eq):
                         $id_eq = (int)($eq['id_equipo'] ?? 0);
+                        $eq_nom = $eq['nombre_display'] ?? ($eq['nombre_equipo'] ?? '');
                     ?>
                         <tr>
-                            <td class="equipo-cell">
-                                <?= htmlspecialchars($eq['nombre_display'] ?? $eq['nombre_equipo'] ?? '') ?>
-                            </td>
+                            <td class="equipo-cell"><?= htmlspecialchars($eq_nom) ?></td>
                             <?php foreach ($campos_sec as $c):
                                 $campo_id = (int)($c['id'] ?? 0);
                                 $key = $sec_id . '_' . $id_eq . '__' . $campo_id . '_0';
@@ -255,21 +254,20 @@ $estado    = $registro['estado'] ?? 'BORRADOR';
                 <tbody>
                     <?php foreach ($equipos_sec as $eq):
                         $id_eq = (int)($eq['id_equipo'] ?? 0);
+                        $eq_nom = $eq['nombre_display'] ?? ($eq['nombre_equipo'] ?? '');
                         $valor_estado = '';
                         $valor_obs = '';
                         $campo_estado_id = (int)($campos_sec[0]['id'] ?? 0);
                         $campo_obs_id = (int)($campos_sec[1]['id'] ?? 0);
                         foreach ($matriz as $m) {
                             if ((int)($m['seccion_id'] ?? 0) === $sec_id && (int)($m['id_equipo'] ?? 0) === $id_eq) {
-                                if ((int)($m['campo_id'] ?? 0) === $campo_estado_id) $valor_estado = $m['valor'];
-                                if ((int)($m['campo_id'] ?? 0) === $campo_obs_id) $valor_obs = $m['valor'];
+                                if ((int)($m['campo_id'] ?? 0) === $campo_estado_id) $valor_estado = $m['valor'] ?? '';
+                                if ((int)($m['campo_id'] ?? 0) === $campo_obs_id) $valor_obs = $m['valor'] ?? '';
                             }
                         }
                     ?>
                         <tr>
-                            <td class="equipo-cell">
-                                <?= htmlspecialchars($eq['nombre_display'] ?? $eq['nombre_equipo'] ?? '') ?>
-                            </td>
+                            <td class="equipo-cell"><?= htmlspecialchars($eq_nom) ?></td>
                             <td><?= $valor_estado === 'R' ? '✓' : '' ?></td>
                             <td><?= $valor_estado === 'NR' ? '✓' : '' ?></td>
                             <td style="text-align:left;"><?= htmlspecialchars($valor_obs) ?></td>
@@ -290,21 +288,20 @@ $estado    = $registro['estado'] ?? 'BORRADOR';
                 <tbody>
                     <?php foreach ($equipos_sec as $eq):
                         $id_eq = (int)($eq['id_equipo'] ?? 0);
+                        $eq_nom = $eq['nombre_display'] ?? ($eq['nombre_equipo'] ?? '');
                         $valor_v = '';
                         $valor_o = '';
                         $campo_val_id = (int)($campos_sec[0]['id'] ?? 0);
                         $campo_obs_id = (int)($campos_sec[1]['id'] ?? 0);
                         foreach ($matriz as $m) {
                             if ((int)($m['seccion_id'] ?? 0) === $sec_id && (int)($m['id_equipo'] ?? 0) === $id_eq) {
-                                if ((int)($m['campo_id'] ?? 0) === $campo_val_id) $valor_v = $m['valor'];
-                                if ((int)($m['campo_id'] ?? 0) === $campo_obs_id) $valor_o = $m['valor'];
+                                if ((int)($m['campo_id'] ?? 0) === $campo_val_id) $valor_v = $m['valor'] ?? '';
+                                if ((int)($m['campo_id'] ?? 0) === $campo_obs_id) $valor_o = $m['valor'] ?? '';
                             }
                         }
                     ?>
                         <tr>
-                            <td class="equipo-cell">
-                                <?= htmlspecialchars($eq['nombre_display'] ?? $eq['nombre_equipo'] ?? '') ?>
-                            </td>
+                            <td class="equipo-cell"><?= htmlspecialchars($eq_nom) ?></td>
                             <td><?= htmlspecialchars($valor_v) ?></td>
                             <td style="text-align:left;"><?= htmlspecialchars($valor_o) ?></td>
                         </tr>
@@ -325,12 +322,13 @@ $estado    = $registro['estado'] ?? 'BORRADOR';
                 <tbody>
                     <?php foreach ($equipos_sec as $eq):
                         $id_eq = (int)($eq['id_equipo'] ?? 0);
+                        $eq_nom = $eq['nombre_display'] ?? ($eq['nombre_equipo'] ?? '');
                         $filas = [];
                         foreach ($matriz as $m) {
                             if ((int)($m['seccion_id'] ?? 0) === $sec_id && (int)($m['id_equipo'] ?? 0) === $id_eq) {
                                 $bn = (int)($m['batch_num'] ?? 0);
                                 if (!isset($filas[$bn])) $filas[$bn] = [];
-                                $filas[$bn][(int)($m['campo_id'] ?? 0)] = $m['valor'];
+                                $filas[$bn][(int)($m['campo_id'] ?? 0)] = $m['valor'] ?? '';
                             }
                         }
                         ksort($filas);
@@ -347,7 +345,7 @@ $estado    = $registro['estado'] ?? 'BORRADOR';
                             <tr>
                                 <?php if ($primera): ?>
                                     <td class="equipo-cell" rowspan="<?= $total_filas ?>">
-                                        <?= htmlspecialchars($eq['nombre_display'] ?? $eq['nombre_equipo'] ?? '') ?>
+                                        <?= htmlspecialchars($eq_nom) ?>
                                     </td>
                                 <?php endif; ?>
                                 <td><?= htmlspecialchars($vals[$campo_ini] ?? '') ?></td>
@@ -374,27 +372,36 @@ $estado    = $registro['estado'] ?? 'BORRADOR';
             FIRMAS
         </h5>
         <div class="firmas-section">
-            <?php foreach ($firmas as $f): ?>
+            <?php foreach ($firmas as $f):
+                $f_rol      = $f['rol_firmante'] ?? '';
+                $f_turno    = $f['turno_firma'] ?? '';
+                $f_estado   = $f['estado'] ?? '';
+                $f_svg      = $f['firma_svg'] ?? '';
+                $f_user     = $f['usuario_nombre'] ?? '';
+                $f_fecha    = $f['fecha_firma'] ?? null;
+                $f_motivo   = $f['motivo_rechazo'] ?? '';
+                $f_fecha_val = !empty($f_fecha) && strtotime($f_fecha) !== false;
+            ?>
                 <div class="firma-box">
                     <small style="font-weight:bold; text-transform:uppercase;">
-                        <?= htmlspecialchars($f['rol_firmante'] ?? '') ?>
+                        <?= htmlspecialchars($f_rol) ?>
                     </small>
-                    <?php if (!empty($f['turno_firma'])): ?>
-                        <small style="color:#0d6efd;">Turno: <?= htmlspecialchars($f['turno_firma']) ?></small>
+                    <?php if (!empty($f_turno)): ?>
+                        <small style="color:#0d6efd;">Turno: <?= htmlspecialchars($f_turno) ?></small>
                     <?php endif; ?>
 
-                    <?php if (($f['estado'] ?? '') === 'FIRMADO' && !empty($f['firma_svg'])): ?>
+                    <?php if ($f_estado === 'FIRMADO' && !empty($f_svg)): ?>
                         <div class="firma-svg-container">
-                            <?= SVGSanitizer::sanitize($f['firma_svg']) ?>
+                            <?= SVGSanitizer::sanitize($f_svg) ?>
                         </div>
-                        <small><?= htmlspecialchars($f['usuario_nombre'] ?? '') ?></small>
-                        <small><?= date('d/m/Y H:i', strtotime($f['fecha_firma'] ?? 'now')) ?></small>
-                    <?php elseif (($f['estado'] ?? '') === 'RECHAZADO'): ?>
+                        <small><?= htmlspecialchars($f_user) ?></small>
+                        <small><?= $f_fecha_val ? date('d/m/Y H:i', strtotime($f_fecha)) : 'N/A' ?></small>
+                    <?php elseif ($f_estado === 'RECHAZADO'): ?>
                         <div style="height:60px; display:flex; align-items:center; justify-content:center; color:#dc3545; font-size:0.75rem; font-weight:600;">
                             RECHAZADO
                         </div>
-                        <small style="color:#dc3545;"><?= htmlspecialchars($f['motivo_rechazo'] ?? '') ?></small>
-                    <?php elseif (($f['estado'] ?? '') === 'OMITIDO'): ?>
+                        <small style="color:#dc3545;"><?= htmlspecialchars($f_motivo) ?></small>
+                    <?php elseif ($f_estado === 'OMITIDO'): ?>
                         <div style="height:60px; display:flex; align-items:center; justify-content:center; color:#6c757d; font-size:0.75rem; font-weight:600;">
                             OMITIDO
                         </div>

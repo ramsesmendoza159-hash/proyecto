@@ -1,10 +1,6 @@
 <?php
 // views/consultor/index.php
 // Dashboard del Consultor - VERSIÓN COMPLETA
-// ✅ Rol solo lectura: no permite crear/editar/eliminar
-// ✅ FIX: guards para $estadisticas y $ordenes_recientes
-// ✅ FIX: cards con variables CSS (modo claro + oscuro)
-// ✅ FIX: contenedor .table-actions + btn-icon + btn-header-action
 
 if (!isset($seccion)) {
     $seccion = 'consultor';
@@ -209,8 +205,18 @@ include_once __DIR__ . '/../layouts/header.php';
                         </thead>
                         <tbody>
                             <?php foreach ($ordenes_recientes as $orden):
-                                $estado = $orden['status'] ?? 'PENDIENTE';
-                                $estadoColor = match($estado) {
+                                // ✅ FIX: blindar TODOS los accesos con ?? default
+                                $orden_id       = (int)($orden['id'] ?? 0);
+                                $titulo_orden   = $orden['titulo'] ?? 'Sin título';
+                                $num_om         = $orden['num_om'] ?? '';
+                                $area_orden     = $orden['nombre_area'] ?? 'N/A';
+                                $tecnico_orden  = $orden['tecnico_nombre'] ?? 'Sin asignar';
+                                $status_orden   = $orden['status'] ?? 'PENDIENTE';
+                                $prioridad      = $orden['prioridad'] ?? 'Media';
+                                $fecha_creacion = $orden['fecha_creacion'] ?? null;
+
+                                $estadoRaw = strtoupper($status_orden);
+                                $estadoColor = match($estadoRaw) {
                                     'PENDIENTE'  => 'warning',
                                     'EN_PROCESO' => 'info',
                                     'EJECUTADA'  => 'primary',
@@ -220,7 +226,6 @@ include_once __DIR__ . '/../layouts/header.php';
                                     default                  => 'secondary'
                                 };
 
-                                $prioridad = $orden['prioridad'] ?? 'Media';
                                 $prioridadColor = match($prioridad) {
                                     'Baja'    => 'success',
                                     'Media'   => 'info',
@@ -228,26 +233,32 @@ include_once __DIR__ . '/../layouts/header.php';
                                     'Urgente' => 'danger',
                                     default   => 'secondary'
                                 };
+
+                                // ✅ FIX: validar strtotime antes de date()
+                                $fecha_valida = !empty($fecha_creacion) && strtotime($fecha_creacion) !== false;
+                                $fecha_formateada = $fecha_valida
+                                    ? date('d/m/Y', strtotime($fecha_creacion))
+                                    : 'N/A';
                             ?>
                                 <tr>
-                                    <td><span class="fw-semibold">#<?= (int)$orden['id'] ?></span></td>
+                                    <td><span class="fw-semibold">#<?= $orden_id ?></span></td>
                                     <td>
                                         <div class="fw-semibold">
-                                            <?= htmlspecialchars($orden['titulo'] ?? 'Sin título') ?>
+                                            <?= htmlspecialchars($titulo_orden) ?>
                                         </div>
-                                        <?php if (!empty($orden['num_om'])): ?>
+                                        <?php if (!empty($num_om)): ?>
                                             <small class="text-muted">
                                                 <i class="fas fa-hashtag me-1" style="font-size:9px;"></i>
-                                                <?= htmlspecialchars($orden['num_om']) ?>
+                                                <?= htmlspecialchars($num_om) ?>
                                             </small>
                                         <?php endif; ?>
                                     </td>
-                                    <td><?= htmlspecialchars($orden['nombre_area'] ?? 'N/A') ?></td>
-                                    <td><?= htmlspecialchars($orden['tecnico_nombre'] ?? 'Sin asignar') ?></td>
+                                    <td><?= htmlspecialchars($area_orden) ?></td>
+                                    <td><?= htmlspecialchars($tecnico_orden) ?></td>
                                     <td>
                                         <span class="badge-status bg-<?= $estadoColor ?> bg-opacity-10 text-<?= $estadoColor ?>">
                                             <i class="fas fa-circle me-1" style="font-size:6px;"></i>
-                                            <?= htmlspecialchars($estado) ?>
+                                            <?= htmlspecialchars($estadoRaw) ?>
                                         </span>
                                     </td>
                                     <td>
@@ -256,11 +267,11 @@ include_once __DIR__ . '/../layouts/header.php';
                                         </span>
                                     </td>
                                     <td>
-                                        <small><?= date('d/m/Y', strtotime($orden['fecha_creacion'] ?? 'now')) ?></small>
+                                        <small><?= $fecha_formateada ?></small>
                                     </td>
                                     <td>
                                         <div class="table-actions">
-                                            <a href="/proyecto/consultor/ver_orden/<?= (int)$orden['id'] ?>"
+                                            <a href="/proyecto/consultor/ver_orden/<?= $orden_id ?>"
                                                class="btn btn-sm btn-outline-info btn-icon"
                                                title="Ver detalle"
                                                aria-label="Ver detalle de orden">
@@ -286,9 +297,6 @@ include_once __DIR__ . '/../layouts/header.php';
 </div>
 
 <style>
-/* ========================================== */
-/* TARJETAS DE ESTADÍSTICAS - ADAPTABLES AL TEMA */
-/* ========================================== */
 .stat-card-modern {
     background: var(--bg-card) !important;
     border: 1px solid var(--border-color) !important;
@@ -326,18 +334,10 @@ include_once __DIR__ . '/../layouts/header.php';
     display: block !important;
     line-height: 1.2 !important;
 }
-
-/* ========================================== */
-/* CARDS GENERALES */
-/* ========================================== */
 .card {
     border-radius: 16px;
     box-shadow: 0 2px 12px var(--shadow-color);
 }
-
-/* ========================================== */
-/* BADGE-STATUS */
-/* ========================================== */
 .badge-status {
     padding: 4px 12px;
     border-radius: 20px;
@@ -346,21 +346,6 @@ include_once __DIR__ . '/../layouts/header.php';
     display: inline-flex;
     align-items: center;
 }
-
-/* ========================================== */
-/* TABLA */
-/* ========================================== */
-.table th {
-    font-weight: 600;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--text-secondary);
-}
-
-/* ========================================== */
-/* MODO OSCURO - reforzar alert-info del banner */
-/* ========================================== */
 [data-theme="dark"] .alert-info {
     background: #0c2340 !important;
     color: #93c5fd !important;
@@ -368,20 +353,6 @@ include_once __DIR__ . '/../layouts/header.php';
 }
 [data-theme="dark"] .alert-info strong {
     color: #ffffff !important;
-}
-[data-theme="dark"] .stat-card-modern {
-    background: linear-gradient(135deg, #131320, #1a1a2e) !important;
-    border: 1px solid #1f1f35 !important;
-}
-[data-theme="dark"] .stat-card-modern:hover {
-    border-color: rgba(59, 130, 246, 0.4) !important;
-    box-shadow: 0 10px 40px rgba(59, 130, 246, 0.15) !important;
-}
-[data-theme="dark"] .stat-card-modern .stat-number-modern {
-    color: #ffffff !important;
-}
-[data-theme="dark"] .stat-card-modern .stat-label-modern {
-    color: #8a8aa8 !important;
 }
 </style>
 

@@ -1,7 +1,9 @@
 <?php
 // views/seguridad/index.php
-// Panel de Seguridad - VERSIÓN ESTANDARIZADA
-// ✅ FIX NUEVO: botones con btn-icon y btn-header-action
+// Panel de Seguridad - VERSIÓN CORREGIDA
+// ✅ FIX: admin también puede acceder (consistente con SeguridadController)
+// ✅ FIX: guards y estilos estandarizados
+// ✅ FIX: botones con btn-icon y btn-header-action
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -12,7 +14,9 @@ if (!isset($_SESSION['usuario_id']) || empty($_SESSION['usuario_id'])) {
     exit;
 }
 
-if (($_SESSION['rol'] ?? '') !== 'seguridad') {
+// ✅ FIX: admin también puede acceder
+$rol_actual = $_SESSION['rol'] ?? '';
+if (!in_array($rol_actual, ['seguridad', 'admin'], true)) {
     $_SESSION['error'] = 'No tienes permisos para acceder a esta sección';
     header('Location: /proyecto/dashboard');
     exit;
@@ -36,7 +40,8 @@ include_once __DIR__ . '/../layouts/header.php';
                 <i class="fas fa-shield-alt text-danger me-2"></i>Panel de Seguridad
             </h4>
             <p class="text-muted small mb-0">
-                <i class="fas fa-info-circle me-1"></i>Validación final de seguridad de las órdenes
+                <i class="fas fa-info-circle me-1"></i>
+                Validación final de seguridad de las órdenes
             </p>
         </div>
         <a href="/proyecto/firmas/pendientes" class="btn btn-outline-danger btn-header-action">
@@ -44,20 +49,34 @@ include_once __DIR__ . '/../layouts/header.php';
         </a>
     </div>
 
+    <!-- Mensajes -->
+    <?php if (isset($_SESSION['mensaje'])): ?>
+        <div class="alert alert-<?= $_SESSION['mensaje_tipo'] ?? 'success' ?> alert-dismissible fade show">
+            <i class="fas fa-check-circle me-2"></i> <?= htmlspecialchars($_SESSION['mensaje']) ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <?php unset($_SESSION['mensaje'], $_SESSION['mensaje_tipo']); ?>
+    <?php endif; ?>
+
+    <?php if (isset($_SESSION['error'])): ?>
+        <div class="alert alert-danger alert-dismissible fade show">
+            <i class="fas fa-exclamation-circle me-2"></i> <?= htmlspecialchars($_SESSION['error']) ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <?php unset($_SESSION['error']); ?>
+    <?php endif; ?>
+
     <!-- Tarjeta de Firmas Pendientes -->
     <div class="row g-4 mb-4">
         <div class="col-md-4">
-            <div class="card border-0">
-                <div class="card-body">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="rounded-circle d-flex align-items-center justify-content-center seguridad-icon-bg"
-                             style="width: 60px; height: 60px;">
-                            <i class="fas fa-hourglass-half fa-2x seguridad-icon-color"></i>
-                        </div>
-                        <div>
-                            <div class="text-muted small">Firmas Pendientes</div>
-                            <div class="h3 fw-bold mb-0"><?= (int)$total_pendientes ?></div>
-                        </div>
+            <div class="stat-card-modern">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="stat-icon-modern seguridad-icon-bg">
+                        <i class="fas fa-hourglass-half fa-2x seguridad-icon-color"></i>
+                    </div>
+                    <div>
+                        <span class="stat-label-modern">Firmas Pendientes</span>
+                        <span class="stat-number-modern"><?= (int)$total_pendientes ?></span>
                     </div>
                 </div>
             </div>
@@ -140,13 +159,49 @@ include_once __DIR__ . '/../layouts/header.php';
 </div>
 
 <style>
+.stat-card-modern {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 16px !important;
+    padding: 20px 24px !important;
+    box-shadow: 0 2px 12px var(--shadow-color) !important;
+    transition: all 0.3s ease !important;
+    height: 100% !important;
+}
+.stat-card-modern:hover {
+    transform: translateY(-4px) !important;
+    box-shadow: 0 8px 30px var(--shadow-hover) !important;
+}
+.stat-card-modern .stat-icon-modern {
+    width: 56px !important;
+    height: 56px !important;
+    border-radius: 14px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+}
+.stat-card-modern .stat-label-modern {
+    font-size: 0.7rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    color: var(--text-secondary) !important;
+    font-weight: 600 !important;
+    display: block !important;
+}
+.stat-card-modern .stat-number-modern {
+    font-size: 1.6rem !important;
+    font-weight: 700 !important;
+    color: var(--text-primary) !important;
+    display: block !important;
+    line-height: 1.2 !important;
+}
 .seguridad-icon-bg {
     background: rgba(239, 68, 68, 0.15);
 }
 .seguridad-icon-color {
     color: #ef4444;
 }
-
 [data-theme="dark"] .seguridad-icon-bg {
     background: rgba(248, 113, 113, 0.2) !important;
     box-shadow: 0 0 20px rgba(239, 68, 68, 0.25) !important;
@@ -154,7 +209,6 @@ include_once __DIR__ . '/../layouts/header.php';
 [data-theme="dark"] .seguridad-icon-color {
     color: #f87171 !important;
 }
-
 .card {
     border-radius: 16px;
     box-shadow: 0 2px 12px var(--shadow-color);

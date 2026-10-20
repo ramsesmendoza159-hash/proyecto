@@ -1,7 +1,7 @@
 <?php
 // views/checklists/layouts/valores_simples.php
 // Layout para un valor único por equipo (Secciones 5 y 6 de R001)
-// ✅ FIX: usa $seccion_data (NO $seccion)
+// ✅ usa $seccion_data (NO $seccion)
 
 $seccion_data = $seccion_data ?? null;
 if (!$seccion_data) return;
@@ -30,7 +30,7 @@ $sec_id = (int)($seccion_data['id'] ?? 0);
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-bordered align-middle mb-0">
+            <table class="table table-bordered align-middle mb-0 grilla-valores-simples">
                 <thead class="table-light">
                     <tr>
                         <th style="min-width:250px;">EQUIPO</th>
@@ -98,20 +98,20 @@ $sec_id = (int)($seccion_data['id'] ?? 0);
 </div>
 
 <style>
-td.celda-bajo { background: rgba(255, 193, 7, 0.15); }
-td.celda-critico { background: rgba(220, 53, 69, 0.15); }
-td.celda-alto { background: rgba(13, 202, 240, 0.15); }
-input.guardado-ok {
+.grilla-valores-simples td.celda-bajo { background: rgba(255, 193, 7, 0.15); }
+.grilla-valores-simples td.celda-critico { background: rgba(220, 53, 69, 0.15); }
+.grilla-valores-simples td.celda-alto { background: rgba(13, 202, 240, 0.15); }
+.grilla-valores-simples input.guardado-ok {
     border-color: #198754 !important;
     box-shadow: 0 0 0 2px rgba(25, 135, 84, 0.2) !important;
 }
-input.guardado-error {
+.grilla-valores-simples input.guardado-error {
     border-color: #dc3545 !important;
     box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.2) !important;
 }
-[data-theme="dark"] td.celda-bajo { background: rgba(234, 179, 8, 0.18) !important; }
-[data-theme="dark"] td.celda-critico { background: rgba(239, 68, 68, 0.18) !important; }
-[data-theme="dark"] td.celda-alto { background: rgba(6, 182, 212, 0.18) !important; }
+[data-theme="dark"] .grilla-valores-simples td.celda-bajo { background: rgba(234, 179, 8, 0.18) !important; }
+[data-theme="dark"] .grilla-valores-simples td.celda-critico { background: rgba(239, 68, 68, 0.18) !important; }
+[data-theme="dark"] .grilla-valores-simples td.celda-alto { background: rgba(6, 182, 212, 0.18) !important; }
 </style>
 
 <?php if ($puede_editar): ?>

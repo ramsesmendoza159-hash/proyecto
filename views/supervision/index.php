@@ -1,8 +1,9 @@
 <?php
 // views/supervision/index.php
 // Panel de Supervisión - VERSIÓN OFICIAL
-// ✅ FIX: match normalizado con strtoupper() porque la BD guarda minúsculas
+// ✅ FIX: match normalizado con strtoupper()
 // ✅ FIX: contenedor .table-actions + btn-icon + btn-header-action
+// ✅ FIX: blindaje de TODOS los accesos a $supervision['xxx'] con ?? default
 
 require_once __DIR__ . '/../../helpers/SecurityHelper.php';
 
@@ -141,10 +142,13 @@ include_once __DIR__ . '/../layouts/header.php';
                     <select name="tecnico_id" class="form-select form-select-sm">
                         <option value="">Todos</option>
                         <?php if (!empty($tecnicos)): ?>
-                            <?php foreach ($tecnicos as $tecnico): ?>
-                                <option value="<?= htmlspecialchars($tecnico['id'] ?? '') ?>"
-                                    <?= isset($_GET['tecnico_id']) && $_GET['tecnico_id'] == $tecnico['id'] ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($tecnico['nombre'] ?? 'Técnico #' . ($tecnico['id'] ?? '')) ?>
+                            <?php foreach ($tecnicos as $tecnico):
+                                $tec_id = (int)($tecnico['id'] ?? 0);
+                                $tec_nombre = $tecnico['nombre'] ?? ('Técnico #' . $tec_id);
+                            ?>
+                                <option value="<?= $tec_id ?>"
+                                    <?= isset($_GET['tecnico_id']) && $_GET['tecnico_id'] == $tec_id ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($tec_nombre) ?>
                                 </option>
                             <?php endforeach; ?>
                         <?php endif; ?>
@@ -202,24 +206,35 @@ include_once __DIR__ . '/../layouts/header.php';
                             </tr>
                         <?php else: ?>
                             <?php foreach ($supervisiones as $supervision):
-                                // ✅ FIX: normalizar porque la BD guarda minúsculas
-                                $estadoRaw = strtoupper($supervision['estado'] ?? 'PENDIENTE');
+                                // ✅ FIX: blindar TODOS los accesos
+                                $sup_id       = (int)($supervision['id'] ?? 0);
+                                $sup_orden    = (int)($supervision['orden_id'] ?? 0);
+                                $sup_sup      = $supervision['supervisor'] ?? ($supervision['supervisor_nombre'] ?? 'N/A');
+                                $sup_calif    = $supervision['calificacion'] ?? null;
+                                $sup_estado   = $supervision['estado'] ?? 'PENDIENTE';
+                                $sup_fecha    = $supervision['fecha_creacion'] ?? null;
+                                $sup_cumple   = !empty($supervision['cumple']);
+                                $sup_num_om   = $supervision['num_om'] ?? ('Orden #' . $sup_orden);
+
+                                $estadoRaw = strtoupper($sup_estado);
                                 $estadoClase = match($estadoRaw) {
                                     'PENDIENTE' => 'warning',
                                     'APROBADA'  => 'success',
                                     'RECHAZADA' => 'danger',
                                     default     => 'secondary'
                                 };
+
+                                $fecha_val = !empty($sup_fecha) && strtotime($sup_fecha) !== false;
                             ?>
                                 <tr>
-                                    <td><span class="fw-semibold"><?= (int)($supervision['id'] ?? 0) ?></span></td>
-                                    <td>#<?= (int)($supervision['orden_id'] ?? 0) ?></td>
-                                    <td><?= htmlspecialchars($supervision['supervisor'] ?? $supervision['supervisor_nombre'] ?? 'N/A') ?></td>
+                                    <td><span class="fw-semibold"><?= $sup_id ?></span></td>
+                                    <td>#<?= $sup_orden ?></td>
+                                    <td><?= htmlspecialchars($sup_sup) ?></td>
                                     <td>
-                                        <?php if (!empty($supervision['calificacion'])): ?>
-                                            <span class="fw-semibold"><?= (int)$supervision['calificacion'] ?>/5</span>
+                                        <?php if ($sup_calif !== null && $sup_calif !== ''): ?>
+                                            <span class="fw-semibold"><?= (int)$sup_calif ?>/5</span>
                                             <?php for ($i = 1; $i <= 5; $i++): ?>
-                                                <i class="fas fa-star<?= $i <= $supervision['calificacion'] ? '' : '-o' ?> text-warning" style="font-size:0.7rem;"></i>
+                                                <i class="fas fa-star<?= $i <= $sup_calif ? '' : '-o' ?> text-warning" style="font-size:0.7rem;"></i>
                                             <?php endfor; ?>
                                         <?php else: ?>
                                             <span class="text-muted">N/A</span>
@@ -228,20 +243,22 @@ include_once __DIR__ . '/../layouts/header.php';
                                     <td>
                                         <span class="badge-status bg-<?= $estadoClase ?> bg-opacity-10 text-<?= $estadoClase ?>">
                                             <i class="fas fa-circle me-1" style="font-size:6px;"></i>
-                                            <?= htmlspecialchars(ucfirst(strtolower($supervision['estado'] ?? 'PENDIENTE'))) ?>
+                                            <?= htmlspecialchars(ucfirst(strtolower($sup_estado))) ?>
                                         </span>
                                     </td>
-                                    <td><small><?= isset($supervision['fecha_creacion']) ? date('d/m/Y', strtotime($supervision['fecha_creacion'])) : '-' ?></small></td>
-                                    <td><?= ($supervision['cumple'] ?? 0) ? '✅ Sí' : '❌ No' ?></td>
+                                    <td>
+                                        <small><?= $fecha_val ? date('d/m/Y', strtotime($sup_fecha)) : '-' ?></small>
+                                    </td>
+                                    <td><?= $sup_cumple ? '✅ Sí' : '❌ No' ?></td>
                                     <td>
                                         <div class="table-actions">
-                                            <a href="/proyecto/supervision/ver/<?= (int)$supervision['id'] ?>"
+                                            <a href="/proyecto/supervision/ver/<?= $sup_id ?>"
                                                class="btn btn-sm btn-outline-info btn-icon"
                                                title="Ver"
                                                aria-label="Ver supervisión">
                                                 <i class="fas fa-eye"></i>
                                             </a>
-                                            <a href="/proyecto/supervision/editar/<?= (int)$supervision['id'] ?>"
+                                            <a href="/proyecto/supervision/editar/<?= $sup_id ?>"
                                                class="btn btn-sm btn-outline-warning btn-icon"
                                                title="Editar"
                                                aria-label="Editar supervisión">
@@ -252,7 +269,7 @@ include_once __DIR__ . '/../layouts/header.php';
                                                         class="btn btn-sm btn-outline-danger btn-icon"
                                                         title="Eliminar"
                                                         aria-label="Eliminar supervisión"
-                                                        onclick="confirmarEliminarSupervision(<?= (int)$supervision['id'] ?>, '<?= htmlspecialchars($supervision['num_om'] ?? 'Orden #' . ($supervision['orden_id'] ?? 0), ENT_QUOTES, 'UTF-8') ?>')">
+                                                        onclick="confirmarEliminarSupervision(<?= $sup_id ?>, '<?= htmlspecialchars($sup_num_om, ENT_QUOTES, 'UTF-8') ?>')">
                                                     <i class="fas fa-trash"></i>
                                                 </button>
                                             <?php endif; ?>
@@ -319,9 +336,6 @@ include_once __DIR__ . '/../layouts/header.php';
     text-transform: uppercase !important;
     letter-spacing: 0.5px !important;
     color: var(--text-secondary) !important;
-}
-.table td {
-    color: var(--text-primary) !important;
 }
 </style>
 

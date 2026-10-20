@@ -1,7 +1,7 @@
 <?php
 // views/checklists/historial.php
 // Historial de checklists - VERSIÓN ESTANDARIZADA
-// ✅ FIX NUEVO: contenedor .table-actions + btn-icon + btn-header-action
+// ✅ FIX: contenedor .table-actions + btn-icon + btn-header-action
 
 if (!isset($seccion)) $seccion = 'checklists';
 if (!isset($titulo)) $titulo = 'Historial de Checklists';

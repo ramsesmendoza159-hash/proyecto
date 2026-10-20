@@ -1,5 +1,7 @@
 <?php
 // views/checklists/mis_checklists.php
+// ✅ FIX: guards para $tipos, $vencidos, $fecha
+// ✅ FIX: modal omitir con CSRF
 
 if (!isset($seccion)) $seccion = 'checklists';
 if (!isset($titulo)) $titulo = 'Mis Checklists';

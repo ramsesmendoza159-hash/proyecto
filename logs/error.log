@@ -1076,3 +1076,5 @@ Stack trace:
 [09-Oct-2026 16:30:35 Europe/Berlin] Error cargando alertas sidebar: Call to undefined method MantenimientoEquiposModel::contarTareasAsignadas()
 [09-Oct-2026 16:30:44 Europe/Berlin] Error cargando alertas sidebar: Call to undefined method MantenimientoEquiposModel::contarTareasAsignadas()
 [09-Oct-2026 16:30:47 Europe/Berlin] Error cargando alertas sidebar: Call to undefined method MantenimientoEquiposModel::contarTareasAsignadas()
+[16-Oct-2026 15:52:59 Europe/Berlin] Error de conexión a la base de datos: SQLSTATE[HY000] [2002] No se puede establecer una conexión ya que el equipo de destino denegó expresamente dicha conexión
+[16-Oct-2026 15:53:06 Europe/Berlin] Error de conexión a la base de datos: SQLSTATE[HY000] [2002] No se puede establecer una conexión ya que el equipo de destino denegó expresamente dicha conexión

@@ -1,6 +1,8 @@
 <?php
 // views/almacen/salida.php
 // Registrar Salida de Stock - Almacén
+// ✅ Guards para $producto
+// ✅ ToastHelper en vez de alert()
 
 if (!isset($seccion)) {
     $seccion = 'almacen';
@@ -8,6 +10,8 @@ if (!isset($seccion)) {
 if (!isset($titulo)) {
     $titulo = 'Registrar Salida';
 }
+
+$producto = $producto ?? null;
 
 include_once __DIR__ . '/../layouts/header.php';
 ?>
@@ -24,15 +28,15 @@ include_once __DIR__ . '/../layouts/header.php';
                 <i class="fas fa-info-circle me-1"></i> Registrar egreso de inventario para el producto
             </p>
         </div>
-        <a href="/proyecto/almacen" class="btn btn-secondary">
-            <i class="fas fa-arrow-left me-1"></i> Volver
+        <a href="/proyecto/almacen" class="btn btn-secondary btn-header-action">
+            <i class="fas fa-arrow-left"></i> Volver
         </a>
     </div>
 
     <!-- Mensajes -->
     <?php if (isset($_SESSION['error']) && !empty($_SESSION['error'])): ?>
         <div class="alert alert-danger alert-dismissible fade show">
-            <i class="fas fa-exclamation-circle me-2"></i> <?php echo htmlspecialchars($_SESSION['error']); ?>
+            <i class="fas fa-exclamation-circle me-2"></i> <?= htmlspecialchars($_SESSION['error']) ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             <?php unset($_SESSION['error']); ?>
         </div>
@@ -40,18 +44,18 @@ include_once __DIR__ . '/../layouts/header.php';
 
     <div class="row">
         <div class="col-lg-8 mx-auto">
-            <div class="card border-0 shadow-sm">
+            <div class="card border-0">
                 <div class="card-body">
 
-                    <?php if (isset($producto) && $producto): ?>
+                    <?php if ($producto): ?>
                     <!-- Información del producto -->
                     <div class="bg-light rounded p-3 mb-4">
                         <div class="row align-items-center">
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center">
                                     <?php if (!empty($producto['imagen'])): ?>
-                                        <img src="/proyecto/uploads/inventario/<?php echo $producto['imagen']; ?>" 
-                                             alt="<?php echo htmlspecialchars($producto['nombre']); ?>"
+                                        <img src="/proyecto/uploads/inventario/<?= $producto['imagen'] ?>" 
+                                             alt="<?= htmlspecialchars($producto['nombre']) ?>"
                                              style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px;" class="me-3">
                                     <?php else: ?>
                                         <div class="bg-secondary bg-opacity-10 rounded d-flex align-items-center justify-content-center me-3" 
@@ -60,31 +64,31 @@ include_once __DIR__ . '/../layouts/header.php';
                                         </div>
                                     <?php endif; ?>
                                     <div>
-                                        <h6 class="mb-0 fw-semibold"><?php echo htmlspecialchars($producto['nombre']); ?></h6>
-                                        <span class="text-muted small">Código: <?php echo htmlspecialchars($producto['codigo'] ?? 'N/A'); ?></span>
+                                        <h6 class="mb-0 fw-semibold"><?= htmlspecialchars($producto['nombre']) ?></h6>
+                                        <span class="text-muted small">Código: <?= htmlspecialchars($producto['codigo'] ?? 'N/A') ?></span>
                                     </div>
                                 </div>
                             </div>
                             <div class="col-md-6 text-md-end mt-2 mt-md-0">
                                 <div class="text-muted small">Stock Disponible</div>
-                                <div class="h5 fw-bold <?php echo ($producto['cantidad'] ?? 0) <= ($producto['stock_minimo'] ?? 0) ? 'text-danger' : 'text-success'; ?>">
-                                    <?php echo $producto['cantidad'] ?? 0; ?> <?php echo $producto['unidad'] ?? 'u'; ?>
+                                <div class="h5 fw-bold <?= ($producto['cantidad'] ?? 0) <= ($producto['stock_minimo'] ?? 0) ? 'text-danger' : 'text-success' ?>">
+                                    <?= $producto['cantidad'] ?? 0 ?> <?= $producto['unidad'] ?? 'u' ?>
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     <!-- Formulario -->
-                    <form method="POST" action="/proyecto/almacen/salida/<?php echo $producto['id']; ?>" id="formSalida">
-                        <input type="hidden" name="csrf_token" value="<?php echo SecurityHelper::generateCSRFToken(); ?>">
+                    <form method="POST" action="/proyecto/almacen/salida/<?= $producto['id'] ?>" id="formSalida">
+                        <input type="hidden" name="csrf_token" value="<?= SecurityHelper::generateCSRFToken() ?>">
 
                         <div class="mb-3">
                             <label for="cantidad" class="form-label fw-semibold">Cantidad <span class="text-danger">*</span></label>
                             <input type="number" class="form-control form-control-lg" id="cantidad" name="cantidad" 
                                    min="1" step="1" required 
-                                   max="<?php echo $producto['cantidad'] ?? 0; ?>"
+                                   max="<?= $producto['cantidad'] ?? 0 ?>"
                                    placeholder="Ingresa la cantidad a retirar">
-                            <div class="form-text">Máximo disponible: <?php echo $producto['cantidad'] ?? 0; ?> <?php echo $producto['unidad'] ?? 'u'; ?></div>
+                            <div class="form-text">Máximo disponible: <?= $producto['cantidad'] ?? 0 ?> <?= $producto['unidad'] ?? 'u' ?></div>
                         </div>
 
                         <div class="mb-3">
@@ -145,15 +149,14 @@ include_once __DIR__ . '/../layouts/header.php';
 <style>
 .card {
     border-radius: 16px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
-}
-.shadow-sm {
-    box-shadow: 0 2px 12px rgba(0,0,0,0.04) !important;
+    box-shadow: 0 2px 12px var(--shadow-color);
 }
 .form-control, .form-select {
     border-radius: 10px;
     padding: 12px 16px;
-    border: 2px solid #e9ecef;
+    border: 2px solid var(--border-color);
+    background: var(--bg-input);
+    color: var(--text-primary);
     transition: all 0.3s ease;
 }
 .form-control:focus, .form-select:focus {
@@ -165,10 +168,16 @@ include_once __DIR__ . '/../layouts/header.php';
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const cantidadInput = document.getElementById('cantidad');
-    const stockDisponible = <?php echo isset($producto) ? (int)($producto['cantidad'] ?? 0) : 0; ?>;
+    const stockDisponible = <?= $producto ? (int)($producto['cantidad'] ?? 0) : 0 ?>;
     const btnGuardar = document.getElementById('btnGuardar');
     const form = document.getElementById('formSalida');
-    const nombreProducto = <?php echo isset($producto) ? json_encode($producto['nombre'] ?? 'Producto') : json_encode('Producto'); ?>;
+    const nombreProducto = <?= $producto ? json_encode($producto['nombre'] ?? 'Producto') : json_encode('Producto') ?>;
+
+    function mostrarToast(tipo, mensaje) {
+        if (typeof window.showToast === 'function') {
+            window.showToast(tipo, mensaje);
+        }
+    }
 
     if (cantidadInput) {
         cantidadInput.addEventListener('input', function() {
@@ -192,19 +201,19 @@ document.addEventListener('DOMContentLoaded', function() {
             const cantidad = parseInt(cantidadInput.value) || 0;
             if (cantidad <= 0) {
                 e.preventDefault();
-                alert('❌ La cantidad debe ser mayor a 0');
+                mostrarToast('error', 'La cantidad debe ser mayor a 0');
                 cantidadInput.focus();
-                return;
+                return false;
             }
             if (cantidad > stockDisponible) {
                 e.preventDefault();
-                alert('❌ No hay suficiente stock. Disponible: ' + stockDisponible + ' unidades');
+                mostrarToast('error', 'No hay suficiente stock. Disponible: ' + stockDisponible + ' unidades');
                 cantidadInput.focus();
-                return;
+                return false;
             }
             if (!confirm('¿Confirmas la salida de ' + cantidad + ' unidades de "' + nombreProducto + '"?')) {
                 e.preventDefault();
-                return;
+                return false;
             }
             btnGuardar.disabled = true;
             btnGuardar.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Registrando...';

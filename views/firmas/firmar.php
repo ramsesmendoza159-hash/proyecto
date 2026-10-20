@@ -1,8 +1,6 @@
 <?php
 // views/firmas/firmar.php
 // Formulario para firmar un paso - CON SIGNATUREPAD SVG VECTORIAL
-// ✅ FIX: validación de tamaño y estructura SVG del lado cliente
-// ⚠️ NOTA: La sanitización real se hace en FirmaModel::firmar() (servidor)
 
 require_once __DIR__ . '/../../helpers/FirmaSecuenciaHelper.php';
 
@@ -13,6 +11,9 @@ if (!isset($orden) || !isset($pasoActual)) {
 
 $color = FirmaSecuenciaHelper::obtenerColorPaso($pasoActual['rol_firmante'] ?? '');
 $icono = FirmaSecuenciaHelper::obtenerIconoPaso($pasoActual['rol_firmante'] ?? '');
+
+if (!isset($seccion)) $seccion = 'firmas';
+if (!isset($titulo)) $titulo = 'Firmar Paso ' . ($pasoActual['paso'] ?? '');
 
 include_once __DIR__ . '/../layouts/header.php';
 ?>
@@ -31,10 +32,19 @@ include_once __DIR__ . '/../layouts/header.php';
                 <?= htmlspecialchars($pasoActual['nombre_paso'] ?? '') ?>
             </p>
         </div>
-        <a href="/proyecto/firmas/orden/<?= $orden['id'] ?>" class="btn btn-secondary">
-            <i class="fas fa-arrow-left me-1"></i> Volver
+        <a href="/proyecto/firmas/orden/<?= $orden['id'] ?>" class="btn btn-secondary btn-header-action">
+            <i class="fas fa-arrow-left"></i> Volver
         </a>
     </div>
+
+    <!-- Mensajes -->
+    <?php if (isset($_SESSION['error'])): ?>
+        <div class="alert alert-danger alert-dismissible fade show">
+            <i class="fas fa-exclamation-circle me-2"></i> <?= htmlspecialchars($_SESSION['error']) ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <?php unset($_SESSION['error']); ?>
+    <?php endif; ?>
 
     <div class="row g-4">
         <!-- Info del paso -->
@@ -74,7 +84,7 @@ include_once __DIR__ . '/../layouts/header.php';
 
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Firma manuscrita <span class="text-danger">*</span></label>
-                            <div class="border rounded" style="background: #fff;">
+                            <div class="border rounded canvas-firma-wrapper">
                                 <canvas id="canvasFirma" style="width: 100%; height: 200px; cursor: crosshair; touch-action: none; display: block;"></canvas>
                             </div>
                             <div class="d-flex gap-2 mt-2">
@@ -144,6 +154,25 @@ include_once __DIR__ . '/../layouts/header.php';
     </div>
 </div>
 
+<style>
+.card {
+    border-radius: 16px;
+    box-shadow: 0 2px 12px var(--shadow-color);
+}
+.canvas-firma-wrapper {
+    background: #ffffff;
+    border-color: var(--border-color) !important;
+}
+[data-theme="dark"] .canvas-firma-wrapper {
+    background: #ffffff !important;
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.15) !important;
+}
+[data-theme="dark"] #canvasFirma {
+    background: #ffffff !important;
+}
+</style>
+
 <script>
 let signaturePadFirma = null;
 
@@ -186,21 +215,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const svg = signaturePadFirma.toSVG();
 
-        // Validación del lado cliente (refuerzo, la real es en el servidor)
         if (svg.length > 204800) {
             e.preventDefault();
             alert('⚠️ La firma es demasiado grande (' + Math.round(svg.length / 1024) + ' KB). Intenta dibujar más simple.');
             return false;
         }
 
-        // Validación de estructura SVG
         if (svg.indexOf('<svg') === -1 || svg.indexOf('</svg>') === -1) {
             e.preventDefault();
             alert('⚠️ La firma no tiene el formato SVG correcto. Intenta nuevamente.');
             return false;
         }
 
-        // Validación de no contener script (refuerzo cliente)
         if (/<script/i.test(svg)) {
             e.preventDefault();
             alert('⚠️ La firma contiene elementos no permitidos. Intenta nuevamente.');

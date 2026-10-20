@@ -1,4 +1,7 @@
 <?php
+// views/admin/auditoria/ver.php
+// Detalle de Auditoría - VERSIÓN CORREGIDA
+// ✅ Guards, validación de json_decode()
 
 if (!isset($registro) || empty($registro)) {
     die('<div class="alert alert-danger m-4">Error: Registro no disponible. <a href="/proyecto/auditoria">Volver</a></div>');
@@ -22,18 +25,18 @@ include_once __DIR__ . '/../../layouts/header.php';
                 <i class="fas fa-clipboard-list text-primary me-2"></i>Detalle de Auditoría
             </h4>
             <p class="text-muted small mb-0">
-                <i class="fas fa-info-circle me-1"></i> Registro #<?php echo $registro['id']; ?>
+                <i class="fas fa-info-circle me-1"></i> Registro #<?= $registro['id'] ?>
             </p>
         </div>
-        <a href="/proyecto/auditoria" class="btn btn-secondary">
-            <i class="fas fa-arrow-left me-1"></i> Volver
+        <a href="/proyecto/auditoria" class="btn btn-secondary btn-header-action">
+            <i class="fas fa-arrow-left"></i> Volver
         </a>
     </div>
 
-    <!-- Mensajes de error -->
+    <!-- Mensajes -->
     <?php if (isset($_SESSION['error']) && !empty($_SESSION['error'])): ?>
         <div class="alert alert-danger alert-dismissible fade show">
-            <i class="fas fa-exclamation-circle me-2"></i> <?php echo htmlspecialchars($_SESSION['error']); ?>
+            <i class="fas fa-exclamation-circle me-2"></i> <?= htmlspecialchars($_SESSION['error']) ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             <?php unset($_SESSION['error']); ?>
         </div>
@@ -41,22 +44,31 @@ include_once __DIR__ . '/../../layouts/header.php';
 
     <div class="row g-4">
         <div class="col-lg-8">
-            <div class="card border-0 shadow-sm">
+            <div class="card border-0">
                 <div class="card-body">
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="info-label">Usuario</label>
-                                <p class="info-value"><?php echo htmlspecialchars($registro['usuario_nombre']); ?></p>
-                                <small class="info-sub">ID: <?php echo $registro['usuario_id']; ?></small>
+                                <p class="info-value"><?= htmlspecialchars($registro['usuario_nombre']) ?></p>
+                                <small class="info-sub">ID: <?= $registro['usuario_id'] ?></small>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="info-label">Rol</label>
                                 <p>
-                                    <span class="badge bg-<?php echo $registro['usuario_rol'] === 'admin' ? 'danger' : ($registro['usuario_rol'] === 'supervisor' ? 'warning' : ($registro['usuario_rol'] === 'almacen' ? 'info' : 'secondary')); ?>">
-                                        <?php echo ucfirst($registro['usuario_rol']); ?>
+                                    <?php
+                                    $rol_badge = match($registro['usuario_rol']) {
+                                        'admin' => 'danger',
+                                        'supervisor' => 'warning',
+                                        'almacen' => 'info',
+                                        'tecnico' => 'primary',
+                                        default => 'secondary'
+                                    };
+                                    ?>
+                                    <span class="badge bg-<?= $rol_badge ?>">
+                                        <?= ucfirst($registro['usuario_rol']) ?>
                                     </span>
                                 </p>
                             </div>
@@ -68,8 +80,18 @@ include_once __DIR__ . '/../../layouts/header.php';
                             <div class="mb-3">
                                 <label class="info-label">Acción</label>
                                 <p>
-                                    <span class="badge bg-<?php echo $registro['accion'] === 'login' ? 'success' : ($registro['accion'] === 'logout' ? 'secondary' : ($registro['accion'] === 'crear' ? 'primary' : ($registro['accion'] === 'actualizar' ? 'warning' : 'danger'))); ?>">
-                                        <?php echo ucfirst(str_replace('_', ' ', $registro['accion'])); ?>
+                                    <?php
+                                    $accion_badge = match($registro['accion']) {
+                                        'login' => 'success',
+                                        'logout' => 'secondary',
+                                        'crear' => 'primary',
+                                        'actualizar' => 'warning',
+                                        'eliminar' => 'danger',
+                                        default => 'secondary'
+                                    };
+                                    ?>
+                                    <span class="badge bg-<?= $accion_badge ?>">
+                                        <?= ucfirst(str_replace('_', ' ', $registro['accion'])) ?>
                                     </span>
                                 </p>
                             </div>
@@ -77,13 +99,13 @@ include_once __DIR__ . '/../../layouts/header.php';
                         <div class="col-md-4">
                             <div class="mb-3">
                                 <label class="info-label">Tabla</label>
-                                <p class="info-value"><?php echo htmlspecialchars($registro['tabla']); ?></p>
+                                <p class="info-value"><?= htmlspecialchars($registro['tabla']) ?></p>
                             </div>
                         </div>
                         <div class="col-md-4">
                             <div class="mb-3">
                                 <label class="info-label">Registro ID</label>
-                                <p class="info-value"><?php echo $registro['registro_id'] ?? 'N/A'; ?></p>
+                                <p class="info-value"><?= $registro['registro_id'] ?? 'N/A' ?></p>
                             </div>
                         </div>
                     </div>
@@ -92,13 +114,13 @@ include_once __DIR__ . '/../../layouts/header.php';
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="info-label">IP</label>
-                                <p class="info-value"><?php echo htmlspecialchars($registro['ip'] ?? 'N/A'); ?></p>
+                                <p class="info-value"><?= htmlspecialchars($registro['ip'] ?? 'N/A') ?></p>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="info-label">Fecha</label>
-                                <p class="info-value"><?php echo date('d/m/Y H:i:s', strtotime($registro['fecha_creacion'])); ?></p>
+                                <p class="info-value"><?= date('d/m/Y H:i:s', strtotime($registro['fecha_creacion'])) ?></p>
                             </div>
                         </div>
                     </div>
@@ -106,7 +128,7 @@ include_once __DIR__ . '/../../layouts/header.php';
                     <?php if (!empty($registro['user_agent'])): ?>
                         <div class="mb-3">
                             <label class="info-label">User Agent</label>
-                            <p class="info-value small mb-0"><?php echo htmlspecialchars($registro['user_agent']); ?></p>
+                            <p class="info-value small mb-0"><?= htmlspecialchars($registro['user_agent']) ?></p>
                         </div>
                     <?php endif; ?>
                 </div>
@@ -116,7 +138,7 @@ include_once __DIR__ . '/../../layouts/header.php';
         <div class="col-lg-4">
             <!-- Datos Anteriores -->
             <?php if (!empty($registro['datos_anteriores']) && $registro['datos_anteriores'] !== 'null'): ?>
-                <div class="card border-0 shadow-sm mb-4">
+                <div class="card border-0 mb-4">
                     <div class="card-header border-0 bg-transparent pt-3">
                         <h6 class="mb-0 fw-semibold text-warning">
                             <i class="fas fa-arrow-left me-1"></i> Datos Anteriores
@@ -146,7 +168,7 @@ include_once __DIR__ . '/../../layouts/header.php';
 
             <!-- Datos Nuevos -->
             <?php if (!empty($registro['datos_nuevos']) && $registro['datos_nuevos'] !== 'null'): ?>
-                <div class="card border-0 shadow-sm">
+                <div class="card border-0">
                     <div class="card-header border-0 bg-transparent pt-3">
                         <h6 class="mb-0 fw-semibold text-success">
                             <i class="fas fa-arrow-right me-1"></i> Datos Nuevos
@@ -184,10 +206,6 @@ include_once __DIR__ . '/../../layouts/header.php';
     box-shadow: 0 2px 12px var(--shadow-color);
 }
 
-/* ========================================== */
-/* INFO LABELS Y VALUES - ADAPTABLES AL TEMA */
-/* ========================================== */
-
 .info-label {
     display: block;
     font-size: 0.7rem;
@@ -211,7 +229,6 @@ include_once __DIR__ . '/../../layouts/header.php';
     font-size: 0.75rem;
 }
 
-/* Modo oscuro - reforzar */
 [data-theme="dark"] .info-value {
     color: #ffffff !important;
 }
@@ -223,10 +240,6 @@ include_once __DIR__ . '/../../layouts/header.php';
 [data-theme="dark"] .info-sub {
     color: #8a8aa8 !important;
 }
-
-/* ========================================== */
-/* VISOR JSON - ADAPTABLE AL TEMA */
-/* ========================================== */
 
 .json-viewer {
     background: var(--bg-input) !important;

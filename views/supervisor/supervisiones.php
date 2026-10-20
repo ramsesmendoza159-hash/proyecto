@@ -1,9 +1,6 @@
 <?php
 // views/supervisor/supervisiones.php
 // Mis Supervisiones - VERSIÓN ESTANDARIZADA
-// ✅ FIX: Botones cambiados a btn-outline-* (estilo admin)
-// ✅ FIX: credentials: 'same-origin' en el fetch de supervisionesList
-// ✅ FIX NUEVO: contenedor .table-actions + btn-icon + btn-header-action
 
 if (!isset($seccion)) {
     $seccion = 'supervisor';
@@ -110,7 +107,7 @@ include_once __DIR__ . '/../layouts/header.php';
 <style>
 .card {
     border-radius: 16px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+    box-shadow: 0 2px 12px var(--shadow-color);
 }
 .badge-status {
     padding: 4px 12px;
@@ -125,6 +122,16 @@ include_once __DIR__ . '/../layouts/header.php';
 <script>
 let paginaActual = 1;
 const porPagina = 10;
+
+function escapeHTML(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
 
 function cargarSupervisiones(page = 1) {
     paginaActual = page;
@@ -143,31 +150,40 @@ function cargarSupervisiones(page = 1) {
 
             if (data.supervisiones && data.supervisiones.length > 0) {
                 data.supervisiones.forEach(supervision => {
-                    const estadoColor = supervision.estado === 'APROBADA' ? 'success' : 'danger';
-                    const calificacionClass = supervision.calificacion >= 4 ? 'text-success' :
-                                              supervision.calificacion >= 3 ? 'text-warning' :
+                    // ✅ FIX: blindar TODOS los accesos
+                    const s_id       = parseInt(supervision.id) || 0;
+                    const s_orden    = parseInt(supervision.orden_id) || 0;
+                    const s_tecnico  = supervision.tecnico || 'N/A';
+                    const s_calif    = parseInt(supervision.calificacion) || 0;
+                    const s_estado   = supervision.estado || 'PENDIENTE';
+                    const s_cumple   = Boolean(supervision.cumple);
+                    const s_fecha    = supervision.fecha_creacion || '';
+
+                    const estadoRaw = String(s_estado).toUpperCase();
+                    const estadoColor = estadoRaw === 'APROBADA' ? 'success' : (estadoRaw === 'RECHAZADA' ? 'danger' : 'warning');
+                    const calificacionClass = s_calif >= 4 ? 'text-success' :
+                                              s_calif >= 3 ? 'text-warning' :
                                               'text-danger';
 
                     const tr = document.createElement('tr');
-                    // ✅ FIX: contenedor .table-actions + btn-icon
                     tr.innerHTML = `
-                        <td><span class="fw-semibold">${supervision.id}</span></td>
-                        <td>#${supervision.orden_id}</td>
-                        <td>${supervision.tecnico || 'N/A'}</td>
+                        <td><span class="fw-semibold">${s_id}</span></td>
+                        <td>#${s_orden}</td>
+                        <td>${escapeHTML(s_tecnico)}</td>
                         <td class="${calificacionClass} fw-bold">
-                            ${supervision.calificacion ? supervision.calificacion + '/5' : 'N/A'}
+                            ${s_calif ? s_calif + '/5' : 'N/A'}
                         </td>
                         <td>
                             <span class="badge-status bg-${estadoColor} bg-opacity-10 text-${estadoColor}">
                                 <i class="fas fa-circle me-1" style="font-size:6px;"></i>
-                                ${supervision.estado || 'PENDIENTE'}
+                                ${escapeHTML(estadoRaw)}
                             </span>
                         </td>
-                        <td>${supervision.cumple ? '✅ Sí' : '❌ No'}</td>
-                        <td><small>${supervision.fecha_creacion}</small></td>
+                        <td>${s_cumple ? '✅ Sí' : '❌ No'}</td>
+                        <td><small>${escapeHTML(s_fecha)}</small></td>
                         <td>
                             <div class="table-actions">
-                                <a href="/proyecto/supervisor/ver_supervision/${supervision.id}" 
+                                <a href="/proyecto/supervisor/ver_supervision/${encodeURIComponent(s_id)}" 
                                    class="btn btn-sm btn-outline-info btn-icon" 
                                    title="Ver"
                                    aria-label="Ver supervisión">

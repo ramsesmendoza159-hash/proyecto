@@ -2,15 +2,24 @@
 // views/admin/auditoria/index.php
 // Panel de Auditoría - Solo Admin
 // ✅ FIX: $seccion = 'auditoria' (antes 'admin')
-// ✅ FIX: Eliminado include_once duplicado y llave extra
+// ✅ FIX: contenedor .table-actions + btn-icon
 
 if (!isset($seccion)) {
-    // ✅ FIX: Sección correcta para resaltar en el sidebar
     $seccion = 'auditoria';
 }
 if (!isset($titulo)) {
     $titulo = 'Auditoría del Sistema';
 }
+
+$registros = $registros ?? [];
+$estadisticas = $estadisticas ?? [
+    'total' => 0, 'usuarios_distintos' => 0, 'acciones_distintas' => 0,
+    'tablas_distintas' => 0, 'logins' => 0, 'logouts' => 0,
+    'creaciones' => 0, 'actualizaciones' => 0, 'eliminaciones' => 0,
+    'cambios_estado' => 0, 'cierres' => 0
+];
+$acciones = $acciones ?? [];
+$filtros = $filtros ?? [];
 
 include_once __DIR__ . '/../../layouts/header.php';
 ?>
@@ -27,11 +36,28 @@ include_once __DIR__ . '/../../layouts/header.php';
             </p>
         </div>
         <div>
-            <button class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#modalLimpiar">
-                <i class="fas fa-trash-alt me-1"></i> Limpiar auditoría
+            <button class="btn btn-outline-danger btn-header-action" data-bs-toggle="modal" data-bs-target="#modalLimpiar">
+                <i class="fas fa-trash-alt"></i> Limpiar auditoría
             </button>
         </div>
     </div>
+
+    <!-- Mensajes -->
+    <?php if (isset($_SESSION['mensaje'])): ?>
+        <div class="alert alert-<?= $_SESSION['mensaje_tipo'] ?? 'success' ?> alert-dismissible fade show">
+            <i class="fas fa-check-circle me-2"></i> <?= htmlspecialchars($_SESSION['mensaje']) ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <?php unset($_SESSION['mensaje'], $_SESSION['mensaje_tipo']); ?>
+    <?php endif; ?>
+
+    <?php if (isset($_SESSION['error'])): ?>
+        <div class="alert alert-danger alert-dismissible fade show">
+            <i class="fas fa-exclamation-circle me-2"></i> <?= htmlspecialchars($_SESSION['error']) ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <?php unset($_SESSION['error']); ?>
+    <?php endif; ?>
 
     <!-- Estadísticas -->
     <div class="row g-3 mb-4">
@@ -43,7 +69,7 @@ include_once __DIR__ . '/../../layouts/header.php';
                     </div>
                     <div class="ms-3">
                         <div class="stat-label-modern">Total Acciones</div>
-                        <div class="stat-number-modern"><?php echo number_format($estadisticas['total'] ?? 0); ?></div>
+                        <div class="stat-number-modern"><?= number_format($estadisticas['total'] ?? 0) ?></div>
                     </div>
                 </div>
             </div>
@@ -56,7 +82,7 @@ include_once __DIR__ . '/../../layouts/header.php';
                     </div>
                     <div class="ms-3">
                         <div class="stat-label-modern">Usuarios Distintos</div>
-                        <div class="stat-number-modern"><?php echo number_format($estadisticas['usuarios_distintos'] ?? 0); ?></div>
+                        <div class="stat-number-modern"><?= number_format($estadisticas['usuarios_distintos'] ?? 0) ?></div>
                     </div>
                 </div>
             </div>
@@ -69,7 +95,7 @@ include_once __DIR__ . '/../../layouts/header.php';
                     </div>
                     <div class="ms-3">
                         <div class="stat-label-modern">Creaciones</div>
-                        <div class="stat-number-modern"><?php echo number_format($estadisticas['creaciones'] ?? 0); ?></div>
+                        <div class="stat-number-modern"><?= number_format($estadisticas['creaciones'] ?? 0) ?></div>
                     </div>
                 </div>
             </div>
@@ -82,7 +108,7 @@ include_once __DIR__ . '/../../layouts/header.php';
                     </div>
                     <div class="ms-3">
                         <div class="stat-label-modern">Actualizaciones</div>
-                        <div class="stat-number-modern"><?php echo number_format($estadisticas['actualizaciones'] ?? 0); ?></div>
+                        <div class="stat-number-modern"><?= number_format($estadisticas['actualizaciones'] ?? 0) ?></div>
                     </div>
                 </div>
             </div>
@@ -95,7 +121,7 @@ include_once __DIR__ . '/../../layouts/header.php';
                     </div>
                     <div class="ms-3">
                         <div class="stat-label-modern">Eliminaciones</div>
-                        <div class="stat-number-modern"><?php echo number_format($estadisticas['eliminaciones'] ?? 0); ?></div>
+                        <div class="stat-number-modern"><?= number_format($estadisticas['eliminaciones'] ?? 0) ?></div>
                     </div>
                 </div>
             </div>
@@ -108,7 +134,7 @@ include_once __DIR__ . '/../../layouts/header.php';
                     </div>
                     <div class="ms-3">
                         <div class="stat-label-modern">Inicios de Sesión</div>
-                        <div class="stat-number-modern"><?php echo number_format($estadisticas['logins'] ?? 0); ?></div>
+                        <div class="stat-number-modern"><?= number_format($estadisticas['logins'] ?? 0) ?></div>
                     </div>
                 </div>
             </div>
@@ -116,55 +142,51 @@ include_once __DIR__ . '/../../layouts/header.php';
     </div>
 
     <!-- Filtros -->
-    <div class="card border-0 shadow-sm mb-4">
+    <div class="card border-0 mb-4">
         <div class="card-body">
-            <form id="filtrosForm" class="row g-3">
-                <div class="col-md-3">
+            <form id="filtrosForm" method="GET" action="/proyecto/auditoria" class="row g-3">
+                <div class="col-md-2">
                     <label class="form-label small fw-semibold">Usuario ID</label>
-                    <input type="number" class="form-control" name="usuario_id" placeholder="ID de usuario" value="<?php echo $filtros['usuario_id'] ?? ''; ?>">
+                    <input type="number" class="form-control form-control-sm" name="usuario_id" 
+                           placeholder="ID" value="<?= htmlspecialchars($filtros['usuario_id'] ?? '') ?>">
                 </div>
                 <div class="col-md-2">
                     <label class="form-label small fw-semibold">Acción</label>
-                    <select class="form-select" name="accion">
+                    <select class="form-select form-select-sm" name="accion">
                         <option value="">Todas</option>
-                        <option value="login" <?php echo ($filtros['accion'] ?? '') === 'login' ? 'selected' : ''; ?>>Login</option>
-                        <option value="logout" <?php echo ($filtros['accion'] ?? '') === 'logout' ? 'selected' : ''; ?>>Logout</option>
-                        <option value="crear" <?php echo ($filtros['accion'] ?? '') === 'crear' ? 'selected' : ''; ?>>Crear</option>
-                        <option value="actualizar" <?php echo ($filtros['accion'] ?? '') === 'actualizar' ? 'selected' : ''; ?>>Actualizar</option>
-                        <option value="eliminar" <?php echo ($filtros['accion'] ?? '') === 'eliminar' ? 'selected' : ''; ?>>Eliminar</option>
-                        <option value="entrada_stock" <?php echo ($filtros['accion'] ?? '') === 'entrada_stock' ? 'selected' : ''; ?>>Entrada Stock</option>
-                        <option value="salida_stock" <?php echo ($filtros['accion'] ?? '') === 'salida_stock' ? 'selected' : ''; ?>>Salida Stock</option>
-                        <option value="cambiar_estado" <?php echo ($filtros['accion'] ?? '') === 'cambiar_estado' ? 'selected' : ''; ?>>Cambiar Estado</option>
+                        <?php foreach ($acciones as $acc): ?>
+                            <option value="<?= htmlspecialchars($acc) ?>" <?= ($filtros['accion'] ?? '') === $acc ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($acc) ?>
+                            </option>
+                        <?php endforeach; ?>
                     </select>
                 </div>
                 <div class="col-md-2">
                     <label class="form-label small fw-semibold">Tabla</label>
-                    <select class="form-select" name="tabla">
-                        <option value="">Todas</option>
-                        <option value="ordenes_mantenimiento" <?php echo ($filtros['tabla'] ?? '') === 'ordenes_mantenimiento' ? 'selected' : ''; ?>>Órdenes</option>
-                        <option value="inventario" <?php echo ($filtros['tabla'] ?? '') === 'inventario' ? 'selected' : ''; ?>>Inventario</option>
-                        <option value="usuarios" <?php echo ($filtros['tabla'] ?? '') === 'usuarios' ? 'selected' : ''; ?>>Usuarios</option>
-                        <option value="tecnicos" <?php echo ($filtros['tabla'] ?? '') === 'tecnicos' ? 'selected' : ''; ?>>Técnicos</option>
-                        <option value="supervisores" <?php echo ($filtros['tabla'] ?? '') === 'supervisores' ? 'selected' : ''; ?>>Supervisores</option>
-                    </select>
+                    <input type="text" class="form-control form-control-sm" name="tabla" 
+                           placeholder="Tabla" value="<?= htmlspecialchars($filtros['tabla'] ?? '') ?>">
                 </div>
                 <div class="col-md-2">
                     <label class="form-label small fw-semibold">Desde</label>
-                    <input type="date" class="form-control" name="fecha_desde" value="<?php echo $filtros['fecha_desde'] ?? ''; ?>">
+                    <input type="date" class="form-control form-control-sm" name="fecha_desde" 
+                           value="<?= htmlspecialchars($filtros['fecha_desde'] ?? '') ?>">
                 </div>
                 <div class="col-md-2">
                     <label class="form-label small fw-semibold">Hasta</label>
-                    <input type="date" class="form-control" name="fecha_hasta" value="<?php echo $filtros['fecha_hasta'] ?? ''; ?>">
+                    <input type="date" class="form-control form-control-sm" name="fecha_hasta" 
+                           value="<?= htmlspecialchars($filtros['fecha_hasta'] ?? '') ?>">
                 </div>
-                <div class="col-md-1 d-flex align-items-end">
-                    <button type="submit" class="btn btn-primary w-100"><i class="fas fa-search"></i></button>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary btn-sm w-100">
+                        <i class="fas fa-search me-1"></i> Filtrar
+                    </button>
                 </div>
             </form>
         </div>
     </div>
 
     <!-- Tabla de auditoría -->
-    <div class="card border-0 shadow-sm">
+    <div class="card border-0">
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
@@ -178,7 +200,7 @@ include_once __DIR__ . '/../../layouts/header.php';
                             <th>Registro</th>
                             <th>IP</th>
                             <th>Fecha</th>
-                            <th>Acciones</th>
+                            <th class="text-center" style="width:80px;">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -192,35 +214,54 @@ include_once __DIR__ . '/../../layouts/header.php';
                         <?php else: ?>
                             <?php foreach ($registros as $registro): ?>
                                 <tr>
-                                    <td><?php echo $registro['id']; ?></td>
+                                    <td><?= $registro['id'] ?></td>
                                     <td>
-                                        <strong><?php echo htmlspecialchars($registro['usuario_nombre']); ?></strong>
-                                        <small class="d-block text-muted">ID: <?php echo $registro['usuario_id']; ?></small>
+                                        <strong><?= htmlspecialchars($registro['usuario_nombre']) ?></strong>
+                                        <small class="d-block text-muted">ID: <?= $registro['usuario_id'] ?></small>
                                     </td>
                                     <td>
-                                        <span class="badge bg-<?php echo $registro['usuario_rol'] === 'admin' ? 'danger' : ($registro['usuario_rol'] === 'supervisor' ? 'warning' : ($registro['usuario_rol'] === 'almacen' ? 'info' : 'secondary')); ?>">
-                                            <?php echo ucfirst($registro['usuario_rol']); ?>
+                                        <?php
+                                        $rol_badge = match($registro['usuario_rol']) {
+                                            'admin' => 'danger',
+                                            'supervisor' => 'warning',
+                                            'almacen' => 'info',
+                                            'tecnico' => 'primary',
+                                            default => 'secondary'
+                                        };
+                                        ?>
+                                        <span class="badge bg-<?= $rol_badge ?>">
+                                            <?= ucfirst($registro['usuario_rol']) ?>
                                         </span>
                                     </td>
                                     <td>
-                                        <span class="badge bg-<?php echo $registro['accion'] === 'login' ? 'success' : ($registro['accion'] === 'logout' ? 'secondary' : ($registro['accion'] === 'crear' ? 'primary' : ($registro['accion'] === 'actualizar' ? 'warning' : 'danger'))); ?>">
-                                            <?php echo ucfirst(str_replace('_', ' ', $registro['accion'])); ?>
+                                        <?php
+                                        $accion_badge = match($registro['accion']) {
+                                            'login' => 'success',
+                                            'logout' => 'secondary',
+                                            'crear' => 'primary',
+                                            'actualizar' => 'warning',
+                                            'eliminar' => 'danger',
+                                            default => 'secondary'
+                                        };
+                                        ?>
+                                        <span class="badge bg-<?= $accion_badge ?>">
+                                            <?= ucfirst(str_replace('_', ' ', $registro['accion'])) ?>
                                         </span>
                                     </td>
-                                    <td><?php echo htmlspecialchars($registro['tabla']); ?></td>
-                                    <td><?php echo $registro['registro_id'] ?? 'N/A'; ?></td>
-                                    <td><small><?php echo htmlspecialchars($registro['ip']); ?></small></td>
-                                    <td><small><?php echo date('d/m/Y H:i:s', strtotime($registro['fecha_creacion'])); ?></small></td>
-                               <td>
-                                    <div class="table-actions">
-                                        <a href="/proyecto/auditoria/ver/<?php echo $registro['id']; ?>" 
-                                        class="btn btn-sm btn-outline-info btn-icon" 
-                                        title="Ver detalle"
-                                        aria-label="Ver detalle">
-                                            <i class="fas fa-eye"></i>
-                                        </a>
-                                    </div>
-                                </td>
+                                    <td><?= htmlspecialchars($registro['tabla']) ?></td>
+                                    <td><?= $registro['registro_id'] ?? 'N/A' ?></td>
+                                    <td><small><?= htmlspecialchars($registro['ip']) ?></small></td>
+                                    <td><small><?= date('d/m/Y H:i:s', strtotime($registro['fecha_creacion'])) ?></small></td>
+                                    <td>
+                                        <div class="table-actions">
+                                            <a href="/proyecto/auditoria/ver/<?= $registro['id'] ?>" 
+                                               class="btn btn-sm btn-outline-info btn-icon" 
+                                               title="Ver detalle"
+                                               aria-label="Ver detalle">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                        </div>
+                                    </td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php endif; ?>
@@ -238,14 +279,14 @@ include_once __DIR__ . '/../../layouts/header.php';
         <div class="modal-content">
             <div class="modal-header bg-danger text-white">
                 <h5 class="modal-title"><i class="fas fa-exclamation-triangle me-2"></i>Limpiar Auditoría</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <p>¿Estás seguro de limpiar la auditoría?</p>
                 <p class="text-warning"><strong>⚠️ Se eliminarán todos los registros con más de 90 días.</strong></p>
                 <p>Esta acción no se puede deshacer.</p>
                 <form method="POST" action="/proyecto/auditoria/limpiar" id="formLimpiar">
-                    <input type="hidden" name="csrf_token" value="<?php echo SecurityHelper::generateCSRFToken(); ?>">
+                    <input type="hidden" name="csrf_token" value="<?= SecurityHelper::generateCSRFToken() ?>">
                     <input type="hidden" name="confirmar" value="si">
                 </form>
             </div>
@@ -261,16 +302,17 @@ include_once __DIR__ . '/../../layouts/header.php';
 
 <style>
 .stat-card-modern {
-    background: #fff;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
     border-radius: 16px;
     padding: 20px 24px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    box-shadow: 0 2px 12px var(--shadow-color);
     transition: all 0.3s ease;
     height: 100%;
 }
 .stat-card-modern:hover {
     transform: translateY(-4px);
-    box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+    box-shadow: 0 8px 30px var(--shadow-hover);
 }
 .stat-card-modern .stat-icon-modern {
     width: 48px;
@@ -287,18 +329,18 @@ include_once __DIR__ . '/../../layouts/header.php';
     font-size: 0.7rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    color: #6c757d;
+    color: var(--text-secondary);
     font-weight: 600;
 }
 .stat-card-modern .stat-number-modern {
     font-size: 1.6rem;
     font-weight: 700;
-    color: #1a1a2e;
+    color: var(--text-primary);
     line-height: 1.2;
 }
 .card {
     border-radius: 16px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+    box-shadow: 0 2px 12px var(--shadow-color);
 }
 </style>
 

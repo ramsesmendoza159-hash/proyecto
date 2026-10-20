@@ -1,8 +1,7 @@
 <?php
 // views/almacen/index.php
 // Dashboard de Almacén - VERSIÓN COMPLETA CON GRÁFICOS
-// ✅ FIX NUEVO: gráficos con MutationObserver para cambios de tema
-// ✅ FIX NUEVO: color de borde del doughnut adaptable al tema
+
 
 if (!isset($_SESSION['usuario_id'])) {
     header('Location: /proyecto/auth/login');
@@ -52,17 +51,17 @@ include_once __DIR__ . '/../layouts/header.php';
                 <i class="fas fa-boxes me-1"></i> <?= $estadisticas['total'] ?? 0 ?> items registrados
             </p>
         </div>
-          <div class="d-flex gap-2">
-          <a href="/proyecto/almacen/entrada_seleccion" class="btn btn-success btn-header-action">
-                   <i class="fas fa-arrow-down"></i> Entrada
+        <div class="d-flex gap-2">
+            <a href="/proyecto/almacen/entrada_seleccion" class="btn btn-success btn-header-action">
+                <i class="fas fa-arrow-down"></i> Entrada
             </a>
-             <a href="/proyecto/almacen/salida_seleccion" class="btn btn-danger btn-header-action">
-               <i class="fas fa-arrow-up"></i> Salida
-                </a>
-                <a href="/proyecto/almacen/movimientos" class="btn btn-info text-white btn-header-action">
-                    <i class="fas fa-history"></i> Movimientos
-                </a>
-            </div>
+            <a href="/proyecto/almacen/salida_seleccion" class="btn btn-danger btn-header-action">
+                <i class="fas fa-arrow-up"></i> Salida
+            </a>
+            <a href="/proyecto/almacen/movimientos" class="btn btn-info text-white btn-header-action">
+                <i class="fas fa-history"></i> Movimientos
+            </a>
+        </div>
     </div>
 
     <!-- Tarjetas de Estadísticas -->
@@ -376,15 +375,9 @@ include_once __DIR__ . '/../layouts/header.php';
 <!-- Scripts con Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-// ==========================================
-// Variables globales
-// ==========================================
 let chartMovimientos = null;
 let chartTopProductos = null;
 
-// ==========================================
-// Función para obtener colores según el tema
-// ==========================================
 function getThemeColorsAlmacen() {
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
     return {
@@ -397,9 +390,6 @@ function getThemeColorsAlmacen() {
     };
 }
 
-// ==========================================
-// Función principal que crea los gráficos
-// ==========================================
 function crearGraficosAlmacen() {
     if (typeof Chart === 'undefined') {
         console.error('Chart.js no está cargado aún');
@@ -413,13 +403,9 @@ function crearGraficosAlmacen() {
     Chart.defaults.font.family = "'Inter', 'Segoe UI', sans-serif";
     Chart.defaults.font.size = 12;
 
-    // Destruir gráficos existentes
     if (chartMovimientos) { chartMovimientos.destroy(); chartMovimientos = null; }
     if (chartTopProductos) { chartTopProductos.destroy(); chartTopProductos = null; }
 
-    // ==========================================
-    // 1. Gráfico de Movimientos
-    // ==========================================
     <?php if (!empty($movimientos_por_mes)): ?>
     const canvasMov = document.getElementById('movimientosChart');
     if (canvasMov) {
@@ -487,9 +473,6 @@ function crearGraficosAlmacen() {
     }
     <?php endif; ?>
 
-    // ==========================================
-    // 2. Gráfico de Top Productos
-    // ==========================================
     <?php if (!empty($top_productos)): ?>
     const canvasTop = document.getElementById('topProductosChart');
     if (canvasTop) {
@@ -540,18 +523,12 @@ function crearGraficosAlmacen() {
     <?php endif; ?>
 }
 
-// ==========================================
-// INICIALIZACIÓN
-// ==========================================
 document.addEventListener('DOMContentLoaded', function() {
     setTimeout(function() {
         crearGraficosAlmacen();
     }, 200);
 });
 
-// ==========================================
-// OBSERVER para cambios de tema
-// ==========================================
 const themeObserverAlmacen = new MutationObserver(function(mutations) {
     mutations.forEach(function(mutation) {
         if (mutation.attributeName === 'data-theme') {

@@ -88,7 +88,7 @@ include_once __DIR__ . '/../layouts/header.php';
                             </tr>
                         <?php else: ?>
                             <?php foreach ($ordenes as $orden):
-                                $estado = $orden['status'] ?? 'PENDIENTE';
+                                $estado = strtoupper($orden['status'] ?? 'PENDIENTE');
                                 $estadoColor = match($estado) {
                                     'PENDIENTE'  => 'warning',
                                     'EN_PROCESO' => 'info',
@@ -150,7 +150,6 @@ include_once __DIR__ . '/../layouts/header.php';
                                                 </a>
                                             <?php endif; ?>
 
-                                            <?php /* ✅ FIX: botón Eliminar solo para admin */ ?>
                                             <?php if ($puede_eliminar && $estado === 'PENDIENTE'): ?>
                                                 <button type="button"
                                                         class="btn btn-sm btn-outline-danger btn-icon"

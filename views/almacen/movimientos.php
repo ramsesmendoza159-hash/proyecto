@@ -7,7 +7,6 @@ if (!isset($movimientos)) {
     $movimientos = [];
 }
 
-// ✅ FIX: Sección correcta para resaltar en el sidebar
 $seccion = 'movimientos';
 $titulo = 'Historial de Movimientos';
 
@@ -42,7 +41,7 @@ include_once __DIR__ . '/../layouts/header.php';
     <!-- Mensajes -->
     <?php if (isset($_SESSION['error']) && !empty($_SESSION['error'])): ?>
         <div class="alert alert-danger alert-dismissible fade show">
-            <i class="fas fa-exclamation-circle me-2"></i> <?php echo htmlspecialchars($_SESSION['error']); ?>
+            <i class="fas fa-exclamation-circle me-2"></i> <?= htmlspecialchars($_SESSION['error']) ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             <?php unset($_SESSION['error']); ?>
         </div>
@@ -50,7 +49,7 @@ include_once __DIR__ . '/../layouts/header.php';
 
     <?php if (isset($_SESSION['mensaje']) && !empty($_SESSION['mensaje'])): ?>
         <div class="alert alert-success alert-dismissible fade show">
-            <i class="fas fa-check-circle me-2"></i> <?php echo htmlspecialchars($_SESSION['mensaje']); ?>
+            <i class="fas fa-check-circle me-2"></i> <?= htmlspecialchars($_SESSION['mensaje']) ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             <?php unset($_SESSION['mensaje']); ?>
         </div>
@@ -183,7 +182,7 @@ include_once __DIR__ . '/../layouts/header.php';
                                     <td class="fw-bold text-center"><?= $mov['cantidad'] ?? 0 ?></td>
                                     <td>
                                         <div class="d-flex align-items-center gap-2">
-                                            <div class="avatar-sm" style="width:28px;height:28px;border-radius:50%;background:#6c757d;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:0.7rem;">
+                                            <div class="avatar-sm">
                                                 <?= strtoupper(substr($mov['usuario'] ?? 'S', 0, 1)) ?>
                                             </div>
                                             <?= htmlspecialchars($mov['usuario'] ?? 'Sistema') ?>
@@ -213,7 +212,6 @@ include_once __DIR__ . '/../layouts/header.php';
 
 </div>
 
-<!-- Estilos -->
 <style>
 .stat-card-mini {
     background: var(--bg-card) !important;
@@ -259,13 +257,12 @@ include_once __DIR__ . '/../layouts/header.php';
     font-weight: 600 !important;
     font-size: 0.7rem !important;
     flex-shrink: 0 !important;
+    background: #6c757d !important;
+    color: #fff !important;
 }
 .card {
     border-radius: 16px !important;
     box-shadow: 0 2px 12px var(--shadow-color) !important;
-}
-.badge {
-    font-weight: 500 !important;
 }
 .table th {
     font-weight: 600 !important;

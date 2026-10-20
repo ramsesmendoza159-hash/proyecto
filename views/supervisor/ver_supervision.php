@@ -1,7 +1,6 @@
 <?php
 // views/supervisor/ver_supervision.php
 // Ver Supervisión - VERSIÓN CORREGIDA
-// ✅ FIX: usa campos planos del JOIN, no $supervision['orden'][...]
 
 if (!isset($seccion)) {
     $seccion = 'supervisor';
@@ -14,6 +13,23 @@ if (!isset($supervision) || !$supervision) {
     exit();
 }
 
+// ✅ FIX: blindar TODOS los accesos
+$sup_id        = (int)($supervision['id'] ?? 0);
+$sup_orden_id  = (int)($supervision['orden_id'] ?? 0);
+$sup_tecnico   = $supervision['tecnico'] ?? 'N/A';
+$sup_estado    = $supervision['estado'] ?? 'PENDIENTE';
+$sup_fecha_cre = $supervision['fecha_creacion'] ?? null;
+$sup_calif     = $supervision['calificacion'] ?? null;
+$sup_cumple    = !empty($supervision['cumple']);
+$sup_obs       = $supervision['observaciones'] ?? 'Sin observaciones';
+
+$sup_num_om    = $supervision['num_om'] ?? 'N/A';
+$sup_ord_tit   = $supervision['orden_titulo'] ?? ($supervision['titulo'] ?? 'N/A');
+$sup_area      = $supervision['nombre_area'] ?? '';
+$sup_prior     = $supervision['prioridad'] ?? '';
+
+$fecha_cre_val = !empty($sup_fecha_cre) && strtotime($sup_fecha_cre) !== false;
+
 include_once __DIR__ . '/../layouts/header.php';
 ?>
 
@@ -23,14 +39,14 @@ include_once __DIR__ . '/../layouts/header.php';
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h4 class="mb-1 fw-bold">
-                <i class="fas fa-clipboard-check text-primary me-2"></i>Detalle de Supervisión #<?= (int)$supervision['id'] ?>
+                <i class="fas fa-clipboard-check text-primary me-2"></i>Detalle de Supervisión #<?= $sup_id ?>
             </h4>
             <p class="text-muted small mb-0">
                 <i class="fas fa-info-circle me-1"></i> Información detallada de la supervisión
             </p>
         </div>
-        <a href="/proyecto/supervisor/supervisiones" class="btn btn-secondary">
-            <i class="fas fa-arrow-left me-1"></i> Volver
+        <a href="/proyecto/supervisor/supervisiones" class="btn btn-secondary btn-header-action">
+            <i class="fas fa-arrow-left"></i> Volver
         </a>
     </div>
 
@@ -48,22 +64,22 @@ include_once __DIR__ . '/../layouts/header.php';
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="text-muted small fw-semibold text-uppercase">ID</label>
-                                <p class="fw-semibold mb-0"><?= (int)$supervision['id'] ?></p>
+                                <p class="fw-semibold mb-0"><?= $sup_id ?></p>
                             </div>
                             <div class="mb-3">
                                 <label class="text-muted small fw-semibold text-uppercase">Orden</label>
-                                <p class="fw-semibold mb-0">#<?= (int)($supervision['orden_id'] ?? 0) ?></p>
+                                <p class="fw-semibold mb-0">#<?= $sup_orden_id ?></p>
                             </div>
                             <div class="mb-3">
                                 <label class="text-muted small fw-semibold text-uppercase">Técnico</label>
-                                <p class="fw-semibold mb-0"><?= htmlspecialchars($supervision['tecnico'] ?? 'N/A') ?></p>
+                                <p class="fw-semibold mb-0"><?= htmlspecialchars($sup_tecnico) ?></p>
                             </div>
                             <div class="mb-3">
                                 <label class="text-muted small fw-semibold text-uppercase">Estado</label>
                                 <p class="mb-0">
                                     <?php
-                                    $estado = $supervision['estado'] ?? 'PENDIENTE';
-                                    $color = match(strtoupper($estado)) {
+                                    $estadoRaw = strtoupper($sup_estado);
+                                    $color = match($estadoRaw) {
                                         'APROBADA' => 'success',
                                         'RECHAZADA' => 'danger',
                                         default => 'warning'
@@ -71,7 +87,7 @@ include_once __DIR__ . '/../layouts/header.php';
                                     ?>
                                     <span class="badge bg-<?= $color ?> bg-opacity-10 text-<?= $color ?>">
                                         <i class="fas fa-circle me-1" style="font-size:6px;"></i>
-                                        <?= htmlspecialchars($estado) ?>
+                                        <?= htmlspecialchars($estadoRaw) ?>
                                     </span>
                                 </p>
                             </div>
@@ -80,16 +96,16 @@ include_once __DIR__ . '/../layouts/header.php';
                             <div class="mb-3">
                                 <label class="text-muted small fw-semibold text-uppercase">Fecha creación</label>
                                 <p class="fw-semibold mb-0">
-                                    <?= !empty($supervision['fecha_creacion']) ? date('d/m/Y H:i', strtotime($supervision['fecha_creacion'])) : 'N/A' ?>
+                                    <?= $fecha_cre_val ? date('d/m/Y H:i', strtotime($sup_fecha_cre)) : 'N/A' ?>
                                 </p>
                             </div>
                             <div class="mb-3">
                                 <label class="text-muted small fw-semibold text-uppercase">Calificación</label>
                                 <p class="fw-semibold mb-0">
-                                    <?php if (!empty($supervision['calificacion'])): ?>
-                                        <span class="fw-bold"><?= (int)$supervision['calificacion'] ?>/5</span>
+                                    <?php if ($sup_calif !== null && $sup_calif !== ''): ?>
+                                        <span class="fw-bold"><?= (int)$sup_calif ?>/5</span>
                                         <?php for ($i = 1; $i <= 5; $i++): ?>
-                                            <i class="fas fa-star<?= $i <= $supervision['calificacion'] ? '' : '-o' ?> text-warning" style="font-size:0.85rem;"></i>
+                                            <i class="fas fa-star<?= $i <= $sup_calif ? '' : '-o' ?> text-warning" style="font-size:0.85rem;"></i>
                                         <?php endfor; ?>
                                     <?php else: ?>
                                         N/A
@@ -98,14 +114,14 @@ include_once __DIR__ . '/../layouts/header.php';
                             </div>
                             <div class="mb-3">
                                 <label class="text-muted small fw-semibold text-uppercase">Cumple estándares</label>
-                                <p class="fw-semibold mb-0"><?= ($supervision['cumple'] ?? false) ? '✅ Sí' : '❌ No' ?></p>
+                                <p class="fw-semibold mb-0"><?= $sup_cumple ? '✅ Sí' : '❌ No' ?></p>
                             </div>
                         </div>
                     </div>
                     <hr>
                     <div>
                         <label class="text-muted small fw-semibold text-uppercase">Observaciones</label>
-                        <p class="mt-2"><?= nl2br(htmlspecialchars($supervision['observaciones'] ?? 'Sin observaciones')) ?></p>
+                        <p class="mt-2"><?= nl2br(htmlspecialchars($sup_obs)) ?></p>
                     </div>
                 </div>
             </div>
@@ -113,7 +129,6 @@ include_once __DIR__ . '/../layouts/header.php';
 
         <!-- Columna lateral -->
         <div class="col-lg-4">
-            <!-- Detalle de la orden -->
             <div class="card border-0">
                 <div class="card-header bg-transparent border-0 pt-3">
                     <h5 class="mb-0 fw-semibold">
@@ -121,28 +136,27 @@ include_once __DIR__ . '/../layouts/header.php';
                     </h5>
                 </div>
                 <div class="card-body">
-                    <?php if (!empty($supervision['num_om']) || !empty($supervision['orden_titulo'])): ?>
+                    <?php if (!empty($sup_num_om) && $sup_num_om !== 'N/A'): ?>
                         <div class="mb-3">
                             <label class="text-muted small fw-semibold text-uppercase">N° OM</label>
-                            <p class="fw-semibold mb-0"><?= htmlspecialchars($supervision['num_om'] ?? 'N/A') ?></p>
+                            <p class="fw-semibold mb-0"><?= htmlspecialchars($sup_num_om) ?></p>
                         </div>
                         <div class="mb-3">
                             <label class="text-muted small fw-semibold text-uppercase">Título</label>
-                            <p class="fw-semibold mb-0"><?= htmlspecialchars($supervision['orden_titulo'] ?? $supervision['titulo'] ?? 'N/A') ?></p>
+                            <p class="fw-semibold mb-0"><?= htmlspecialchars($sup_ord_tit) ?></p>
                         </div>
-                        <?php if (!empty($supervision['nombre_area'])): ?>
+                        <?php if (!empty($sup_area)): ?>
                             <div class="mb-3">
                                 <label class="text-muted small fw-semibold text-uppercase">Área</label>
-                                <p class="fw-semibold mb-0"><?= htmlspecialchars($supervision['nombre_area']) ?></p>
+                                <p class="fw-semibold mb-0"><?= htmlspecialchars($sup_area) ?></p>
                             </div>
                         <?php endif; ?>
-                        <?php if (!empty($supervision['prioridad'])): ?>
+                        <?php if (!empty($sup_prior)): ?>
                             <div class="mb-3">
                                 <label class="text-muted small fw-semibold text-uppercase">Prioridad</label>
                                 <p class="mb-0">
                                     <?php
-                                    $prioridad = $supervision['prioridad'];
-                                    $prioridadColor = match($prioridad) {
+                                    $prioridadColor = match($sup_prior) {
                                         'Urgente' => 'danger',
                                         'Alta' => 'warning',
                                         'Media' => 'info',
@@ -151,12 +165,12 @@ include_once __DIR__ . '/../layouts/header.php';
                                     };
                                     ?>
                                     <span class="badge bg-<?= $prioridadColor ?> bg-opacity-10 text-<?= $prioridadColor ?>">
-                                        <?= htmlspecialchars($prioridad) ?>
+                                        <?= htmlspecialchars($sup_prior) ?>
                                     </span>
                                 </p>
                             </div>
                         <?php endif; ?>
-                        <a href="/proyecto/supervisor/ver_orden/<?= (int)$supervision['orden_id'] ?>" class="btn btn-info text-white w-100">
+                        <a href="/proyecto/supervisor/ver_orden/<?= $sup_orden_id ?>" class="btn btn-info text-white w-100">
                             <i class="fas fa-eye me-1"></i> Ver Orden
                         </a>
                     <?php else: ?>
